@@ -1,0 +1,12 @@
+mkdir -p logs
+
+N=$(( $(wc -l < 02_Parametric_table/Optim_parameters.csv) - 1 ))
+echo "Number of configurations to test: $N"
+
+module spider R
+
+module load  R/4.2.1-foss-2022a
+
+Rscript Install_libraries.R
+
+sbatch --array=1-"$N" Job_array_r.sh
