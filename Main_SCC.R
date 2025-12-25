@@ -99,7 +99,7 @@ print("setpoint bands loaded")
     run_number             = as.integer(cli_args[3]),
     optimization_horizon   = as.integer(cli_args[4]), #hours
     optimization_frequency = as.integer(cli_args[5])  #hours
-  )  
+  )
 }
 str(optimization_parameters)
 print("optimization parameters loaded")
@@ -112,10 +112,12 @@ if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[
 # subset dataframe by month
 {
   month_subset<-as.integer(cli_args[6])
-  Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
+  if (month_subset!=0) {
+    Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
+  }
   Main_df$Ti[1]<-model_parameters$Ti_0
   Main_df$Te[1]<-model_parameters$Te_0
-  Main_df$Qh[1]<-model_parameters$Qh_0  
+  Main_df$Qh[1]<-model_parameters$Qh_0
 }						   
 print("Specific month selected")
 

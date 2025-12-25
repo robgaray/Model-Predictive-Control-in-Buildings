@@ -101,10 +101,12 @@ if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[
 # subset dataframe by month
 {
   month_subset<-12
-  Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
+  if (month_subset!=0) {
+    Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
+  }
   Main_df$Ti[1]<-model_parameters$Ti_0
   Main_df$Te[1]<-model_parameters$Te_0
-  Main_df$Qh[1]<-model_parameters$Qh_0  
+  Main_df$Qh[1]<-model_parameters$Qh_0
 }
 print("Specific month selected")
 
