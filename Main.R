@@ -17,7 +17,7 @@ WD<-getwd()
   
   rm(library, required_libraries)
 }
-print("libraries loaded")
+cat("libraries loaded\n")
 
 # Load functions
 {
@@ -27,11 +27,11 @@ print("libraries loaded")
   }
   rm(files.source, i)    
 }
-print("functions loaded")
+cat("functions loaded\n")
 
 # Load data frame
 Main_df <- readRDS("01_Data/Main_df.rds")
-print("dataframe loaded")
+cat("dataframe loaded\n")
 
 # Model parameters
 {
@@ -62,7 +62,7 @@ print("dataframe loaded")
     Qh_0 = 0
   )
 }
-print("model parameters loaded")
+cat("model parameters loaded\n")
 
 # Setpoint parameters
 {
@@ -78,20 +78,20 @@ print("model parameters loaded")
   set_point_df$set_point_envelope_high[4]<-20
   set_point_df$set_point_envelope_high[5]<-26
 }
-print("setpoint bands loaded")
+cat("setpoint bands loaded\n")
 
 # Optimization_parameters
 {
   optimization_parameters <- list(
-    population_size        = 24,
-    iteration_number       = 25,
-    run_number             = 10,
-    optimization_horizon   = 5, #hours
-    optimization_frequency = 2  #hours
+    population_size        = 10,
+    iteration_number       = 10,
+    run_number             = 1,
+    optimization_horizon   = 24, #hours
+    optimization_frequency = 24  #hours
   )
 }
 str(optimization_parameters)
-print("optimization parameters loaded")
+cat("optimization parameters loaded\n")
 
 # Corrections
 if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[["optimization_horizon"]]){
@@ -100,25 +100,37 @@ if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[
 
 # subset dataframe by month
 {
-  month_subset<-12
+  month_subset<-0
   if (month_subset!=0) {
     Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
+    cat("Full year selected\n")
+  } else {
+    cat("Month ", month_subset ," selected\n")
   }
   Main_df$Ti[1]<-model_parameters$Ti_0
   Main_df$Te[1]<-model_parameters$Te_0
   Main_df$Qh[1]<-model_parameters$Qh_0
 }
-print("Specific month selected")
 
 # Get time intervals
-optimization_timesteps<-((Main_df$HourUTC-Main_df$HourUTC[1])/(optimization_parameters[["optimization_frequency"]]*60*60))-
-  floor((Main_df$HourUTC-Main_df$HourUTC[1])/(optimization_parameters[["optimization_frequency"]]*60*60))==0
-
-optimization_timesteps<-Main_df$HourUTC[optimization_timesteps]
+{
+  optimization_timesteps<-((Main_df$HourUTC-Main_df$HourUTC[1])/(optimization_parameters[["optimization_frequency"]]*60*60))-
+    floor((Main_df$HourUTC-Main_df$HourUTC[1])/(optimization_parameters[["optimization_frequency"]]*60*60))==0
+  
+  optimization_timesteps<-Main_df$HourUTC[optimization_timesteps]
+}
 
 # go through dataframe by steps
 t_begin<-Sys.time()
 n_steps <- length(optimization_timesteps)
+
+cat(
+  "Optimization started at time ", format(t_begin, "%Y-%m-%d %H:%M:%S"), "\n",
+  "Total timesteps: ",n_steps,"\n",
+  "Period to be optimized:\n",
+  "Begins ", format(min(Main_df$HourUTC), "%Y-%m-%d %H:%M:%S"), "\n",
+  "Ends "  , format(max(Main_df$HourUTC), "%Y-%m-%d %H:%M:%S"), "\n")
+
 for (optimization_timestep in 1:n_steps)
 {
   # Optimization horizon
@@ -138,46 +150,61 @@ for (optimization_timestep in 1:n_steps)
   
   # Verify sufficiently large step
   if (nrow(day_chunk_optimize) < 2) {
+    cat("day_chunk<2 exception case triggered\n",
+        "Optimization timestep:", optimization_timestep, "\n",
+        "Step initiation:", format(step, "%Y-%m-%d %H:%M:%S"), "\n",
+        "Step end:", format(step_1, "%Y-%m-%d %H:%M:%S"), "\n")
     TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
-    Main_df[TF_merge,]<-day_chunk
+    Main_df[TF_merge,]<-day_chunk_optimize
     next
   }
   
   # optimize setpoints
-  set_point_df_subset<-set_point_df[set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
-  set_point_df_other<-set_point_df[!set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
-  
-  setpoints_optimized <- f5_optimize_setpoints_24(day_chunk_optimize,
-                                                  set_point_df_other,set_point_df_subset,
-                                                  model_parameters,Deadband,optimization_parameters)
-
-  set_point_df_actual <-set_point_df_subset
-  set_point_df_actual$set_point<-setpoints_optimized
-  set_point_df_actual$set_point_low <-set_point_df_actual$set_point - Deadband/2
-  set_point_df_actual$set_point_high<-set_point_df_actual$set_point + Deadband/2
-  
-  set_point_df_other$set_point<-NA
-  set_point_df_other$set_point_low<-NA
-  set_point_df_other$set_point_high<-NA
-  
-  set_point_df_actual<-rbind(set_point_df_other,set_point_df_actual) %>% arrange(datetime)
+  {
+    set_point_df_subset<-set_point_df[set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
+    set_point_df_other<-set_point_df[!set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
+    
+    setpoints_optimized <- f5_optimize_setpoints_24(day_chunk_optimize,
+                                                    set_point_df_other,set_point_df_subset,
+                                                    model_parameters,Deadband,optimization_parameters)
+    
+    set_point_df_actual <-set_point_df_subset
+    set_point_df_actual$set_point<-setpoints_optimized
+    set_point_df_actual$set_point_low <-set_point_df_actual$set_point - Deadband/2
+    set_point_df_actual$set_point_high<-set_point_df_actual$set_point + Deadband/2
+    
+    if (nrow(set_point_df_other) > 0) {
+      set_point_df_other$set_point <- NA_real_
+      set_point_df_other$set_point_low <- NA_real_
+      set_point_df_other$set_point_high <- NA_real_
+    }
+    
+    set_point_df_actual<-rbind(set_point_df_other,set_point_df_actual) %>% arrange(datetime)
+  }
   
   # calculate period
   # subset step + first timestamp in following day
-  TF_control<-day_chunk_optimize$HourUTC>=step & day_chunk_optimize$HourUTC<=step_1
-  
-  day_chunk<-day_chunk_optimize[TF_control,]
-  day_chunk <- f3_period_calculation(day_chunk, set_point_df_actual, model_parameters)
-  
-  TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
-  Main_df[TF_merge,]<-day_chunk
-  
-  print(paste(step))
-  print (Sys.time())
+  cat(
+    "Optimization timestep:", optimization_timestep, "\n",
+    "Step initiation:", format(step, "%Y-%m-%d %H:%M:%S"), "\n",
+    "Step end:", format(step_1, "%Y-%m-%d %H:%M:%S"), "\n",
+    "Time", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n")
+  {
+    TF_control<-day_chunk_optimize$HourUTC>=step & day_chunk_optimize$HourUTC<=step_1
+    
+    day_chunk<-day_chunk_optimize[TF_control,]
+    day_chunk <- f3_period_calculation(day_chunk, set_point_df_actual, model_parameters)
+    
+    TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
+    Main_df[TF_merge,]<-day_chunk
+  }
 }
-
 t_end<-Sys.time()
 t_process <- as.numeric(difftime(t_end, t_begin, units = "secs"))
+
+cat(
+  "Optimization ended at time ", format(t_end, "%Y-%m-%d %H:%M:%S"), "\n",
+  "Total time span: ",t_process," seconds \n")
 
 # Plots
 {
