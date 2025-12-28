@@ -86,7 +86,7 @@ f1_timestep_calculation <- function(df_chunk, set_point_df_actual, parameters) {
     # Comfort
     comfort <- ifelse(Ti_new > confort_low && Ti_new < confort_high, 1, 0)
     
-    reward <- f2_reward_function (building_occupied,elec_cost,comfort) 
+    reward <- f2_reward_function (building_occupied,elec_cost,comfort,delta_t) 
     
     # Update dataframe
     df_chunk$Ti[2] <- Ti_new

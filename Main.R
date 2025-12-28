@@ -83,11 +83,11 @@ cat("setpoint bands loaded\n")
 # Optimization_parameters
 {
   optimization_parameters <- list(
-    population_size        = 10,
-    iteration_number       = 10,
-    run_number             = 1,
-    optimization_horizon   = 24, #hours
-    optimization_frequency = 24  #hours
+    population_size        = 30,
+    iteration_number       = 30,
+    run_number             = 5,
+    optimization_horizon   = 12, #hours
+    optimization_frequency = 3  #hours
   )
 }
 str(optimization_parameters)
@@ -100,7 +100,7 @@ if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[
 
 # subset dataframe by month
 {
-  month_subset<-0
+  month_subset<-1
   if (month_subset!=0) {
     Main_df<-Main_df[month(Main_df$HourUTC)==month_subset,]
     cat("Full year selected\n")

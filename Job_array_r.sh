@@ -26,7 +26,7 @@ echo "Tasks: $SLURM_NTASKS"
 echo "CPUs per task: $SLURM_CPUS_PER_TASK"
 echo "==================================="
 
-set -euo pipefail
+
 
 # Ensure working from the directory where 'sbatch' was executed
 cd "${SLURM_SUBMIT_DIR:-$PWD}"

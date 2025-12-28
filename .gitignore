@@ -2,5 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-/04_Output/*
-/05_Postprocess/*
+00_Libraries/*
+04_Output/*
+05_Postprocess/*
+Optim_parameters.csv
+Write_parametric_table.R

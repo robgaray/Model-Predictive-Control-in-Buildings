@@ -7,11 +7,11 @@
 library(tidyverse)
 
 # Define parameter levels
-population_size         <- seq(10,50,10)
-iteration_number        <- seq(10,50,10)
-run_number              <- c(1, 2, 5, 10)
-optimization_horizon    <- seq(6,24,6)
-optimization_frequency  <- seq(6,24,6)
+population_size         <- seq(30,40,2)
+iteration_number        <- seq(30,40,2)
+run_number              <- seq(4,10,2)
+optimization_horizon    <- seq(12,24,6)
+optimization_frequency  <- seq(12,24,6)
 month                   <- c(0)
 
 # Build full factorial using tidyr::crossing (creates all combinations)
