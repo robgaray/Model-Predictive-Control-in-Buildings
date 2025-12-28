@@ -53,7 +53,7 @@ cat("dataframe loaded\n")
     Rvent01 = 127.15, Rvent1  = 12.72, Rvent2  = 6.36,
     
     # Confort bounds
-    confort_low = 22, 
+    confort_low = 21, 
     confort_high = 26,
     
     # State Initialization
@@ -66,17 +66,8 @@ cat("model parameters loaded\n")
 
 # Setpoint parameters
 {
-  set_point_df <- read_rds("01_Data/set_point_df.rds")
-  Deadband <- 2
-  
-  # The code below is optional,
-  # I narrowed-down the setpoint range so that the optimization is better
-  set_point_df$set_point_envelope_low[1:8]<-12
-  set_point_df$set_point_envelope_low[20:24]<-12
-  set_point_df$set_point_envelope_high[20:24]<-12
-  set_point_df$set_point_envelope_high[1:3]<-15
-  set_point_df$set_point_envelope_high[4]<-20
-  set_point_df$set_point_envelope_high[5]<-26
+  set_point_range_heating<-c(5,26)
+  Deadband <- 1
 }
 cat("setpoint bands loaded\n")
 
@@ -84,19 +75,19 @@ cat("setpoint bands loaded\n")
 {
   optimization_parameters <- list(
     population_size        = 30,
-    iteration_number       = 30,
-    run_number             = 5,
-    optimization_horizon   = 12, #hours
-    optimization_frequency = 3  #hours
+    iteration_number       = 20,
+    run_number             = 3,
+    optimization_horizon   = 27, #hours
+    optimization_frequency = 25  #hours
   )
+  
+  # Corrections
+  if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[["optimization_horizon"]]){
+    optimization_parameters[["optimization_frequency"]]<-optimization_parameters[["optimization_horizon"]]
+  }
 }
 str(optimization_parameters)
 cat("optimization parameters loaded\n")
-
-# Corrections
-if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[["optimization_horizon"]]){
-  optimization_parameters[["optimization_frequency"]]<-optimization_parameters[["optimization_horizon"]]
-}
 
 # subset dataframe by month
 {
@@ -134,18 +125,21 @@ cat(
 for (optimization_timestep in 1:n_steps)
 {
   # Optimization horizon
-  # subset step + first timestamp in following day
+  # subset step + first timestamp in following step
   {
     step<-optimization_timesteps[optimization_timestep]
-    if (optimization_timestep<n_steps)
-    {
-      step_1<-optimization_timesteps[optimization_timestep+1]
-    } else{
-      step_1<-max(Main_df$HourUTC)
-    }
-    TF_optimize<- Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
+
+    step_1_horizon<-step + optimization_parameters$optimization_horizon*60*60
+    step_1_horizon<-min(step_1_horizon,max(Main_df$HourUTC))
     
+    TF_optimize<- Main_df$HourUTC>=step & Main_df$HourUTC<=step_1_horizon
     day_chunk_optimize<-Main_df[TF_optimize,]
+    
+    step_1_control<-step + optimization_parameters$optimization_frequency*60*60
+    step_1_control<-min(step_1_control,max(Main_df$HourUTC))
+    
+    TF_control<-day_chunk_optimize$HourUTC>=step & day_chunk_optimize$HourUTC<=step_1_control
+    day_chunk_control<-day_chunk_optimize[TF_control,]
   }
   
   # Verify sufficiently large step
@@ -153,33 +147,23 @@ for (optimization_timestep in 1:n_steps)
     cat("day_chunk<2 exception case triggered\n",
         "Optimization timestep:", optimization_timestep, "\n",
         "Step initiation:", format(step, "%Y-%m-%d %H:%M:%S"), "\n",
-        "Step end:", format(step_1, "%Y-%m-%d %H:%M:%S"), "\n")
-    TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
+        "Step end:", format(step_1_horizon, "%Y-%m-%d %H:%M:%S"), "\n")
+    TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1_horizon
     Main_df[TF_merge,]<-day_chunk_optimize
     next
   }
   
   # optimize setpoints
   {
-    set_point_df_subset<-set_point_df[set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
-    set_point_df_other<-set_point_df[!set_point_df$datetime%in%unique(hour(day_chunk_optimize$HourUTC)),]
-    
-    setpoints_optimized <- f5_optimize_setpoints_24(day_chunk_optimize,
-                                                    set_point_df_other,set_point_df_subset,
+    set_point_heating_optimized <- f5_optimize_setpoints_24(day_chunk_optimize,
+                                                    set_point_range_heating,
                                                     model_parameters,Deadband,optimization_parameters)
     
-    set_point_df_actual <-set_point_df_subset
-    set_point_df_actual$set_point<-setpoints_optimized
-    set_point_df_actual$set_point_low <-set_point_df_actual$set_point - Deadband/2
-    set_point_df_actual$set_point_high<-set_point_df_actual$set_point + Deadband/2
-    
-    if (nrow(set_point_df_other) > 0) {
-      set_point_df_other$set_point <- NA_real_
-      set_point_df_other$set_point_low <- NA_real_
-      set_point_df_other$set_point_high <- NA_real_
-    }
-    
-    set_point_df_actual<-rbind(set_point_df_other,set_point_df_actual) %>% arrange(datetime)
+    set_point_actual<-as.data.frame(unique(floor_date(day_chunk_optimize$HourUTC, unit = "hour")))
+    names(set_point_actual)<-"hour"
+    set_point_actual$set_point_heating<-c(set_point_heating_optimized,0)
+    set_point_actual$set_point_heating_low <-set_point_actual$set_point_heating - Deadband/2
+    set_point_actual$set_point_heating_high<-set_point_actual$set_point_heating + Deadband/2
   }
   
   # calculate period
@@ -187,16 +171,13 @@ for (optimization_timestep in 1:n_steps)
   cat(
     "Optimization timestep:", optimization_timestep, "\n",
     "Step initiation:", format(step, "%Y-%m-%d %H:%M:%S"), "\n",
-    "Step end:", format(step_1, "%Y-%m-%d %H:%M:%S"), "\n",
+    "Step end:", format(step_1_control, "%Y-%m-%d %H:%M:%S"), "\n",
     "Time", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n")
   {
-    TF_control<-day_chunk_optimize$HourUTC>=step & day_chunk_optimize$HourUTC<=step_1
+    day_chunk_control <- f3_period_calculation(day_chunk_control, set_point_actual, model_parameters)
     
-    day_chunk<-day_chunk_optimize[TF_control,]
-    day_chunk <- f3_period_calculation(day_chunk, set_point_df_actual, model_parameters)
-    
-    TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1
-    Main_df[TF_merge,]<-day_chunk
+    TF_merge<-Main_df$HourUTC>=step & Main_df$HourUTC<=step_1_control
+    Main_df[TF_merge,]<-day_chunk_control
   }
 }
 t_end<-Sys.time()
@@ -225,13 +206,13 @@ cat(
 
 # data outputs
 {
-  if (!file.exists("04_Output")) {
-    dir.create("04_Output")
+  if (!file.exists("04_Output_test")) {
+    dir.create("04_Output_test")
     }
     
   # full
-  write.csv(Main_df,'04_Output/Main_df_computed.csv')
-  write_rds(Main_df,'04_Output/Main_df_computed.rds')
+  write.csv(Main_df,'04_Output_test/Main_df_computed.csv')
+  write_rds(Main_df,'04_Output_test/Main_df_computed.rds')
   
   #sinthetized
   Sinthetized_df<-data.frame(as.data.frame(optimization_parameters),
@@ -240,7 +221,7 @@ cat(
                              building_comfort=sum(Main_df$building_comfort),
                              reward=sum(Main_df$reward),
                              process_time=t_process)
-  write.csv(Sinthetized_df,'04_Output/Sinthetized_df_computed.csv')
-  write_rds(Sinthetized_df,'04_Output/Sinthetized_df_computed.rds')
+  write.csv(Sinthetized_df,'04_Output_test/Sinthetized_df_computed.csv')
+  write_rds(Sinthetized_df,'04_Output_test/Sinthetized_df_computed.rds')
 }
 

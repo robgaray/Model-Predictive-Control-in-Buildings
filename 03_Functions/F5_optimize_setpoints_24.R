@@ -1,21 +1,15 @@
-f5_optimize_setpoints_24 <- function(day_chunk_optimize,set_point_df_other,set_point_df_subset,model_parameters,Deadband,optimization_parameters) {
-  if (nrow(set_point_df_subset) == 0) {
-    warning("set_point_df_subset vacío: no se realizará optimización en este período.")
-    return(numeric(0))
-  }
+f5_optimize_setpoints_24 <- function(day_chunk_optimize,set_point_range_heating,model_parameters,Deadband,optimization_parameters) {
+  lower_bounds <- rep(set_point_range_heating[1],optimization_parameters$optimization_horizon)
+  upper_bounds <- rep(set_point_range_heating[2],optimization_parameters$optimization_horizon)
   
-  lower_bounds <- set_point_df_subset$set_point_envelope_low
-  upper_bounds <- set_point_df_subset$set_point_envelope_high
-    
   ga_result <- ga(
     type = "real-valued",
     fitness = function(x) f4_period_calculation_adapted(
       day_chunk_optimize,
-      set_point_df_other,
-      set_point_df_subset,
       setpoints = x,
       model_parameters,
-      Deadband
+      Deadband,
+      optimization_parameters
     ),
     lower = lower_bounds,
     upper = upper_bounds,

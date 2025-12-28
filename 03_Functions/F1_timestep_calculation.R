@@ -1,17 +1,14 @@
-f1_timestep_calculation <- function(df_chunk, set_point_df_actual, parameters) {
+f1_timestep_calculation <- function(df_chunk, set_point_df, parameters) {
   with(parameters,
        {
          # get the hour of the day (0 to 23)
-         hour_day <- as.POSIXlt(df_chunk$HourUTC[1])$hour
-         if (hour_day==24){
-           hour_day<-0
-         }
+         date_hour <-floor_date(df_chunk$HourUTC[1], unit = "hour")
          
          delta_t<-as.numeric(df_chunk$HourUTC[2]-df_chunk$HourUTC[1])/60
          
          # Retrieve the corresponding data from set_point_df
-         df_chunk$set_point_low[2]  <- set_point_df_actual$set_point_low[hour_day+1]
-         df_chunk$set_point_high[2] <- set_point_df_actual$set_point_high[hour_day+1]
+         df_chunk$set_point_low[2]  <- set_point_df$set_point_heating_low[set_point_df$hour==date_hour]
+         df_chunk$set_point_high[2] <- set_point_df$set_point_heating_high[set_point_df$hour==date_hour]
          
          # Previous timestep values
          Ti <- df_chunk$Ti[1]
