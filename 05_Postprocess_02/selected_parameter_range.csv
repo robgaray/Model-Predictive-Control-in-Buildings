@@ -1,0 +1,6 @@
+"variable","minimum","maximum"
+"population_size",36,38
+"iteration_number",36,38
+"run_number",10,10
+"optimization_horizon",12,24
+"optimization_frequency",12,12

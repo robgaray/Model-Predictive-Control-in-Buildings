@@ -2,14 +2,16 @@
 rm(list=ls())
 
 # -------------------------------------------------------------
-# Script: aggregate_simulation_results.R
+# Script: postprocess_XX.R
 # Purpose:
 #   - Read all files named Sinthetized_df_NUM1_NUM2_NUM3_NUM4_NUM5_NUM6.rds
-#     located in subdirectory "04_Output_SCC"
+#     located in subdirectory "04_Output_XXX"
 #   - Extract the numeric parameters from the filename
 #   - Each RDS file contains a data frame with only one row
 #   - Combine all these files into a single data frame
-#   - Save the output as RDS and CSV in "06_Postprocess"
+#   - Save the output as RDS and CSV in "05_Postprocess_XXX"
+#   - Make some frequency and boxplot analysis
+#   - Identify the most performing combinations for further analysis
 # -------------------------------------------------------------
 
 library(dplyr)
@@ -28,8 +30,8 @@ WD<-getwd()
 }
 
 # Input and output directories
-dir_input  <- "04_Output"
-dir_output <- "05_Postprocess"
+dir_input  <- "04_Output_round_01"
+dir_output <- "05_Postprocess_01"
 
 # Create output directory if it does not exist
 if(!dir.exists(dir_output)) dir.create(dir_output, recursive = TRUE)
@@ -124,7 +126,7 @@ for (var in names(vars)) {
 # take again 25%,
 # take run time in lower 50%,
 # take population size in lower 50%,
-# take iteration number  in lower 50% &
+# take iteration number in lower 50% &
 # Make some figures
 # -------------------------------------------------------------
 
@@ -179,5 +181,3 @@ res <- data.frame(
   maximum = sapply(parametric_simulation_output_selected[vars], max, na.rm = TRUE),
   row.names = NULL
 )
-
-

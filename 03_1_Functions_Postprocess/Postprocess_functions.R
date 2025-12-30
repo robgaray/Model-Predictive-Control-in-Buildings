@@ -44,7 +44,8 @@ plot_box <- function(df, xvar, xlab){
           xlab = xlab,
           ylab = "Reward",
           col = "lightgray",
-          border = "black")
+          border = "black",
+          ylim = c(min(df$reward,0),max(df$reward,0)))
   
   # Prepare formula for boxplot: process time ~ xvar
   formula <- as.formula(paste("process_time ~", xvar))
@@ -56,7 +57,8 @@ plot_box <- function(df, xvar, xlab){
           xlab = xlab,
           ylab = "Process time [s]",
           col = "lightgray",
-          border = "black")
+          border = "black",
+          ylim = c(min(df$process_time,0),max(df$process_time,0)))
 }
 
 # -------------------------------------------------------------
