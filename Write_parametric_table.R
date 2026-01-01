@@ -1,9 +1,11 @@
-# --------------------------------------------------------------
-# Create a full-factorial grid of parameter combinations
+# -------------------------------------------------------------
+# Script: Write_parametric_table.R
+# Script to create a full-factorial grid of parameter combinations.
 # with the constraint: optimization_frequency <= optimization_horizon
-# --------------------------------------------------------------
+# Developed by Roberto Garay Martinez & ChatGPT
+# -------------------------------------------------------------
 
-# Load tidyverse for convenience (crossing + dplyr)
+# Load libraries
 library(tidyverse)
 
 # Define parameter levels
@@ -35,7 +37,7 @@ cat("Number of rows (valid combinations):", nrow(parametric_simulation_grid), "\
 # Show first few rows
 print(head(parametric_simulation_grid, 12))
 
-# Optional: save to disk (uncomment if needed)
+# Save to disk
 write.csv2(parametric_simulation_grid,
            file = "Optim_parameters.csv",
            row.names = FALSE)

@@ -1,9 +1,8 @@
-# Cleaning and reset of the environment
-rm(list=ls())
-
 # -------------------------------------------------------------
 # Script: Data_Exploration.R
-# Purpose:
+# Script to visualize the performance of a Model Predictive Control in buildings
+# Developed by Roberto Garay Martinez & ChatGPT
+# Outline:
 #   - Get a well performing configuration
 #   - Read the corresponding file with name Main_df_NUM1_NUM2_NUM3_NUM4_NUM5_NUM6.rds located in subdirectory "04_Output_XXX"
 #   - Explore a few random weeks in the year
@@ -12,28 +11,46 @@ rm(list=ls())
 #      Aggregation periods: Hour of the day, Day of the week, Week of the year
 # -------------------------------------------------------------
 
-library(dplyr)
-library(stringr)
-library(lubridate)
-
-# Initialisation of the file directory
-WD<-getwd()
-
-# Load functions
+#### Initialization
 {
-  files.source <- list.files(paste(WD, "/03_1_Functions_Postprocess", sep=""))
-  for (i in seq_along(files.source)) {
-    source(paste(WD, "/03_1_Functions_Postprocess/", files.source[i], sep=""))  
+  # Cleaning and reset of the environment
+  rm(list=ls())
+  
+  # Loading libraries
+  {
+    required_libraries <- c("dplyr","stringr", "lubridate")
+    
+    for (library in required_libraries) {
+      library(library,
+              character.only = TRUE)
+    }
+    
+    rm(library, required_libraries)
   }
-  rm(files.source, i)    
+  
+  # Initialisation of the file directory
+  WD<-getwd()
+  
+  # Load functions
+  {
+    files.source <- list.files(paste(WD, "/03_1_Functions_Postprocess", sep=""))
+    for (i in seq_along(files.source)) {
+      source(paste(WD, "/03_1_Functions_Postprocess/", files.source[i], sep=""))  
+    }
+    rm(files.source, i)    
+  }
 }
 
-# Input and output directories
-dir_input  <- "04_Output_round_02"
-file_parameters <- "05_Postprocess_02/selected_parameter_range.rds"
-dir_output <- "06_Data_Exploration"
 
-# Get a well performing configuration
+#### Input and output directories
+# change if needed
+{
+  dir_input  <- "04_Output_round_02"
+  file_parameters <- "05_Postprocess_02/selected_parameter_range.rds"
+  dir_output <- "06_Data_Exploration"
+}
+
+#### Get a well performing configuration
 {
   configurations <- readRDS(paste(WD,"/",file_parameters,sep=""))
   
@@ -54,7 +71,7 @@ dir_output <- "06_Data_Exploration"
                                 "0",".rds",sep="")  
 }
 
-# Read file
+#### Read file
 Main_df <- readRDS(paste(WD,"/",dir_input,"/",selected_configuration,sep=""))
 
 

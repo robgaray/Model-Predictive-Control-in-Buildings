@@ -1,3 +1,9 @@
+# -------------------------------------------------------------
+# Script: Install_libraries.R
+# Side-script to install libraries in a super computer
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+
 WD <- getwd()
 ruta_librerias <- file.path(WD, "00_Libraries")
 .libPaths(c(ruta_librerias, .libPaths()))
