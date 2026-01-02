@@ -18,6 +18,12 @@ These kind of systems would benefit from a predictive control, that would activa
 
 In this repository, a model predictive control for building is tested. A full-year simulation is performed and the most optimal action path is decided periodically.
 
+Some output:
+
+![](05_Postprocess_sample/reward_vs_run_number.jpeg){width="300"}
+
+![](06_Data_Exploration_sample/week_52.jpg){width="300"}
+
 Although some variants are also possible through the code, the main approach is that each midnight, the action path for the following day is decided.
 
 ## MPC components, data and parameters
@@ -86,27 +92,31 @@ during non-occupied hours, a lower ventilation rate of 0.1 ACH / 127.15K/kW is c
 
 It should be considered that this approach seems to be OK for a heating-only HVAC system in a cold climate. potentially more advanced approaches would be required in a milder or even hot climate.
 
-### Shading
+#### Shading
 
 As a baseline. a 0.7 shading coefficient is used except for very hot periods, where a full shading coefficient of 1 is adopted.
 
-### Occupancy & Internal loads
+#### Occupancy & Internal loads
 
 The building is set as occupied everyday between 7AM and 7PM (actually 6:50PM). This occupancy is used to set ventilation rates, as well as influence comfort-related policies.
 
 No internal loads are used. Although these could be added to the model, they are considered not to be extremely relevant in a low-density building.
 
+#### Known issues
+
+There is no cooling system in the building and ventilation does not seem sufficient to keep the building cool during the summer session. Accordingly, confort conditions are violated during large parts of the summer.
+
 ### Policy
 
 A policy that incorporates heating costs and comfort is used.
 
-For comfort: If the building is occupied, but not in comfort, a high penalty is given (-1)
+For comfort: If the building is occupied, but not in comfort, a high penalty is given (the negative of the "Alpha_confort" parameter, now set to 10)
 
 For energy: The cost of heating is considered as a negative reward
 
 Then both terms are added.
 
-It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort.
+It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort.
 
 ### Genetic algorithm for MPC
 
@@ -146,15 +156,13 @@ The input data file is available at /01_Data/Main_df.rds (the same data is also 
 
 The Heat Pump is activated by means of a room thermostat. The MPC optimizes the value of setpoints in the thermostat, so that comfort is achieved whenever the building is occupied.
 
-An auxiliary file is used to define all the possible setpoint values. These are defined considering the following:
+Setpoints are defined as any value within a range in "set_point_range_heating", now in between 5 and 26ºC. These values are selected for the following reason:
 
--   When the building is occupied, setpoints should always be within the comfort area.
+-   5ºC is a typical lower threshold where automated safety routines are activated to avoid icing in the heating loop.
 
--   Outside occupied periods, this can be done differently, but a minimum temperature should be guaranteed to avoid frosting of the building (about 5ºC).
+-   26ºC is commonly the maximum allowed value in the confort range during heating periods.
 
--   Even if simulations are performed with 10' resolution, setpoints are defined with hourly intervals.
-
-The setpoint file is available at /01_Data/set_point_df.rds (the same data is also available in a csv file).
+Even if simulations are performed with 10' resolution, setpoints are defined with hourly intervals.
 
 ## Notes on code usage
 
@@ -182,7 +190,7 @@ For that reason, an adapted version of the code was written for its use in a sup
 
 -   Console_code.txt, the code to be introduced in the console to run de above.
 
--   A file that lists all the parametric simulations: /02_Parametric_table/Optim_parameters.csv
+-   A file that lists all the parametric simulations: /02_Parametric_table/Optim_parameters.csv. An auxiliary code is provided to write this file in Write_parametric_table.R
 
 NOTES:
 
@@ -201,6 +209,12 @@ The current configuration considers variations in the following parameters:
 -   Frequency of optimization (in hours)
 
 -   Month
+
+### Analysis scripts
+
+-   Postprocess_XX.R reviews the cumulated reward of simulations and selects configurations with better rewards. This shall be used over the output of parametric simulations .
+
+-   Data_exploration.R performs the exploration of a specific simulation, providing graphs such as the evolution of temperature in time for selected weeks in the year, as well as other analytics.
 
 ## Repository index
 
@@ -230,29 +244,39 @@ The current configuration considers variations in the following parameters:
 
     -   /04_Output/
 
-        -   folder to store outputs, automatically created
+        -   Folder to store outputs, automatically created
+
+        -   This folder is very heavy for parametric simulations. A sample is provided under /04_Output_sample/
 
     -   /05_Postprocess/
 
         -   Side folder to store postprocessing outputs, automatically created
 
+        -   This folder is based on the content of /04_Output/ (not stored in the repository). A sample is provided under /05_Postprocess_sample/
+
+    -   /06_Data_Exploration/
+
+        -   Side folder to store plots from the data exploration, automatically created
+
+        -   This folder is based on the content of /04_Output/ (not stored in the repository). A sample is provided under /06_Data_Exploration_sample/
+
 Full repository outline:
 
-¦Cconsole_code.txt\
+¦ Console_code.txt\
+¦ Data_exploration.R\
 ¦ Install_libraries.R\
 ¦ Job_array_r.sh\
 ¦ LICENSE\
 ¦ Main.R\
 ¦ Main_SCC.R\
-¦ Postprocess.R\
+¦ Postprocess_01.R\
+¦ Postprocess_02.R\
 ¦ README.md\
 ¦ Write_parametric_table.R\
 ¦\
 +---01_Data\
 ¦ Main_df.csv\
 ¦ Main_df.rds\
-¦ set_point_df.csv\
-¦ set_point_df.rds\
 ¦\
 +---02_Parametric_table\
 ¦ Optim_parameters.csv\
@@ -264,17 +288,31 @@ Full repository outline:
 ¦ F4_period_calculation_adapted.R\
 ¦ F5_optimize_setpoints_24.R\
 ¦\
-+---04_Output\
++---03_1_Functions_Postprocess\
+¦ plot_one_iso_week.R\
+¦ Postprocess_functions.R\
+¦ summary_variables_time.R\
+¦\
++---04_Output_sample\
 ¦ Main_df_X1_X2_X3_X4_X5_X6.csv\
 ¦ Main_df_X1_X2_X3_X4_X5_X6.rds\
 ¦ Sinthetized_df_X1_X2_X3_X4_X5_X6.csv\
 ¦ Sinthetized_df_X1_X2_X3_X4_X5_X6.rds\
 ¦ (here, all the outputs are stored. Due to file size these are not stored in the repository and only a few of them are provided as an example)\
 ¦\
-+---05_Postprocess\
++---05_Postprocess_sample\
 ¦ parametric_simulation_output.csv\
 ¦ parametric_simulation_output.rds\
-¦ reward_vs_run_number.jpg
+¦ reward_vs_run_number.jpg ¦\
++---06_Data_Exploration_sample\
+¦ building_comfort_by_hour.jpg\
+¦ building_comfort_by_week_of_year.jpg\
+¦ cost_heating_by_hour.jpg\
+¦ cost_heating_by_week_of_year.jpg\
+¦ Ti_by_hour.jpg\
+¦ Ti_by_week_of_year.jpg\
+¦ week_XX.jpg\
+¦\
 
 ## Authors & contributors
 
@@ -286,7 +324,23 @@ The following contributions are acknowledged:
 
 ## Acknowledgements
 
-We have used the DIPC Supercomputing Center to test our code, and run our simulations. We acknowledge the technical and human support provided by the DIPC Supercomputing Center.
+I have used the DIPC Supercomputing Center to test our code, and run our simulations. I acknowledge the technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center).
+
+## Usage of AI
+
+ChatGPT has been used as a code companion for a large share of auxiliary scripts and console code. Particularly, for the following:
+
+-   Data_exploration.R
+
+-   Job_array_r.sh
+
+-   The conversion from Main.R into Main_SCC.R
+
+-   Postprocess_XX.R
+
+-   Write_parametric_table.R
+
+The repository structure and scientific code has been designed by myself, I have directed ChatGPT to ensure that it provided code in agreement with my interests in terms of inputs, outputs, usage of libraries and programming style, and I have reviewed and tested all the outcome..
 
 ## References
 

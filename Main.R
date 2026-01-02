@@ -33,7 +33,6 @@
     }
     
     rm(library, required_libraries)
-    }
   }
   cat("libraries loaded\n")
 
