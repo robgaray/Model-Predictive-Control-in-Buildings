@@ -6,3 +6,4 @@ ggplot2
 zoo
 GA
 lubridate
+doParallel
