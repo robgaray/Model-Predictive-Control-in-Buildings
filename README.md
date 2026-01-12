@@ -80,7 +80,7 @@ In none of these occur (this means that indoor temperature is between these thre
 
 If the thermostat activates, Heat pump power is defined by the temperature difference between the Upper Temperature threshold and the actual indoor temperature (Delta_temp).
 
-Heat Pump power is constrained by a minimum (Q_hp1) for small Delta_temp values (Heat pumps can not operate at ver low part-loads). and a maximum (Q_hp2) for large Delta_temp values (maximum installed power). a linear interpolation is performed in between. A similar approach is used to calculate the COP.
+Heat Pump power is constrained by a minimum (Q_hp1) for small Delta_temp values and a maximum (Q_hp2) for large Delta_temp values (maximum installed power). Q_hp1 corresponds to the heat pump cycle, while Q_hp2 corresponds to the heat pump cycle + backup resistances. The COP of the heat pump is calculated in agreement with equations 3.11 & 3.12 in [2].
 
 #### Ventilation
 

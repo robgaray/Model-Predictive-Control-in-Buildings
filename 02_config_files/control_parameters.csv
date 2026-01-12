@@ -1,0 +1,7 @@
+# Setpoint and comfort control configuration
+parameter,value
+set_point_range_heating_low,5
+set_point_range_heating_high,26
+set_point_range_cooling_low,20
+set_point_range_cooling_high,50
+Deadband,1

@@ -38,17 +38,19 @@
   # Initialisation of the file directory
   WD<-getwd()
   
+  functions_path  <- functions_path(WD, "03_1_Functions_Postprocess")
+  
   # Load functions
   {
-    files.source <- list.files(paste(WD, "/03_1_Functions_Postprocess", sep=""))
+    files.source <- list.files(functions_path)
     for (i in seq_along(files.source)) {
-      source(paste(getwd(), "/03_1_Functions_Postprocess/", files.source[i], sep=""))  
+      source(functions_path(functions_path, files.source[i]))  
     }
     rm(files.source, i)    
   } 
 }
 
-#### Input and output directories
+# Input and output directories
 dir_input  <- "04_Output_round_01"
 dir_output <- "05_Postprocess_01"
 
