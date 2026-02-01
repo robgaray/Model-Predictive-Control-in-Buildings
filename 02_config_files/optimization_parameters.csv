@@ -1,7 +1,0 @@
-# Genetic algorithm and MPC horizon parameters
-parameter,value
-population_size,30
-iteration_number,20
-run_number,3
-optimization_horizon,12
-optimization_frequency,6

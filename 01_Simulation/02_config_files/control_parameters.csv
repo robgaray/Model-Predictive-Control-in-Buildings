@@ -1,0 +1,15 @@
+# HVAC control parameters
+parameter,value
+#
+# Range of acceptable heating and cooling setpoints.
+# The optimizer will select a value in between these.
+set_point_range_heating_low,5
+set_point_range_heating_high,26
+set_point_range_cooling_low,20
+set_point_range_cooling_high,50
+#
+# Deadband for histeresis controllers
+Deadband,1
+#
+# control_type. 1: "modes", 2: "setpoints"
+control_type, 2

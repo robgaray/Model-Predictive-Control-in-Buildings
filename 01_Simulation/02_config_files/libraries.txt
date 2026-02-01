@@ -1,0 +1,9 @@
+# Required R libraries for MPC simulation
+readr
+dplyr
+tidyr
+ggplot2
+zoo
+GA
+lubridate
+doParallel

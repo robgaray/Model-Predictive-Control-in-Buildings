@@ -9,7 +9,7 @@ rm(list = ls())
 WD <- getwd()
 
 # Paths
-config_path   <- file.path(WD, "02_config_files")
+config_path   <- file.path(WD, "01_Simulation", "02_config_files")
 library_file  <- file.path(config_path, "libraries.txt")
 library_path  <- file.path(WD, "00_Libraries")
 

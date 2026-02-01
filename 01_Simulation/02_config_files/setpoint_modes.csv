@@ -1,0 +1,9 @@
+# Setpoint modes & associated heating and cooling setpoints
+mode,heating,cooling
+1,5,45
+2,20,26
+3,22,26
+4,20,24
+5,22,24
+6,24,26
+7,20,22

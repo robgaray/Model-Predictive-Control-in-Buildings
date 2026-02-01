@@ -10,7 +10,7 @@ There is an increasing number of houses heated with electric systems, commonly h
 
 -   Heat pump performance is very dependent on outdoor temperature.
 
--   The cost of heating with heat pumps is linked to the cost of electricity, which is increasingly variable due to increasing shares of renewables in the electricity production mix.
+-   The cost of heating with heat pumps is linked to the cost of electricity, which is increasingly variable due to increasing shares of renewable energy in the electricity production mix.
 
 These kind of systems would benefit from a predictive control, that would activate heat pumps during low cost periods while ensuring occupant comfort. Model Predictive Control (MPC) is an increasingly common approach for this.
 
@@ -20,11 +20,13 @@ In this repository, a model predictive control for building is tested. A full-ye
 
 Some output:
 
-![](05_Postprocess_sample/reward_vs_run_number.jpeg){width="300"}
+![](99_img_readme/reward_vs_run_number.jpeg){width="300"}
 
-![](06_Data_Exploration_sample/week_52.jpg){width="300"}
+![](99_img_readme/week_52.jpg){width="300"}
 
-Although some variants are also possible through the code, the main approach is that each midnight, the action path for the following day is decided.
+Although some variants are also possible through the code, the figures represent a basic approach where at each midnight, the action path for the following day is decided.
+
+(It should be noted that figures correspond to an earlier version of the code)
 
 ## MPC components, data and parameters
 
@@ -42,9 +44,9 @@ The Model Predictive Control system consists of the following:
 
 The energy model is based on a previous work by Peder Bacher et Al. [1], where a reduced order model of a building was developed. This model was extended by ourselves in Ruben Mulero et Al. [2], where we integrated models for internal loads, radiators and heat pumps.
 
-In this work, we perform an adaptation of [1] and [2] as per the descriptions below.
+In this work, adaptations of [1] and [2] are made as per the descriptions below.
 
-We admit that many of the decisions taken in the development of this model are quite simple approaches to how Heat Transfer in buildings and Heating Ventilation and Air Conditioning (HVAC) systems work. But feel that this is still a valid approach to illustrate a MPC case.
+Many of the decisions taken in the development of this model are quite simple approaches to how Heat Transfer in buildings and Heating Ventilation and Air Conditioning (HVAC) systems work. But this is still a valid approach to illustrate a MPC case.
 
 #### Building
 
@@ -68,9 +70,9 @@ The following heat transfer and gains are considered:
 
     -   Te - environment
 
-#### Heat Pump & thermostat
+#### Thermostat
 
-Heating systems are activated by a thermostat. An hysteresis thermostat is defined. In these systems, two thresholds are used:
+Heating and cooling systems are activated by a thermostat. An hysteresis thermostat is defined. In these systems, two thresholds are used:
 
 -   Lower Temperature threshold: If indoor temperature is below this value, the thermostat activates the heating system
 
@@ -78,9 +80,17 @@ Heating systems are activated by a thermostat. An hysteresis thermostat is defin
 
 In none of these occur (this means that indoor temperature is between these thresholds), the activation state remains constant.
 
+For cooling mode, the above criteria is reversed.
+
+#### Heating and Cooling systems and Heat Pump capacity
+
+The building is equipped with heat pumps for heating and cooling. Heating is modeled as per [2], while a simpler model with a fixed COP value is used for cooling.
+
 If the thermostat activates, Heat pump power is defined by the temperature difference between the Upper Temperature threshold and the actual indoor temperature (Delta_temp).
 
-Heat Pump power is constrained by a minimum (Q_hp1) for small Delta_temp values and a maximum (Q_hp2) for large Delta_temp values (maximum installed power). Q_hp1 corresponds to the heat pump cycle, while Q_hp2 corresponds to the heat pump cycle + backup resistances. The COP of the heat pump is calculated in agreement with equations 3.11 & 3.12 in [2].
+For heating, Heat Pump power is constrained by a minimum (Q_hp1) for small Delta_temp values and a maximum (Q_hp2) for large Delta_temp values (maximum installed power). Q_hp1 corresponds to the heat pump cycle, while Q_hp2 corresponds to the heat pump cycle + backup resistances. The COP of the heat pump is calculated in agreement with equations 3.11 & 3.12 in [2].
+
+For cooling, a fixed power and COP are used, Q_hp_cool and COP_hp_cool.
 
 #### Ventilation
 
@@ -88,7 +98,7 @@ Mechanical ventilation is assumed in the building.
 
 When the building is active (see the following section), the building is ventilated at a 2 ACH / 6.36K/kW rate.
 
-during non-occupied hours, a lower ventilation rate of 0.1 ACH / 127.15K/kW is considered. As an exception to this, in very hot periods, larger ventilation rates of 1ACH / 12.75K/kW are used in agreement with a night ventilation strategy.
+During non-occupied hours, a lower ventilation rate of 0.1 ACH / 127.15K/kW is considered. As an exception to this, in very hot periods, larger ventilation rates of 1ACH / 12.75K/kW are used in agreement with a night ventilation strategy.
 
 It should be considered that this approach seems to be OK for a heating-only HVAC system in a cold climate. potentially more advanced approaches would be required in a milder or even hot climate.
 
@@ -102,9 +112,17 @@ The building is set as occupied everyday between 7AM and 7PM (actually 6:50PM). 
 
 No internal loads are used. Although these could be added to the model, they are considered not to be extremely relevant in a low-density building.
 
-#### Known issues
+### Control modes & setpoints
 
-There is no cooling system in the building and ventilation does not seem sufficient to keep the building cool during the summer session. Accordingly, confort conditions are violated during large parts of the summer.
+2 control modes are foreseen:
+
+-   Setpoint based: Here, setpoints for heating and cooling are freely set by the optimized within a pre-defined range, as per the indications above.
+
+-   Mode based: Here, the optimizer decide from a pre-defined set of modes in the "setpoint_modes.csv" file. Each mode has pre-set heating and cooling setpoints.
+
+The control mode is flagged through the "control_type" variable in the main.R script.
+
+Even if simulations are performed at a lower resolution, setpoints and modes are defined ina agreement with a market resolution (typically 15 minutes or one hour).
 
 ### Policy
 
@@ -120,9 +138,13 @@ It should be stated that the cost of energy is typically in the range of 0,0X. T
 
 ### Genetic algorithm for MPC
 
-The MPC system is programmed with a Genetic Algorithm, by using the ga() function in the GA library.
+The MPC system optimizes the performance of HVAC systems in the building by considering different setpoints/operation modes in the future and their effect in the system. A Genetic Algorithm is used for this, particularly the ga() function in the GA library.
 
-In this function, the setpoints in the prediction/optimization are encoded as the vector X, and limited with the upper and lower bounds. These bounds are linked to the limits established in the setpoint dataframe. (see in the section below).
+In this function, the setpoints/modes the prediction/optimization are encoded as the vector X. Depending on which operational mode is used, two different optimization processes are performed:
+
+-   Setpoints are real-type values and theser are limited with upper and lower bounds. These bounds are linked to the limits established in the setpoint dataframe. (see in the section below). real-type optimization is performed.
+
+-   Operation modes are a set of pre-defined modes. In these cases, vector X defines if a particular mode is active or not. Accordingly, a binary-type optimization is performed.
 
 The genetic algorithm performs a large number of simulations with different values of X in batches. Each batch is a "generation". From each batch to the following one, the values of X evolve in a process that resembles human evolution. That is the reason for the name of "genetic algorithm".
 
@@ -133,6 +155,18 @@ Genetic algorithms in this work are parametrized with the following parameters:
 -   Maximum iterations: Maximum number of generations in the genetic algorithm
 
 -   Number of runs: Number of times where the full process is executed
+
+### Optimization and control horizons
+
+MPC optimizes a system considering its performance over a given time. In this case, two timeframes are considered:
+
+-   Optimization horizon: The MPC optimizes the performance of the building, considering its performance over the optimization horizon timeframe.
+
+-   Control horizon: The optimal setpoints/modes arising from the MPC are implemented for the control horizon.
+
+The control horizon must be strictly equal or smaller than the optimization horizon.
+
+Diferentiating between these two variables allows for the MPC to consider longer periods when defining optimal criteria, but then re-evaluate the best future option at the end of each control cycle. This is particularly relevant for simulations with imperfect forecasts, and to ensure that the optimum also considers the transition between subsequent control horizons.
 
 ### Data
 
@@ -152,18 +186,6 @@ Electricity data for any country in Europe can be sourced from <https://ember-en
 
 The input data file is available at /01_Data/Main_df.rds (the same data is also available in a csv file).
 
-### Setpoints
-
-The Heat Pump is activated by means of a room thermostat. The MPC optimizes the value of setpoints in the thermostat, so that comfort is achieved whenever the building is occupied.
-
-Setpoints are defined as any value within a range in "set_point_range_heating", now in between 5 and 26ºC. These values are selected for the following reason:
-
--   5ºC is a typical lower threshold where automated safety routines are activated to avoid icing in the heating loop.
-
--   26ºC is commonly the maximum allowed value in the confort range during heating periods.
-
-Even if simulations are performed with 10' resolution, setpoints are defined with hourly intervals.
-
 ## Notes on code usage
 
 This code is developed in R 4.5.0.
@@ -182,9 +204,13 @@ It should be considered that MPC requires to run an optimization process periodi
 
 For that reason, an adapted version of the code was written for its use in a supercomputer. this consists of the following:
 
+(in the root folder)
+
 -   Main_SCC.R, an adapted version of the simulation.
 
 -   Install_libraries.R, a specific script so that libraries are installed only once and made available for all simulation batches.
+
+(inside 02/auxiliary_SCC)
 
 -   Job_array_r.sh, a job file for a SLURM queue management system.
 
@@ -212,107 +238,11 @@ The current configuration considers variations in the following parameters:
 
 ### Analysis scripts
 
+(these were generated for a previous version and may require tuning)
+
 -   Postprocess_XX.R reviews the cumulated reward of simulations and selects configurations with better rewards. This shall be used over the output of parametric simulations .
 
 -   Data_exploration.R performs the exploration of a specific simulation, providing graphs such as the evolution of temperature in time for selected weeks in the year, as well as other analytics.
-
-## Repository index
-
--   Root folder: All scripts are provided:
-
-    -   Main.R & Main_SCC.R are the scripts allowing for the MPC simulation.
-
-    -   console_code.txt, Install_libraries.R, job_array_r.sh and Main_SCC.R are provided as an example to port the code to supercomputers.
-
-    -   Write_parametric_table.R and Postprocess.R are auxliary codes to make parametric simulations and (quite-simple) postprocessing of these.
-
--   Folders
-
-    -   /01_Data/
-
-        -   Main_df provides the context data for the simulation, and is later used as a file structure to save the output
-
-        -   set_point_df defines the upper and lower values of the acceptable setpoints (in both cases csv and rdf versions of this data is provided)
-
-    -   /02_Parametric_table/
-
-        -   Optim_parameters.csv provides all the configurations to be tested in parametric simulations (only for the \_SCC code)
-
-    -   /03_Functions/
-
-        -   Stores functions
-
-    -   /04_Output/
-
-        -   Folder to store outputs, automatically created
-
-        -   This folder is very heavy for parametric simulations. A sample is provided under /04_Output_sample/
-
-    -   /05_Postprocess/
-
-        -   Side folder to store postprocessing outputs, automatically created
-
-        -   This folder is based on the content of /04_Output/ (not stored in the repository). A sample is provided under /05_Postprocess_sample/
-
-    -   /06_Data_Exploration/
-
-        -   Side folder to store plots from the data exploration, automatically created
-
-        -   This folder is based on the content of /04_Output/ (not stored in the repository). A sample is provided under /06_Data_Exploration_sample/
-
-Full repository outline:
-
-¦ Console_code.txt\
-¦ Data_exploration.R\
-¦ Install_libraries.R\
-¦ Job_array_r.sh\
-¦ LICENSE\
-¦ Main.R\
-¦ Main_SCC.R\
-¦ Postprocess_01.R\
-¦ Postprocess_02.R\
-¦ README.md\
-¦ Write_parametric_table.R\
-¦\
-+---01_Data\
-¦ Main_df.csv\
-¦ Main_df.rds\
-¦\
-+---02_Parametric_table\
-¦ Optim_parameters.csv\
-¦\
-+---03_Functions\
-¦ F1_timestep_calculation.R\
-¦ F2_reward_function.R\
-¦ F3_period_calculation.R\
-¦ F4_period_calculation_adapted.R\
-¦ F5_optimize_setpoints_24.R\
-¦\
-+---03_1_Functions_Postprocess\
-¦ plot_one_iso_week.R\
-¦ Postprocess_functions.R\
-¦ summary_variables_time.R\
-¦\
-+---04_Output_sample\
-¦ Main_df_X1_X2_X3_X4_X5_X6.csv\
-¦ Main_df_X1_X2_X3_X4_X5_X6.rds\
-¦ Sinthetized_df_X1_X2_X3_X4_X5_X6.csv\
-¦ Sinthetized_df_X1_X2_X3_X4_X5_X6.rds\
-¦ (here, all the outputs are stored. Due to file size these are not stored in the repository and only a few of them are provided as an example)\
-¦\
-+---05_Postprocess_sample\
-¦ parametric_simulation_output.csv\
-¦ parametric_simulation_output.rds\
-¦ reward_vs_run_number.jpg ¦\
-+---06_Data_Exploration_sample\
-¦ building_comfort_by_hour.jpg\
-¦ building_comfort_by_week_of_year.jpg\
-¦ cost_heating_by_hour.jpg\
-¦ cost_heating_by_week_of_year.jpg\
-¦ Ti_by_hour.jpg\
-¦ Ti_by_week_of_year.jpg\
-¦ week_XX.jpg\
-¦\
 
 ## Authors & contributors
 
@@ -325,22 +255,6 @@ The following contributions are acknowledged:
 ## Acknowledgements
 
 I have used the DIPC Supercomputing Center to test our code, and run our simulations. I acknowledge the technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center).
-
-## Usage of AI
-
-ChatGPT has been used as a code companion for a large share of auxiliary scripts and console code. Particularly, for the following:
-
--   Data_exploration.R
-
--   Job_array_r.sh
-
--   The conversion from Main.R into Main_SCC.R
-
--   Postprocess_XX.R
-
--   Write_parametric_table.R
-
-The repository structure and scientific code has been designed by myself, I have directed ChatGPT to ensure that it provided code in agreement with my interests in terms of inputs, outputs, usage of libraries and programming style, and I have reviewed and tested all the outcome..
 
 ## References
 

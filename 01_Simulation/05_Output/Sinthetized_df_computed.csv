@@ -1,0 +1,2 @@
+"","population_size","iteration_number","run_number","optimization_horizon","optimization_frequency","market_resolution","month_subset","period_subset","verbose","elec_total","elec_cost","building_comfort","reward","process_time"
+"1",40,40,3,36,24,15,1,2016,1,502.391860114821,21.3998011741569,182,-548.899801174157,152.229070901871
