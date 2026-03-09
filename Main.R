@@ -150,14 +150,39 @@
 # -------------------------------------------------------------
 # no need to look inside unless you want to modify the physical model
 {
-  result <- load_data_model_parameters(main_file, model_file,
-                                       reward_file, forecast_file)
-  Main_df             <- result$Main_df
-  model_parameters    <- result$model_parameters
-  reward_parameters   <- result$reward_parameters
-  forecast_parameters <- result$forecast_parameters
-  forecast_type       <- result$forecast_type
-  parameters          <- result$parameters
+  # -----------------------------------------------------------
+  # Load data frame
+  # -----------------------------------------------------------
+  {
+    Main_df <- readRDS(main_file)
+    validate_Main_df(Main_df)
+  }
+  
+  # -----------------------------------------------------------
+  # Model, forecast & Reward parameters
+  # -----------------------------------------------------------
+  {
+    model_parameters <- load_parameters(model_file)
+    if (is.null(model_parameters)) stop("Model parameters could not be loaded")
+    cat("model parameters loaded\n")
+    
+    reward_parameters <- load_parameters(reward_file)
+    if (is.null(model_parameters)) stop("Reward parameters could not be loaded")
+    cat("reward parameters loaded\n")
+    
+    forecast_parameters <- load_parameters(forecast_file)
+    if (is.null(model_parameters)) stop("Weather forecast parameters could not be loaded")
+    
+    if (forecast_parameters$forecast_type == 1){
+      forecast_type <- "inaccurate"
+    } else {
+      forecast_type <- "accurate"
+    }
+    
+    cat("Weather forecast parameters loaded\n")
+    
+    parameters <- c(model_parameters, reward_parameters, forecast_parameters)
+  }
 }
 
 # -------------------------------------------------------------
@@ -167,25 +192,84 @@
 # THIS IS THE PLACE TO CHANGE PARAMETERS
 # Inspect & change the parameter files OR override the
 # parameters after they are loaded
+# -------------------------------------------------------------
 {
-  result <- load_control_optimization_parameters(control_file,
-                                                  setpoint_mode_file,
-                                                  optimization_file,
-                                                  Main_df)
-  control_type            <- result$control_type
-  Deadband                <- result$Deadband
-  optimization_parameters <- result$optimization_parameters
-  verbose                 <- result$verbose
-  month_subset            <- result$month_subset
-  period_subset           <- result$period_subset
-  Main_df                 <- result$Main_df
-
-  if (!is.null(result$set_point_range_heating)) {
-    set_point_range_heating <- result$set_point_range_heating
-    set_point_range_cooling <- result$set_point_range_cooling
+  # -----------------------------------------------------------
+  # Setpoint parameters
+  # -----------------------------------------------------------
+  {
+    control <- load_control_parameters(control_file)
+    if (control$control_type == 1){
+      control_type <- "modes"
+    } else {
+      control_type <- "setpoint"
+    }
+    
+    if (is.null(control$Deadband)) stop("Deadband not found in control parameters")
+    
+    Deadband<-control$Deadband
+    
+    if (control_type == "setpoint") {
+      set_point_range_heating <- control$set_point_range_heating
+      set_point_range_cooling <- control$set_point_range_cooling
+    }
+    
+    if (control_type == "modes") {
+      setpoint_modes <- read.csv(setpoint_mode_file, comment.char = "#")
+    }
+    
+    cat("setpoint ranges loaded\n")
   }
-  if (!is.null(result$setpoint_modes)) {
-    setpoint_modes <- result$setpoint_modes
+  
+  # -----------------------------------------------------------
+  # Optimization parameters
+  # -----------------------------------------------------------
+  {
+    optimization_parameters <- load_optimization_parameters(optimization_file)
+    
+    # Check market resolution consistency
+    if ((optimization_parameters$optimization_horizon * 60) %%
+        optimization_parameters$market_resolution != 0) {
+      stop("optimization_horizon must be divisible by market_resolution")
+    }
+	
+    # Corrections
+    if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[["optimization_horizon"]]){
+      optimization_parameters[["optimization_frequency"]]<-optimization_parameters[["optimization_horizon"]]
+    }
+
+    # Verbose setting
+    if (optimization_parameters$verbose==1){
+      verbose       <- TRUE
+    } else {
+      verbose       <- FALSE
+    }
+    
+    str(optimization_parameters)
+    cat("optimization parameters loaded\n")
+  }
+
+  # -----------------------------------------------------------
+  # subset dataframe by month
+  # -----------------------------------------------------------
+  {
+    month_subset <-optimization_parameters$month_subset
+    period_subset<-optimization_parameters$period_subset # in timesteps
+    
+    if (month_subset != 0) {
+      Main_df <- Main_df[month(Main_df$time) == month_subset, ]
+      cat("Month ", month_subset," selected\n")
+    } else {
+      cat("Full year selected\n")
+    }
+    
+    if (period_subset > nrow(Main_df)){
+      period_subset<-nrow(Main_df)
+    }
+    
+    if (period_subset != 0) {
+      Main_df<-Main_df[1:period_subset,]
+    }
   }
 }
 
@@ -199,4 +283,31 @@ source(simulation_script)
 # -------------------------------------------------------------
 #### Data outputs
 # -------------------------------------------------------------
-write_data_outputs(output_path, Main_df, optimization_parameters, t_process)
+{
+  if (!dir.exists(output_path)) {
+    dir.create(output_path, recursive = TRUE)
+  }
+	
+  # Main_df
+  {
+    write.csv(Main_df,
+              file.path(output_path, "Main_df_computed.csv"))
+    write_rds(Main_df,
+              file.path(output_path, "Main_df_computed.rds"))
+  }
+
+  # Sinthetized
+  {
+    Sinthetized_df<-data.frame(as.data.frame(optimization_parameters),
+                               elec_total=sum(Main_df$elec_total),
+                               elec_cost=sum(Main_df$elec_cost),
+                               building_comfort=sum(Main_df$building_comfort),
+                               reward=sum(Main_df$reward),
+                               process_time=t_process)
+	
+    write.csv(Sinthetized_df,
+              file.path(output_path, "Sinthetized_df_computed.csv"))
+    write_rds(Sinthetized_df,
+              file.path(output_path, "Sinthetized_df_computed.rds"))
+  }
+}
