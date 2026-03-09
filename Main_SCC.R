@@ -86,12 +86,10 @@
     # 1: population_size
     # 2: iteration_number
     # 3: run_number
-    # 4: optimization_horizon (hours)
-    # 5: control_horizon (hours)
-    # 6: month_subset (0 for full year)
-    # 7: period_subset (in timesteps, 0 for no subset)
-    # 8: control_type (1 for modes, 2 for setpoint)
-    # 9: forecast_type (1 for inaccurate, 2 for accurate)
+    # 4: control_optimization_horizon (hours)
+    # 5: control_implementation_horizon (hours)
+    # 6: control_optimization_anticipation (hours)
+    # 7: month_subset (0 for full year)
   }
 
   # -----------------------------------------------------------
@@ -103,9 +101,10 @@
     data_path       <- file.path(WD, "01_Simulation", "01_Data")
     config_path     <- file.path(WD, "01_Simulation", "02_config_files")
     functions_path  <- file.path(WD, "01_Simulation", "03_Functions")
-    scripts_path    <- file.path(WD, "01_Simulation", "04_Scripts") 
-    library_path    <- file.path(WD, "01_Simulation", "00_Libraries")						 
+    scripts_path    <- file.path(WD, "01_Simulation", "04_Scripts")
+    library_path    <- file.path(WD, "00_Libraries")
     output_path     <- file.path(WD, "01_Simulation", "05_Output")
+    scc_path        <- file.path(WD, "02_auxiliary_SCC")
     
     main_file          <- file.path(data_path, "Main_df.rds")
     library_file       <- file.path(config_path, "libraries.txt")
@@ -148,11 +147,11 @@
   }
   
   # -----------------------------------------------------------
-  # Loading of libraries and functions
+  # Loading of libraries and functions (from local SCC path)
   # -----------------------------------------------------------
   {
-    source(file.path(functions_path, "initialization.R"))
-    initialization(library_file, functions_path)
+    source(file.path(scc_path, "initialization_SCC.R"))
+    initialization_SCC(library_file, functions_path, library_path)
     
     cat("libraries loaded\n")
     cat("functions loaded\n")
@@ -165,127 +164,24 @@
 # -------------------------------------------------------------
 # no need to look inside unless you want to modify the physical model
 {
-  # -----------------------------------------------------------
-  # Load data frame
-  # -----------------------------------------------------------
-  {
-    Main_df <- readRDS(main_file)
-    validate_Main_df(Main_df)
-  }
-  
-  # -----------------------------------------------------------
-  # Model, forecast & Reward parameters
-  # -----------------------------------------------------------
-  {
-    model_parameters <- load_parameters(model_file)
-    if (is.null(model_parameters)) stop("Model parameters could not be loaded")
-    cat("model parameters loaded\n")
-    
-    reward_parameters <- load_parameters(reward_file)
-    if (is.null(model_parameters)) stop("Reward parameters could not be loaded")
-    cat("reward parameters loaded\n")
-    
-    forecast_parameters <- load_parameters(forecast_file)
-    if (is.null(model_parameters)) stop("Weather forecast parameters could not be loaded")
-    
-    forecast_parameters$forecast_type <- as.integer(cli_args[9])
-    
-    if (forecast_parameters$forecast_type == 1){
-      forecast_type <- "inaccurate"
-    } else {
-      forecast_type <- "accurate"
-    }
-    
-    cat("Weather forecast parameters loaded\n")
-    
-    parameters <- c(model_parameters, reward_parameters, forecast_parameters)
-  }
+  result <- load_data_model_parameters(main_file, model_file,
+                                       reward_file, forecast_file)
+  Main_df             <- result$Main_df
+  model_parameters    <- result$model_parameters
+  reward_parameters   <- result$reward_parameters
+  forecast_parameters <- result$forecast_parameters
+  forecast_type       <- result$forecast_type
+  parameters          <- result$parameters
 }
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
 #### Control and optimization parameters
 # -------------------------------------------------------------
-# THIS IS THE PLACE TO CHANGE PARAMETERS
-# Inspect & change the parameter files OR override the
-# parameters after they are loaded
-# -------------------------------------------------------------
-{
-  # -----------------------------------------------------------
-  # Setpoint parameters
-  # -----------------------------------------------------------
-  {
-    control <- load_control_parameters(control_file)
-    
-    control$control_type <- as.integer(cli_args[8])
-    
-    if (control$control_type == 1){
-      control_type <- "modes"
-    } else {
-      control_type <- "setpoint"
-    }
-    
-    if (is.null(control$Deadband)) stop("Deadband not found in control parameters")
-    
-    Deadband<-control$Deadband
-    
-    if (control_type == "setpoint") {
-      set_point_range_heating <- control$set_point_range_heating
-      set_point_range_cooling <- control$set_point_range_cooling
-    }
-    
-    if (control_type == "modes") {
-      setpoint_modes <- read.csv(setpoint_mode_file, comment.char = "#")
-    }
-    
-    cat("setpoint ranges loaded\n")
-  }
-  
-  # -----------------------------------------------------------
-  # Optimization parameters
-  # -----------------------------------------------------------
-  {
-    optimization_parameters <- list(
-      population_size        = as.integer(cli_args[1]),
-      iteration_number       = as.integer(cli_args[2]),
-      run_number             = as.integer(cli_args[3]),
-      optimization_horizon   = as.integer(cli_args[4]), #hours
-      optimization_frequency = as.integer(cli_args[5])  #hours
-    )
-    
-    # Corrections
-    if (optimization_parameters[["optimization_frequency"]]>optimization_parameters[["optimization_horizon"]]){
-      optimization_parameters[["optimization_frequency"]]<-optimization_parameters[["optimization_horizon"]]
-    }
-	
-	verbose       <- FALSE
-    
-    str(optimization_parameters)
-    cat("optimization parameters loaded\n")
-  }
-
-  # -----------------------------------------------------------
-  # subset dataframe by month
-  # -----------------------------------------------------------
-  {
-    month_subset<-as.integer(cli_args[6]) 
-    period_subset<-as.integer(cli_args[7])  # in timesteps
-    if (month_subset != 0) {
-      Main_df <- Main_df[month(Main_df$time) == month_subset, ]
-      cat("Month ", month_subset," selected\n")
-    } else {
-      cat("Full year selected\n")
-    }
-    
-    if (period_subset > nrow(Main_df)){
-      period_subset<-nrow(Main_df)
-    }
-    
-    if (period_subset != 0) {
-      Main_df<-Main_df[1:period_subset,]
-    }
-  }
-}
+# Parameters from Optim_parameters.csv override the config file.
+# Parameters not in Optim_parameters.csv come from the config file.
+# verbose is always 0; parallel is always 1.
+source(file.path(scc_path, "control_optimization_parameters_SCC.R"))
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -297,70 +193,18 @@ source(simulation_script)
 # -------------------------------------------------------------
 #### Data outputs
 # -------------------------------------------------------------
+# Output files are named with parameter values as appendix:
+# e.g., Main_df_computed_10_10_3_24_12_0.csv
 {
-  if (!dir.exists(output_path)) {
-    dir.create(output_path, recursive = TRUE)
-  }
-	
-  # Main_df
-  {
-    write.csv(Main_df,
-              file.path(output_path,
-                        paste("Main_df_",
-                              as.integer(cli_args[1]),"_",
-                              as.integer(cli_args[2]),"_",
-                              as.integer(cli_args[3]),"_",
-                              as.integer(cli_args[4]),"_",
-                              as.integer(cli_args[5]),"_",
-                              as.integer(cli_args[6]),"_",
-                              as.integer(cli_args[7]),
-                              ".csv",
-                              sep="")))
-    write_rds(Main_df,
-              file.path(output_path,
-                        paste("Main_df_",
-                              as.integer(cli_args[1]),"_",
-                              as.integer(cli_args[2]),"_",
-                              as.integer(cli_args[3]),"_",
-                              as.integer(cli_args[4]),"_",
-                              as.integer(cli_args[5]),"_",
-                              as.integer(cli_args[6]),"_",
-                              as.integer(cli_args[7]),
-                              ".rds",
-                              sep="")))
-  }
-
-  # Sinthetized
-  {
-    Sinthetized_df<-data.frame(as.data.frame(optimization_parameters),
-                               elec_total=sum(Main_df$elec_total),
-                               elec_cost=sum(Main_df$elec_cost),
-                               building_comfort=sum(Main_df$building_comfort),
-                               reward=sum(Main_df$reward),
-                               process_time=t_process)
-    write.csv(Sinthetized_df,
-              file.path(output_path,
-                        paste("Sinthetized_df_",
-                              as.integer(cli_args[1]),"_",
-                              as.integer(cli_args[2]),"_",
-                              as.integer(cli_args[3]),"_",
-                              as.integer(cli_args[4]),"_",
-                              as.integer(cli_args[5]),"_",
-                              as.integer(cli_args[6]),"_",
-                              as.integer(cli_args[7]),
-                              ".csv",
-                              sep="")))
-    write_rds(Sinthetized_df,
-              file.path(output_path,
-                        paste("Sinthetized_df_",
-                              as.integer(cli_args[1]),"_",
-                              as.integer(cli_args[2]),"_",
-                              as.integer(cli_args[3]),"_",
-                              as.integer(cli_args[4]),"_",
-                              as.integer(cli_args[5]),"_",
-                              as.integer(cli_args[6]),"_",
-                              as.integer(cli_args[7]),
-                              ".rds",
-                              sep="")))
-  }
+  param_suffix <- paste(
+    as.integer(cli_args[1]),  # population_size
+    as.integer(cli_args[2]),  # iteration_number
+    as.integer(cli_args[3]),  # run_number
+    as.integer(cli_args[4]),  # control_optimization_horizon
+    as.integer(cli_args[5]),  # control_implementation_horizon
+    as.integer(cli_args[7]),  # month_subset
+    sep = "_"
+  )
+  write_data_outputs(output_path, Main_df, optimization_parameters,
+                     t_process, param_suffix)
 }
