@@ -1,5 +1,31 @@
 # Model Predictive Control for Buildings
 
+This project is a test environment for Model Predictive Control in Buildings. I could write much more, but it is better that you explore each subsection below to better understand it and see if it is useful for you.
+
+## Content of this repository
+
+In this repository, a model predictive control for building is tested. A full-year simulation is performed and the most optimal action path is decided periodically.
+
+The optimal action path considers the following:
+
+-   Ensuring optimal comfort during occupancy periods
+
+-   Minimizing the cost of energy
+
+-   Committing in the flexibility market (optional)
+
+Some output:
+
+![](99_Readme/reward_vs_run_number.jpeg){width="600"}
+
+![](99_Readme/week_52.jpg){width="600"}
+
+(It should be noted that figures correspond to an earlier version of the code)
+
+Although some variants are also possible through the code, the figures represent a basic approach where at each midnight, the action path for the following day is decided.
+
+The code is fully parametrized, and tested for parametric simulations in supercomputers. Auxiliary scripts and graphic interfaces are provided. (all this is better explained below)
+
 ## Context
 
 Buildings are inertial systems. Conditioning these for human use also implies that a large share of energy is used to heat-up building structures. As these structures have a relevant inertia, there are relevant transient processes to consider in heating buildings. There is some time in between we start heating-up buildings until these get to a comfortable status. Equally, if heating is turned off, temperature variations will be slow, allowing to keep comfort for some time.
@@ -14,27 +40,17 @@ There is an increasing number of houses heated with electric systems, commonly h
 
 These kind of systems would benefit from a predictive control, that would activate heat pumps during low cost periods while ensuring occupant comfort. Model Predictive Control (MPC) is an increasingly common approach for this.
 
-## Content of this repository
+Additionally, electric networks are increasingly populated with renewable energy sources, and many energy-using systems are switching to electric eneergy (i.e. Electric Vehicles, or Heat Pumps). This imposes increasing constraints and stress to the electric network. Due to the specificicities of the electric system, it must react to any deviation (i.e. failure of one power plant,...) by adapting load profileas and/or replacing the energy generation. Systems that are willing to help the stability of the electric system are rewarded based on their availability, as well as the execution of commitments.
 
-In this repository, a model predictive control for building is tested. A full-year simulation is performed and the most optimal action path is decided periodically.
+Again, the thermal inertia in buildings seems to be a good source of flexibility. Once heated, the building will remain hot/warm for some time, even if Heat Pumps are stopped/operated at lower load for some time.
 
-Some output:
-
-![](99_img_readme/reward_vs_run_number.jpeg){width="300"}
-
-![](99_img_readme/week_52.jpg){width="300"}
-
-Although some variants are also possible through the code, the figures represent a basic approach where at each midnight, the action path for the following day is decided.
-
-(It should be noted that figures correspond to an earlier version of the code)
-
-## MPC components, data and parameters
+## Components, data and parameters
 
 The Model Predictive Control system consists of the following:
 
--   A full year worth of meteorological data and electricity prices
+-   A full year worth of meteorological data and electricity prices `/01_Simulation/01_Data/Main_df.csv` (or.rds)
 
--   A semi physical (RC) building energy model linked to a heat pump model
+-   A semi physical (RC) building energy model linked to a heat pump model `/01_Simulation/02_Config/Model_parameters.csv`
 
 -   A genetic algorithm to perform the predictive optimization
 
@@ -42,75 +58,7 @@ The Model Predictive Control system consists of the following:
 
 ### Model
 
-The energy model is based on a previous work by Peder Bacher et Al. [1], where a reduced order model of a building was developed. This model was extended by ourselves in Ruben Mulero et Al. [2], where we integrated models for internal loads, radiators and heat pumps.
-
-In this work, adaptations of [1] and [2] are made as per the descriptions below.
-
-Many of the decisions taken in the development of this model are quite simple approaches to how Heat Transfer in buildings and Heating Ventilation and Air Conditioning (HVAC) systems work. But this is still a valid approach to illustrate a MPC case.
-
-#### Building
-
-A 2-state model is used with the following states:
-
--   Indoor temperature (Ti)
-
--   Envelope temperature (Te)
-
-The following heat transfer and gains are considered:
-
--   Solar gains are introduced both to Ti and Te
-
--   Ventilation loop between Ti and outdoor temperature
-
--   Heating gain into Ti, linked to the activation of the thermostat and the heat output from the heat pump.
-
--   The following heat transfers
-
-    -   Ti - Te
-
-    -   Te - environment
-
-#### Thermostat
-
-Heating and cooling systems are activated by a thermostat. An hysteresis thermostat is defined. In these systems, two thresholds are used:
-
--   Lower Temperature threshold: If indoor temperature is below this value, the thermostat activates the heating system
-
--   Upper Temperature threshold: If indoor temperature is above this value, the thermostat deactivates the heating system
-
-In none of these occur (this means that indoor temperature is between these thresholds), the activation state remains constant.
-
-For cooling mode, the above criteria is reversed.
-
-#### Heating and Cooling systems and Heat Pump capacity
-
-The building is equipped with heat pumps for heating and cooling. Heating is modeled as per [2], while a simpler model with a fixed COP value is used for cooling.
-
-If the thermostat activates, Heat pump power is defined by the temperature difference between the Upper Temperature threshold and the actual indoor temperature (Delta_temp).
-
-For heating, Heat Pump power is constrained by a minimum (Q_hp1) for small Delta_temp values and a maximum (Q_hp2) for large Delta_temp values (maximum installed power). Q_hp1 corresponds to the heat pump cycle, while Q_hp2 corresponds to the heat pump cycle + backup resistances. The COP of the heat pump is calculated in agreement with equations 3.11 & 3.12 in [2].
-
-For cooling, a fixed power and COP are used, Q_hp_cool and COP_hp_cool.
-
-#### Ventilation
-
-Mechanical ventilation is assumed in the building.
-
-When the building is active (see the following section), the building is ventilated at a 2 ACH / 6.36K/kW rate.
-
-During non-occupied hours, a lower ventilation rate of 0.1 ACH / 127.15K/kW is considered. As an exception to this, in very hot periods, larger ventilation rates of 1ACH / 12.75K/kW are used in agreement with a night ventilation strategy.
-
-It should be considered that this approach seems to be OK for a heating-only HVAC system in a cold climate. potentially more advanced approaches would be required in a milder or even hot climate.
-
-#### Shading
-
-As a baseline. a 0.7 shading coefficient is used except for very hot periods, where a full shading coefficient of 1 is adopted.
-
-#### Occupancy & Internal loads
-
-The building is set as occupied everyday between 7AM and 7PM (actually 6:50PM). This occupancy is used to set ventilation rates, as well as influence comfort-related policies.
-
-No internal loads are used. Although these could be added to the model, they are considered not to be extremely relevant in a low-density building.
+The energy model is based on a reduced order (RC) building model with integrated HVAC and heat pump models. The details of the model, including the building physics, thermostat, heating and cooling systems, ventilation, shading, and occupancy are described in [Model](99_Readme/Model.md).
 
 ### Control modes & setpoints
 
@@ -118,23 +66,45 @@ No internal loads are used. Although these could be added to the model, they are
 
 -   Setpoint based: Here, setpoints for heating and cooling are freely set by the optimized within a pre-defined range, as per the indications above.
 
--   Mode based: Here, the optimizer decide from a pre-defined set of modes in the "setpoint_modes.csv" file. Each mode has pre-set heating and cooling setpoints.
+-   Mode based: Here, the optimizer decide from a pre-defined set of modes in the `setpoint_modes.csv` file. Each mode has pre-set heating and cooling setpoints.
 
 The control mode is flagged through the "control_type" variable in the main.R script.
 
-Even if simulations are performed at a lower resolution, setpoints and modes are defined ina agreement with a market resolution (typically 15 minutes or one hour).
+Even if simulations are performed at a lower resolution, setpoints and modes are defined in agreement with a market resolution (typically 15 minutes or one hour).
+
+Although still in early stages of research, it seems that Mode-based optimization is a faster and better approach.
+
+### Optimization aims
+
+Two optimization aims are considered:
+
+-   Energy: System setpoints/modes are optimized so that the energy cost is minimized (or revenues maximized).
+
+-   Flexibility: System setpoints/modes are optimized, for minimal energy costs/maximal energy revenues, but also leaving some space to commit flexibility services to the market.
+
+In all cases, the [policy] weights economic costs/revenues and comfort levels.
+
+More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
 ### Policy
 
 A policy that incorporates heating costs and comfort is used.
 
-For comfort: If the building is occupied, but not in comfort, a high penalty is given (the negative of the "Alpha_confort" parameter, now set to 10)
+For comfort: If the building is occupied, but not in comfort, a high penalty is given (the negative of the `Alpha_confort` parameter, now set to 10)
 
 For energy: The cost of heating is considered as a negative reward
 
 Then both terms are added.
 
 It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort.
+
+For the cases where the optimization aim is flexibility, a more complex reward formula definition is used:
+
+-   Confort is assessed both for the case with baseline operation and for the extreme case where all the flexibility is activated.
+
+-   Revenues associated to flexibility are incorporated.
+
+More information on this is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
 ### Genetic algorithm for MPC
 
@@ -166,98 +136,151 @@ MPC optimizes a system considering its performance over a given time. In this ca
 
 The control horizon must be strictly equal or smaller than the optimization horizon.
 
-Diferentiating between these two variables allows for the MPC to consider longer periods when defining optimal criteria, but then re-evaluate the best future option at the end of each control cycle. This is particularly relevant for simulations with imperfect forecasts, and to ensure that the optimum also considers the transition between subsequent control horizons.
+Differentiating between these two variables allows for the MPC to consider longer periods when defining optimal criteria, but then re-evaluate the best future option at the end of each control cycle. This is particularly relevant for simulations with imperfect forecasts, and to ensure that the optimum also considers the transition between subsequent control horizons.
+
+Considering how energy markets operate, there is a need to forecast energy/flexibility in buildings with some anticipation, so that bids can be properly placed in the market. For this purpose, this code allows to perform an anticipated optimization. To do so, the building is simulated (with operation criteria defined in the previous optimization/control loop) until the beginning of the optimization horizon, and then the optimization process is initiated.
+
+This is illustrated in the figure below.
+
+![](99_Readme/optimizer_horizons.jpg){width="800"}
 
 ### Data
 
-Data for Denmark is used. In particular, the following signals are obtained from [OpenMeteo](https://open-meteo.com/) and [NordPool](https://www.nordpoolgroup.com/):
+#### Data used in the simulation
 
--   Environmental air temperature [ºC]
+Sample (but not fully correct) data for the 2019 is available at `/01_Data/Main_df.rds` (the same data is also available in a csv file).
 
--   Global Horzontal Irradiation [W/m2]
-
--   Spot Price of Electricity [€/MWh]
-
-Data for the 2019 is available. Although data is exported from the mentioned data sources with hourly resolution, it is resampled for use at 10' resoultion.
+Some other data sources:
 
 Climate data for any location in the world can be sourced from [OpenMeteo](https://open-meteo.com/)
 
 Electricity data for any country in Europe can be sourced from <https://ember-energy.org/data/european-wholesale-electricity-price-data/>
 
-The input data file is available at /01_Data/Main_df.rds (the same data is also available in a csv file).
+#### Flexibility events
+
+Flexibility events are defined synthetically, so that the simulation can show the result of a response to a flexibility price incentive. More details on how the flexibility price signals are generated is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
+
+#### Utils to get data (incomplete)
+
+Weather and electricity market data is required.
+
+`/10_Utils_data/` has some scripts to get weather data from [OpenMeteo](https://open-meteo.com/) and energy prices from [EESIOS](https://www.esios.ree.es/es/pagina/api).
+
+From there on, there is a need to adapt energy prices to get three signals:
+
+-   Spot Price of Electricity [€/MWh]
+
+-   Revenue for flexibility commitments [€/MWh]
+
+-   Revenue for the execution of commitments [€/MWh]
+
+This is performed with quite straightforward arithmetic operations, considering the above-indicated data sources, as well as fees for TSO/DSOs. This is not yet incorporated into the repository.
+
+## Parametrization of simulations (Model, Optimizer,....)
+
+This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `/01_Simulation/02_Config/`, or through the Graphic User Interface provided in `/40_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify all configuration files without manual CSV editing.
+
+For a detailed description of the available parameters, configuration files, and how to use the GUI, see [Model_Parametrization](99_Readme/Model_Parametrization.md).
+
+## Code Architecture
+
+For a detailed visual representation of the code structure, including the hierarchical relationships between scripts and functions, see the [Code Hierarchy Chart](90_Structure/Main_relations.md).
 
 ## Notes on code usage
 
 This code is developed in R 4.5.0.
 
-Main.R is the main script, allowing to parametrize and execute the simulation.
+Main.R is the main script, allowing to execute the simulation.
 
 The user should expect a **very long execution time**. Depending on the hyperparameter selection for the GA function, execution time is somewhere in between 1h and several days.
 
 Hyperparamter tuning for the GA function is unfeasible in a personal computer. We performed this by means of parametric simulations in a supercomputer facility. The code used for this activity is referred to in the following section.
 
-## Auxiliary code
+## Computation at Scale
+
+Running full-year Model Predictive Control simulations and parametric studies can require very long execution times. High-performance computing resources, such as supercomputers, are often necessary to run these simulations in a reasonable time frame. This repository includes adapted code and a Graphic User Interface to define and deploy parametric simulations on SLURM-based supercomputer environments.
+
+For a detailed description of how to run simulations at scale, manage jobs, and use the supercomputer GUI, see [Computation_at_scale](99_Readme/Computation_at_scale.md).
+
+## Auxiliary code and Graphic User Interfaces
 
 ### Parametric simulations
 
-It should be considered that MPC requires to run an optimization process periodically (i.e. for every 24 simulated hours). Each of this processes takes several minutes. As a result, running this code in a personal computer is somewhere between impractical and unfeasible.
+Already presented under [Computation at Scale].
 
-For that reason, an adapted version of the code was written for its use in a supercomputer. this consists of the following:
+### Graphic User Interface
 
-(in the root folder)
+A few graphic user interfaces are available to parametrize simulations under 40_GUI:
 
--   Main_SCC.R, an adapted version of the simulation.
+-   `/01_Configure_Simulations/` allows to easily edit all configuration files under `/01_Simulation/02_Config/`
 
--   Install_libraries.R, a specific script so that libraries are installed only once and made available for all simulation batches.
+-   `/02_Configure_Parametric_Simulations/` allows to generate parametric simulations for supercomputers easily /see under [Computation at Scale]).
 
-(inside 02/auxiliary_SCC)
-
--   Job_array_r.sh, a job file for a SLURM queue management system.
-
--   Console_code.txt, the code to be introduced in the console to run de above.
-
--   A file that lists all the parametric simulations: /02_Parametric_table/Optim_parameters.csv. An auxiliary code is provided to write this file in Write_parametric_table.R
-
-NOTES:
-
--   You should enter your own e-mail in the job array configuration file and edit other slurm parameters based on the specific characterstics of your supercomputer
-
-The current configuration considers variations in the following parameters:
-
--   Populatio Size in the Genetic Algorithm
-
--   Iteration Number / Generations in the Genetic Algorithm
-
--   Number of runs in the Genetic Algorithm
-
--   Optimization horizon (in hours)
-
--   Frequency of optimization (in hours)
-
--   Month
+The reader/user should consider that these scripts have been fully written with generative AI, with minimal supervision. But they have been tested to work properly to execute their tasks.
 
 ### Analysis scripts
 
-(these were generated for a previous version and may require tuning)
+`/20_Postprocess/`
 
--   Postprocess_XX.R reviews the cumulated reward of simulations and selects configurations with better rewards. This shall be used over the output of parametric simulations .
+Auxiliary scripts are available for the evaluation of parametric simulations (`/20_Postprocess/01_Hyperparameter_Analysis`) and plotting the time series of a simulation (`/20_Postprocess/02_Flexibility_Analysis`).
 
--   Data_exploration.R performs the exploration of a specific simulation, providing graphs such as the evolution of temperature in time for selected weeks in the year, as well as other analytics.
+These shall be considered as basic scripts for supervision of simulations and early-stage model output analysis. But they are useful.
+
+The reader/user should consider that these scripts have been fully written with generative AI, with minimal supervision (as they are used for the generation of preliminary graphs).
+
+## Changes and version control
+
+The current version of this work is Version v2. It has the previous changes from previous versions:
+
+-   Mode-based optimization
+
+-   Joint optimization of energy consumption and flexibility commitments
+
+-   Incorporation of weather forecasting errors
+
+Additionally, the following non-scientific improvements are present:
+
+-   Full re-structuration of code
+
+-   Improvement of the genetic optimizer parametrization
+
+-   Incorporation of auxiliary codes for pre-processing (utils) and postprocessing
+
+-   Redefinition of code for operation with supercomputers
+
+-   Development of Graphic User Interfaces for simulation parametrization and defintion of supercomputer codes
+
+Previous releases (v1.X) were focused on performing load optimization, based only on energy (without considering flexibility).
 
 ## Authors & contributors
 
-The main author of this code is Dr. Roberto Garay-Martinez.
+The main author of this code is [Dr. Roberto Garay-Martinez](https://robertogaray.com/).
 
 The following contributions are acknowledged:
 
--   Mr. Noe Fontier. Contributed with the extraction of climate and energy price time series; and with the development of model formulae (under the guidance of Dr. Garay-Martinez).
+-   [Mr Rubén Mulero](https://www.linkedin.com/in/rubenmulero/). Contributed in a better understanding of Genetic Optimizers.
+-   [Mr. Noe Fontier](https://www.linkedin.com/in/noe-fontier/). Contributed with the extraction of climate and energy price time series; and with the development of model formulae (under the guidance of Dr. Garay-Martinez).
+
+## Future works
+
+This is v2 of an ongoing work. I expect to increase the aim, and complexity of this work. Particularly with regards to the following topics:
+
+-   Incorporate the execution of flexibility to the simulation. Currently load profile is optimized considering flexibility commitments, but these are not executed.
+
+-   Incorporate the execution of flexibility to the simulation, considering imperfect forecasts. This will lead to side works on how to define the level of commitment so that it is executable even with imperfect forecasts
+
+-   "Improve" imperfect forecasts. I´m thinking on different possibilities such as: non-controlled heat sources/sinks, or using different models for forecasts and simulation, among others. Also, self-identification of hidden states in the models for forecasting (Although this is known in the simulatior, the forecast should self-define this state).
+
+-   Generalize the MPC approach to aggregated systems (i.e. building + PV) or other systems (i.e. swimming pool heating).
+
+-   Adapt for a concurrent market structure, using Intra-Day and continuous Intra-Day markets to adapt comitments as time goes by.
+
+-   ...
+
+All of the above will take some time (it is not clear to me if I will perform all of them), and is a potential source of new ideas.
 
 ## Acknowledgements
 
-I have used the DIPC Supercomputing Center to test our code, and run our simulations. I acknowledge the technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center).
+I have used the DIPC Supercomputing Center to test our code, and run our simulations (probably now in the range of \>1exp4 simulations or \>1exp5 hours of computational time). I acknowledge the technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center).
 
-## References
-
-[1] Peder Bacher, Henrik Madsen, Identifying suitable models for the heat dynamics of buildings, Energy and Buildings, 2011, <https://doi.org/10.1016/j.enbuild.2011.02.005>.
-
-[2] Mulero R, Garay-Martinez R, Mendialdua I, Arregi B. A training workbench based on transient building models for creating intelligent energy operators, Data-Centric Engineering, 2025, <https://doi.org/10.1017/dce.2025.10016>
+## 

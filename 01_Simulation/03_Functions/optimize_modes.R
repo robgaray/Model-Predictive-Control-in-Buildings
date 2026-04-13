@@ -1,6 +1,7 @@
 # -------------------------------------------------------------
 # Function: optimize_modes.R
 # Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function optimizes the control modes over a particular period
@@ -14,105 +15,166 @@
 #   4. Post-processes the optimization results to extract the optimal
 #      control modes for each market period.
 # -------------------------------------------------------------
+# Inputs
+#   period_chunk   : Data frame. Simulation data for the optimization
+#                    horizon. Must contain a 'MarketUTC' column used to
+#                    derive the set of target periods, plus all columns
+#                    required by period_calculation() (called inside
+#                    evaluate_control()).
+#   timestamps     : Named list. Timestamp metadata. Must contain:
+#                      timestamps$target_periods : POSIXct vector of
+#                                                  market period timestamps.
+#   parameters     : Named list. Model parameters passed through to
+#                    period_calculation() and reward_function().
+#                    The following sub-elements are extracted internally:
+#                      parameters$setpoint_modes
+#                      parameters$control$Deadband
+#                      parameters$optimization (population_size,
+#                        iteration_number, run_number, pcrossover, pmutation,
+#                        parallel, as returned by load_optimization_parameters())
+#   indexes        : Named list. Index metadata (passed through for
+#                    interface consistency).
+#
+# Outputs
+#   set_point_optimized : Data frame with setpoint columns and hysteresis
+#                         deadbands for the optimal control modes,
+#                         as returned by convert_modes_to_setpoints().
+# -------------------------------------------------------------
+# Code outline
+# 1. Define GA chromosome structure for mode selection
+# 2. Configure genetic algorithm parameters
+# 3. Run GA optimization with mode fitness function
+# 4. Extract best mode solution
+# 5. Evaluate final control with best modes
+# -------------------------------------------------------------
+# Usage instructions
+# result <- optimize_modes(period_chunk, timestamps, parameters, indexes)
+# -------------------------------------------------------------
+# Where this function/script is used
+# Called by optimize_control_step.R when control_type is "modes".
+# -------------------------------------------------------------
+# EXCEPTIONS AND SPECIAL CASES:
+#   - If all binary genes for a given market period are zero or NA, the
+#     default mode 1 is assigned (fall-back to baseline mode).
+#   - Parallelization uses all available logical cores minus one. The
+#     cluster is stopped and sequential execution restored after the GA run.
+#   - On Windows (PSOCK clusters), required functions and variables are
+#     explicitly exported to worker processes via clusterExport().
+#   - The GA uses binary encoding: n_modes * n_periods binary genes, where
+#     the first n_periods genes correspond to mode_1, the next n_periods
+#     to mode_2, and so on.
+#   - Only the first solution row of the GA result (ga_result@solution[1,])
+#     is used if multiple equally-fit solutions exist.
+# -------------------------------------------------------------
+# functions/scripts called
+#   fitness_funct_optimize_mode()  - GA fitness function
+#   maxmode()                      - selects highest-active mode per period
+#   convert_modes_to_setpoints()   - maps mode selections to setpoint values
+#   evaluate_control()             - building simulation and reward
+#                                    (called inside fitness function)
+#   period_calculation()           - core building physics simulation
+#                                    (called inside evaluate_control)
+#   flex_evaluation()              - flexibility event simulation
+#                                    (called inside evaluate_control)
+#   reward_function()              - reward calculation
+#                                    (called inside evaluate_control)
+# -------------------------------------------------------------
 optimize_modes <- function(period_chunk,
-                           setpoint_modes,
+                           timestamps,
                            parameters,
-                           Deadband,
-                           optimization_parameters) {
-  
+                           indexes
+                           ) {
   # Optimization vector definition
   {
-    # Number of market slots in the period.
-    # taken from MarketUTC in period_chunk
-    periods_target <- unique(period_chunk$MarketUTC)
-    n_periods <- length(periods_target)
+    # Number of market slots in the period (taken from target_periods)
+    n_periods <- length(timestamps$target_periods)
     
-    # Number of modes 
-    n_modes <- length(unique(setpoint_modes$mode))
+    # Number of available control modes
+    n_modes <- length(unique(parameters$setpoint_modes$mode))
     
-    # Total number of genes to consider in the optimization
+    # Total number of binary genes for the GA
     n_genes <- n_modes * n_periods
   }
+
+  # Create parameters2 with parallel disabled to avoid nested parallelism conflicts
+  parameters2 <- parameters
+  parameters2$optimization <- as.list(parameters$optimization)
+  parameters2$debug_and_config <- as.list(parameters$debug_and_config)
+  parameters2$debug_and_config$parallel <- 0
   
-  # paralelization initialization
+  # Parallelization initialization
   {
-    n_cores <- parallel::detectCores(logical = TRUE) - 1  # leave 1 core free
-    cl <- makeCluster(n_cores)                             # works on Windows and Linux
-    registerDoParallel(cl)                                 # register cluster for foreach
-    
-    # Important for Windows (PSOCK clusters) because child processes don't inherit the global environment
-    clusterExport(
-      cl,
-      varlist = c(
-        "evaluate_control_mode",
-        "period_calculation",
-        "reward_function",
-        "period_chunk",
-        "setpoint_modes",
-        "parameters",
-        "Deadband",
-        "optimization_parameters",
-        "n_periods",
-        "n_modes",
-        "periods_target"
-        ),
-      envir = environment()
-      )
+    if (parameters$debug_and_config$parallel == 1) {
+      n_cores <- parallel::detectCores(logical = TRUE) - 1  # leave 1 core free
+      cl <- makeCluster(n_cores)                             # works on Windows and Linux
+      registerDoParallel(cl)                                 # register cluster for foreach
+      
+      # Important for Windows (PSOCK clusters) because child processes don't inherit the global environment
+      clusterExport(
+        cl,
+        varlist = c(
+          "evaluate_control",
+          "convert_modes_to_setpoints",
+          "period_calculation",
+          "flex_evaluation",
+          "reward_function",
+          "period_chunk",
+          "parameters2",
+          "timestamps",
+          "n_periods",
+          "n_modes",
+          "maxmode"
+          ),
+        envir = environment()
+        )
+    }
   }
   
-  # Optimization (binary type)
+  # Optimization (binary GA)
   ga_result <- ga(
-    type = "binary",
-    nBits = n_genes,
-    popSize = optimization_parameters$population_size,
-    maxiter = optimization_parameters$iteration_number,
-    run = optimization_parameters$run_number,
-    # parallel = TRUE,
-    monitor = FALSE,
-    fitness = function(x_bin) evaluate_control_mode(period_chunk,
-                                                    setpoint_modes,
-                                                    setpoint_modes_actual = x_bin,
-                                                    parameters,
-                                                    Deadband,
-                                                    periods_target = periods_target  # PASAR periods_target
-    )
+    type       = "binary",
+    nBits      = n_genes,
+    popSize    = parameters$optimization$population_size,
+    maxiter    = parameters$optimization$iteration_number,
+    run        = parameters$optimization$run_number,
+    pcrossover = parameters$optimization$pcrossover,
+    pmutation  = parameters$optimization$pmutation,
+    parallel   = (parameters$debug_and_config$parallel == 1),
+    monitor    = FALSE,
+    fitness    = function(x_bin) fitness_funct_optimize_mode(
+                                   x_bin        = x_bin,
+                                   n_modes      = n_modes,
+                                   n_periods    = n_periods,
+                                   timestamps   = timestamps,
+                                   parameters   = parameters2,
+                                   period_chunk = period_chunk
+                                 )
   )
   
   # Stop cluster
-  stopCluster(cl)   # Stop cluster to free resources
-  registerDoSEQ()   # Return to sequential execution
+  if (parameters$debug_and_config$parallel == 1) {
+    stopCluster(cl)   # Stop cluster to free resources
+    registerDoSEQ()   # Return to sequential execution
+  }
   
   # Postprocessing
   {
-    setpoint_modes_optimized <- ga_result@solution[1, ]
-    
-    setpoint_modes_df_optimized <- data.frame(period = periods_target)
-    
-    for (i in seq_len(n_modes)) {
-      setpoint_modes_df_optimized[[paste0("mode_", i)]] <-
-        setpoint_modes_optimized[((i-1)*n_periods + 1):(i*n_periods)]
-    }
-    
-    # Calcular maxmode
-    mode_cols <- setdiff(colnames(setpoint_modes_df_optimized), "period")
-    setpoint_modes_df_optimized$maxmode <- apply(
-      setpoint_modes_df_optimized[, mode_cols],
-      1,
-      function(x) {
-        if (all(is.na(x)) || sum(x, na.rm = TRUE) == 0) {
-          return(1)  # modo por defecto
-        } else {
-          # Extraer índice del nombre de columna: "mode_1" → 1
-          idx <- which.max(x)
-          return(as.numeric(sub("mode_", "", mode_cols[idx])))
-        }
-      }
+    maxmode_result <- maxmode(
+      x_bin          = ga_result@solution[1, ],
+      n_modes        = n_modes,
+      n_periods      = n_periods,
+      target_periods = timestamps$target_periods
     )
+    setpoint_modes_df_optimized <- maxmode_result$set_point_df_inner
+    rm(ga_result)
     
-    # Eliminar columnas de modo binario
-    setpoint_modes_df_optimized <- setpoint_modes_df_optimized[, c("period", "maxmode")]
-    
+    setpoint_modes_df_optimized <- convert_modes_to_setpoints(
+      setpoint_modes_df = setpoint_modes_df_optimized,
+      setpoint_modes    = parameters$setpoint_modes,
+      Deadband          = parameters$control$Deadband,
+      target_periods    = timestamps$target_periods
+    )
   }
-  
+
   return(setpoint_modes_df_optimized)
 }

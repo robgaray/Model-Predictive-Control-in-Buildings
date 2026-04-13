@@ -1,9 +1,0 @@
-# Weather forecast parameters
-parameter,value
-#
-# forecast_type. 1: "inaccurate", 2: "accurate" 
-forecast_type, 2
-#
-# Parameters for inaccurate forecast model
-forecast_n_days_back, 7
-forecast_weight_history, 0.2

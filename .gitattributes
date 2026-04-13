@@ -1,0 +1,8 @@
+# Force Unix (LF) line endings for scripts and text files that
+# will be executed on the SCC Linux cluster.
+*.sh     text eol=lf
+*.R      text eol=lf
+*.r      text eol=lf
+*.csv    text eol=lf
+*.txt    text eol=lf
+*.md     text eol=lf

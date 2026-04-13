@@ -1,0 +1,7 @@
+# Debug and configuration parameters
+parameter,value
+month_subset,0
+period_subset,0
+verbose,1
+parallel,1
+Price_emulation,1

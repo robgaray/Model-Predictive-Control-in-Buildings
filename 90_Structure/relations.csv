@@ -1,0 +1,59 @@
+source_item,called_item,type,variables_passed,variables_returned
+Main.R,initialization.R (04_Scripts),sources,(none),"functions loaded, libraries loaded"
+Main.R,data_model_parameters.R,sources,(none),"Main_df, parameters$model, parameters$reward, parameters$forecast"
+Main.R,control_optimization_parameters.R,sources,(none),"parameters$control, parameters$optimization, parameters$debug_and_config, parameters$setpoint_modes"
+Main.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
+Main.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
+Main.R,data_outputs.R,sources,(none),CSV/RDS files written to output_path
+initialization.R (04_Scripts),initialization.R (03_Functions),sources,(none),initialization() function defined
+initialization.R (04_Scripts),initialization(),calls,"library_file, functions_path","all 03_Functions/*.R sourced, libraries loaded"
+data_model_parameters.R,validate_Main_df(),calls,Main_df,TRUE or error
+data_model_parameters.R,load_parameters(),calls,"model_file, reward_file, forecast_file",parameters$model/reward/forecast
+control_optimization_parameters.R,load_control_parameters(),calls,control_file,parameters$control
+control_optimization_parameters.R,load_optimization_parameters(),calls,optimization_file,parameters$optimization
+control_optimization_parameters.R,load_debug_and_config_parameters(),calls,debug_and_config_file,parameters$debug_and_config
+simulation.R,context_forecast_step(),calls,"i0, time_sec, Main_df, parameters, i_end_horizon","ctx list with forecast_df"
+simulation.R,implement_control_step(),calls,"period_chunk, indexes, timestamps, parameters",period_chunk (simulated)
+simulation.R,optimize_control_step(),calls,"period_chunk, target_periods, parameters","{set_point_actual, period_chunk}"
+context_forecast_step(),imperfect_forecast(),calls (conditional),"Main_df, parameters, i0, i_end_horizon","forecast data frame"
+implement_control_step(),period_calculation(),calls,"period_chunk, parameters, calculation_mode, set_point_df","period_chunk with Ti, Te, Q_heat, Q_cool, Elec_*"
+optimize_control_step(),optimize_setpoints(),calls (if setpoint),"period_chunk, timestamps, parameters","{set_point_actual, period_chunk}"
+optimize_control_step(),optimize_modes(),calls (if modes),"period_chunk, timestamps, parameters","{set_point_actual, period_chunk}"
+optimize_control_step(),evaluate_control(),calls (final),"period_chunk, set_point_df, parameters","period_chunk with Reward, Comfort, Elec_total"
+optimize_setpoints(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
+optimize_setpoints(),fitness_funct_optimize_setpoint(),calls (via GA),"setpoint_array, period_chunk, timestamps, parameters",scalar reward value
+optimize_setpoints(),convert_setpoints(),calls,"optimized_heating, optimized_cooling, target_periods, parameters",set_point_actual
+optimize_modes(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
+optimize_modes(),fitness_funct_optimize_mode(),calls (via GA),"x_bin, period_chunk, timestamps, parameters",scalar reward value
+optimize_modes(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
+optimize_modes(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, x_mode",set_point_actual
+fitness_funct_optimize_setpoint(),convert_setpoints(),calls,"setpoint_array, target_periods, parameters",set_point_df
+fitness_funct_optimize_setpoint(),evaluate_control(),calls,"period_chunk, set_point_df, parameters",period_chunk with Reward
+fitness_funct_optimize_mode(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
+fitness_funct_optimize_mode(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, maxmode_result",set_point_df
+fitness_funct_optimize_mode(),evaluate_control(),calls,"period_chunk, set_point_df, parameters",period_chunk with Reward
+evaluate_control(),period_calculation(),calls,"period_chunk, parameters",period_chunk with Comfort/Elec_total
+evaluate_control(),flex_evaluation(),calls (conditional),"period_chunk, parameters, i_flex","{period_chunk, flex_metrics}"
+evaluate_control(),reward_function(),calls,"period_chunk, parameters",period_chunk with Reward column
+flex_evaluation(),period_calculation(),calls,"period_chunk, parameters (modified setpoints)","{period_chunk, flex_metrics}"
+convert_modes_to_setpoints(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
+data_outputs.R,(none - base R),writes,"Main_df, parameters, execution_time",CSV/RDS files
+Main_SCC.R,initialization_SCC.R,sources,(none),"functions loaded, libraries from 00_Libraries"
+Main_SCC.R,data_model_parameters.R,sources,(none),"Main_df, parameters$model, parameters$reward, parameters$forecast"
+Main_SCC.R,control_optimization_parameters_SCC.R,sources,(none),parameters with SCC command-line overrides
+Main_SCC.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
+Main_SCC.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
+Main_SCC.R,data_outputs_SCC.R,sources,(none),CSV/RDS files with SCC suffix
+initialization_SCC.R,initialization.R (03_Functions),sources,(none),initialization() function defined
+initialization_SCC.R,initialization(),calls,"library_file, functions_path, lib_path",all functions loaded with local library priority
+control_optimization_parameters_SCC.R,load_control_parameters(),calls,control_file,parameters$control
+control_optimization_parameters_SCC.R,load_optimization_parameters(),calls,optimization_file,parameters$optimization
+control_optimization_parameters_SCC.R,load_debug_and_config_parameters(),calls,debug_and_config_file,parameters$debug_and_config
+Console_code.txt,scc_settings.sh,sources (bash),SCC_* variables,"TASKS_PER_JOB, JOB_NAME, SCC_QUEUE, SCC_QOS, SCC_USER, SCC_USERNAME, SCC_OUTPUT_FORMATS"
+Console_code.txt,Install_libraries.R,calls (Rscript),(none),R libraries installed in 00_Libraries
+Console_code.txt,Job_array_r.sh,calls (sbatch),"--array, SBATCH_EXTRA, SCC_OUTPUT_FORMATS",Slurm job submitted
+Console_code.txt,job_tracker.csv,writes,"job_index, start_task, end_task, status, slurm_job_id",job tracking table
+Job_array_r.sh,Main_SCC.R,calls (Rscript),17 positional args from Optim_parameters.csv,"CSV/RDS output files"
+Job_array_r.sh,scc_settings.sh,sources (bash),SCC_* variables,SCC_OUTPUT_FORMATS
+Job_array_r.sh,job_tracker.csv,reads/writes,job status update,auto-launches next pending job
+GUI_parametric.R,save_optim_params.R,calls,"df, scc_path, settings","Optim_parameters.csv, scc_settings.sh"

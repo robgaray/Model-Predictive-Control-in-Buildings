@@ -1,0 +1,5 @@
+# Reward function parameters
+parameter,value
+Alpha_confort,10
+confort_low,20
+confort_high,25

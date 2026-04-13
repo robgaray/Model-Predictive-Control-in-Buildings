@@ -1,4 +1,9 @@
 .Rproj.user
+01_Simulation/90_Output/
+20_PostProcess/02_Flexibility_Analysis/01_Input/
+20_PostProcess/02_Flexibility_Analysis/90_Output/
+/20_PostProcess/01_Hyperparameter_Analysis/01_Input
+/20_PostProcess/01_Hyperparameter_Analysis/90_Output
 .Rhistory
-.RData
-.Ruserdata
+.Rhistory.bak
+.Rhistory

@@ -1,0 +1,104 @@
+# Required columns for the MPC simulation data frame (Main_df)
+# One column name per line; lines starting with # are comments
+
+# Timestamp
+time
+
+# External environmental conditions
+Text
+SolarR
+
+# Energy and flexibility prices
+Elec_unit_cost_buy
+Elec_unit_cost_sell
+Flex_unit_cost_down_com
+Flex_unit_cost_down_exec
+Flex_unit_cost_up_com
+Flex_unit_cost_up_exec
+
+# Flexibility probability and execution
+Flex_Probab
+Flex_Act
+Flex_Length
+Flex_Intensity
+
+# Occupancy
+Occupancy
+Act_vent
+
+# Derived variables from external conditions
+T_ext_24h
+
+# Weather forecast
+Text_forec
+Text_forec_ant
+SolarR_forec
+SolarR_forec_ant
+
+# Execution variables
+Ti
+Te
+STP_heat
+STP_heat_high
+STP_heat_low
+STP_cool
+STP_cool_high
+STP_cool_low
+Act_heat
+Act_cool
+Q_heat
+Q_cool
+Elec_heat
+Elec_cool
+Elec_total
+Elec_total_no_flex
+Elec_Cost
+Elec_flex_revenue
+Comfort
+
+# Plan variables
+Ti_plan
+Te_plan
+STP_heat_plan
+STP_heat_high_plan
+STP_heat_low_plan
+STP_cool_plan
+STP_cool_high_plan
+STP_cool_low_plan
+Act_heat_plan
+Act_cool_plan
+Q_heat_plan
+Q_cool_plan
+Elec_heat_plan
+Elec_cool_plan
+Elec_total_plan
+Elec_Cost_Plan
+Comfort_plan
+
+# Plan_flex variables
+Ti_plan_flex
+Te_plan_flex
+STP_heat_plan_flex
+STP_heat_high_plan_flex
+STP_heat_low_plan_flex
+STP_cool_plan_flex
+STP_cool_high_plan_flex
+STP_cool_low_plan_flex
+Act_heat_plan_flex
+Act_cool_plan_flex
+Q_heat_plan_flex
+Q_cool_plan_flex
+Elec_heat_plan_flex
+Elec_cool_plan_flex
+Elec_total_plan_flex
+Comfort_plan_flex
+
+# Reward calculation variables
+Elec_flex_plan
+Elec_flex_com_revenue_plan
+Elec_flex_exec_revenue_plan
+Elec_flex_revenue_plan
+Reward
+
+# Added during simulation
+MarketUTC
