@@ -1,0 +1,57 @@
+# Inspection control
+{
+  inspection_range <- 1:240
+}
+
+
+        # Inspection: scheduling begin (after simulation_control update)
+        {
+          inspection_step  <- CONT_003
+          inspection_proc  <- "scheduling"
+          inspection_phase <- "begin"
+          source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+        }
+
+
+        # Inspection: scheduling end
+        {
+          inspection_step  <- CONT_003
+          inspection_proc  <- "scheduling"
+          inspection_phase <- "end"
+          source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+        }
+
+
+        # Inspection: piloting begin (after simulation_control update)
+        {
+          inspection_step  <- CONT_003
+          inspection_proc  <- "piloting"
+          inspection_phase <- "begin"
+          source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+        }
+
+
+        # Inspection: piloting end
+        {
+          inspection_step  <- CONT_003
+          inspection_proc  <- "piloting"
+          inspection_phase <- "end"
+          source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+        }
+
+
+      # Inspection: execution begin (after simulation_control update)
+      {
+        inspection_step  <- CONT_003
+        inspection_proc  <- "execution"
+        inspection_phase <- "begin"
+        source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+      }
+
+      # Inspection: execution end
+      {
+        inspection_step  <- CONT_003
+        inspection_proc  <- "execution"
+        inspection_phase <- "end"
+        source(file.path("30_Simulation", "04_Scripts", "inspection_step.R"))
+      }

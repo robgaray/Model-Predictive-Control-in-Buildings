@@ -1,0 +1,14 @@
+# Required R libraries for MPC simulation
+# cli must be listed first to ensure it is installed/loaded before tidyr and
+# other packages that require cli >= 3.6.1, overriding the system version
+# pre-loaded by the R module on SCC environments.
+cli
+readr
+dplyr
+tidyr
+ggplot2
+zoo
+GA
+lubridate
+doParallel
+data.table

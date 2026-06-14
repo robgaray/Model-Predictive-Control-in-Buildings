@@ -1,54 +1,95 @@
 source_item,called_item,type,variables_passed,variables_returned
 Main.R,initialization.R (04_Scripts),sources,(none),"functions loaded, libraries loaded"
-Main.R,data_model_parameters.R,sources,(none),"Main_df, parameters$model, parameters$reward, parameters$forecast"
-Main.R,control_optimization_parameters.R,sources,(none),"parameters$control, parameters$optimization, parameters$debug_and_config, parameters$setpoint_modes"
+Main.R,load_all_parameters.R,sources,(none),"Main_df, parameters (all sub-lists)"
+Main.R,market_columns_setup.R,sources,(none),Main_df (Sched_ and Pilot_ market columns initialized and mapped)
 Main.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
+Main.R,generate_occupancy_profiles.R,sources,(none),Main_df$Occupancy (generated)
+Main.R,generate_scheduling_profiles.R,sources,(none),Main_df$Scheduling (generated)
+Main.R,climate_priority.R,sources,(none),Main_df$Overall_Climate (generated)
+Main.R,reference_temperature_profiles.R,sources,(none),"Main_df$Service_T_*, Main_df$Scheduling_T_* (generated)"
 Main.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
-Main.R,data_outputs.R,sources,(none),CSV/RDS files written to output_path
+Main.R,data_outputs.R,sources,(none),CSV/RDS files written to paths$output_path
 initialization.R (04_Scripts),initialization.R (03_Functions),sources,(none),initialization() function defined
-initialization.R (04_Scripts),initialization(),calls,"library_file, functions_path","all 03_Functions/*.R sourced, libraries loaded"
-data_model_parameters.R,validate_Main_df(),calls,Main_df,TRUE or error
-data_model_parameters.R,load_parameters(),calls,"model_file, reward_file, forecast_file",parameters$model/reward/forecast
-control_optimization_parameters.R,load_control_parameters(),calls,control_file,parameters$control
-control_optimization_parameters.R,load_optimization_parameters(),calls,optimization_file,parameters$optimization
-control_optimization_parameters.R,load_debug_and_config_parameters(),calls,debug_and_config_file,parameters$debug_and_config
-simulation.R,context_forecast_step(),calls,"i0, time_sec, Main_df, parameters, i_end_horizon","ctx list with forecast_df"
-simulation.R,implement_control_step(),calls,"period_chunk, indexes, timestamps, parameters",period_chunk (simulated)
-simulation.R,optimize_control_step(),calls,"period_chunk, target_periods, parameters","{set_point_actual, period_chunk}"
+initialization.R (04_Scripts),initialization(),calls,"paths$library_file, functions_path","all 03_Functions/*.R sourced, libraries loaded"
+load_all_parameters.R,load_03_physical_properties.R,sources,(none),parameters$physical_properties
+load_all_parameters.R,load_04_use_patterns.R,sources,(none),parameters$use_patterns
+load_all_parameters.R,load_11_model_parameters.R,sources,(none),parameters$model
+load_all_parameters.R,load_18_reward_parameters.R,sources,(none),parameters$reward
+load_all_parameters.R,load_19_forecast_parameters.R,sources,(none),parameters$forecast
+load_all_parameters.R,load_12_control_parameters.R,sources,(none),parameters$control
+load_all_parameters.R,load_13_modes_setpoints.R,sources,(none),parameters$setpoint_modes
+load_all_parameters.R,load_14_optimization_parameters.R,sources,(none),parameters$optimization
+load_all_parameters.R,load_15_market_config.R,sources,(none),parameters$market
+load_all_parameters.R,load_16_market_config_scheduling.R,sources,(none),parameters$market_config_scheduling
+load_all_parameters.R,load_17_market_config_piloting.R,sources,(none),parameters$market_config_piloting
+load_all_parameters.R,load_30_debug_and_config.R,sources,(none),parameters$debug_and_config
+load_all_parameters.R,validate_Main_df(),calls,Main_df,TRUE or error
+load_03_physical_properties.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_03_physical_properties.R,validate_physical_properties(),calls,parameters$physical_properties,TRUE or error
+load_11_model_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_11_model_parameters.R,validate_model_parameters(),calls,model_params_raw,validated model params
+load_11_model_parameters.R,compute_Rvent(),calls,"model_params_raw, parameters$physical_properties",model_params_raw with Rvent fields
+load_12_control_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_12_control_parameters.R,load_control_parameters(),calls,paths$control_file,parameters$control
+load_14_optimization_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_14_optimization_parameters.R,load_optimization_parameters(),calls,paths$optimization_file,parameters$optimization
+load_15_market_config.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_15_market_config.R,load_market_parameters(),calls,paths$market_file,parameters$market
+load_15_market_config.R,map_optimization_aim(),calls,"aim_raw, column_name, row_index","'energy' or 'flexibility'"
+load_18_reward_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_19_forecast_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_30_debug_and_config.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_30_debug_and_config.R,load_debug_and_config_parameters(),calls,paths$debug_and_config_file,parameters$debug_and_config
+simulation.R,inspection_step.R,sources (conditional),"inspection_step, inspection_proc, inspection_phase, Main_df, simulation_control, inspection_range","snapshot CSV and diagnostic plot (side effects)"
+simulation.R,context_forecast_step(),calls,"simulation_control (Sched/Pilot-driven indexes_global), time_sec, Main_df, parameters","ctx list with forecast_df"
+simulation.R,implement_control_step(),calls,"period_chunk, simulation_control (with calculation_mode), timestamps, parameters","period_chunk (simulated)"
+simulation.R,optimize_control_step(),calls,"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
+simulation.R,is_market_active(),calls,market_name_raw,TRUE/FALSE
+simulation.R,resolve_market_index(),calls,"time_raw, column_name, row_index, time_vector",resolved index
+simulation.R,run_market_process(),calls,"prefix, row_index, period_chunk, period_start_index, needed_cols, market_parameters, simulation_control, timestamps, parameters","period_chunk and updated market metadata"
+run_market_process(),is_market_active(),calls,market_name_raw,TRUE/FALSE
+run_market_process(),resolve_market_index(),calls,"time_raw, column_name, row_index, time_vector",resolved index
+run_market_process(),map_optimization_aim(),calls,"aim_raw, column_name, row_index",optimization_aim
+run_market_process(),context_forecast_step(),calls,"simulation_control, time_sec, period_chunk, parameters","ctx list with forecast_df"
+run_market_process(),implement_control_step(),calls,"period_init, simulation_control, timestamps, parameters, calculation_context='plan'","period_init with *_plan"
+run_market_process(),optimize_control_step(),calls,"optimization_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
 context_forecast_step(),imperfect_forecast(),calls (conditional),"Main_df, parameters, i0, i_end_horizon","forecast data frame"
-implement_control_step(),period_calculation(),calls,"period_chunk, parameters, calculation_mode, set_point_df","period_chunk with Ti, Te, Q_heat, Q_cool, Elec_*"
-optimize_control_step(),optimize_setpoints(),calls (if setpoint),"period_chunk, timestamps, parameters","{set_point_actual, period_chunk}"
-optimize_control_step(),optimize_modes(),calls (if modes),"period_chunk, timestamps, parameters","{set_point_actual, period_chunk}"
-optimize_control_step(),evaluate_control(),calls (final),"period_chunk, set_point_df, parameters","period_chunk with Reward, Comfort, Elec_total"
+implement_control_step(),period_calculation(),calls,"period_chunk, parameters, calculation_mode (from simulation_control), set_point_df","period_chunk with Ti, Te, Q_heat, Q_cool, Elec_*"
+optimize_control_step(),optimize_setpoints(),calls (if setpoint),"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
+optimize_control_step(),optimize_modes(),calls (if modes),"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
+optimize_control_step(),evaluate_control(),calls (final),"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
 optimize_setpoints(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
-optimize_setpoints(),fitness_funct_optimize_setpoint(),calls (via GA),"setpoint_array, period_chunk, timestamps, parameters",scalar reward value
+optimize_setpoints(),fitness_funct_optimize_setpoint(),calls (via GA),"setpoint_array, period_chunk, timestamps, parameters, simulation_control",scalar reward value
 optimize_setpoints(),convert_setpoints(),calls,"optimized_heating, optimized_cooling, target_periods, parameters",set_point_actual
 optimize_modes(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
-optimize_modes(),fitness_funct_optimize_mode(),calls (via GA),"x_bin, period_chunk, timestamps, parameters",scalar reward value
+optimize_modes(),fitness_funct_optimize_mode(),calls (via GA),"x, n_modes, n_periods, timestamps, parameters, period_chunk, simulation_control",scalar reward value
 optimize_modes(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
 optimize_modes(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, x_mode",set_point_actual
 fitness_funct_optimize_setpoint(),convert_setpoints(),calls,"setpoint_array, target_periods, parameters",set_point_df
-fitness_funct_optimize_setpoint(),evaluate_control(),calls,"period_chunk, set_point_df, parameters",period_chunk with Reward
+fitness_funct_optimize_setpoint(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
 fitness_funct_optimize_mode(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
 fitness_funct_optimize_mode(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, maxmode_result",set_point_df
-fitness_funct_optimize_mode(),evaluate_control(),calls,"period_chunk, set_point_df, parameters",period_chunk with Reward
-evaluate_control(),period_calculation(),calls,"period_chunk, parameters",period_chunk with Comfort/Elec_total
-evaluate_control(),flex_evaluation(),calls (conditional),"period_chunk, parameters, i_flex","{period_chunk, flex_metrics}"
-evaluate_control(),reward_function(),calls,"period_chunk, parameters",period_chunk with Reward column
-flex_evaluation(),period_calculation(),calls,"period_chunk, parameters (modified setpoints)","{period_chunk, flex_metrics}"
+fitness_funct_optimize_mode(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
+evaluate_control(),period_calculation(),calls,"period_chunk, parameters, calculation_mode=1, calculation_context, set_point_df",period_chunk with *_plan columns
+evaluate_control(),initialize_plan_flex_columns(),calls,period_chunk,period_chunk with *_plan_flex baseline
+evaluate_control(),flex_evaluation(),calls (conditional),"period_chunk, parameters, simulation_control_2 (with i_flex, flexibility_event_length, flexibility set)",period_chunk with updated *_plan_flex columns
+evaluate_control(),reward_function(),calls,"period_chunk, parameters, simulation_control",period_chunk with Reward column
+flex_evaluation(),period_calculation(),calls,"period_chunk_subset, parameters, calculation_mode_vec (derived internally), calculation_context = plan_flex",period_chunk_subset with *_plan_flex simulation updates
 convert_modes_to_setpoints(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
-data_outputs.R,(none - base R),writes,"Main_df, parameters, execution_time",CSV/RDS files
+data_outputs.R,(none - base R),writes,"Main_df, parameters, execution_time, paths",CSV/RDS files
 Main_SCC.R,initialization_SCC.R,sources,(none),"functions loaded, libraries from 00_Libraries"
-Main_SCC.R,data_model_parameters.R,sources,(none),"Main_df, parameters$model, parameters$reward, parameters$forecast"
-Main_SCC.R,control_optimization_parameters_SCC.R,sources,(none),parameters with SCC command-line overrides
+Main_SCC.R,load_all_parameters.R,sources,(none),"Main_df, parameters (all sub-lists; no subsetting or market column init)"
+Main_SCC.R,control_optimization_parameters_SCC.R,sources,(none),"parameters with SCC CLI overrides, Main_df subsetted"
+Main_SCC.R,market_columns_setup.R,sources,(none),Main_df (Sched_ and Pilot_ market columns initialized and mapped)
 Main_SCC.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
+Main_SCC.R,generate_occupancy_profiles.R,sources,(none),Main_df$Occupancy (generated)
+Main_SCC.R,generate_scheduling_profiles.R,sources,(none),Main_df$Scheduling (generated)
+Main_SCC.R,climate_priority.R,sources,(none),Main_df$Overall_Climate (generated)
+Main_SCC.R,reference_temperature_profiles.R,sources,(none),"Main_df$Service_T_*, Main_df$Scheduling_T_* (generated)"
 Main_SCC.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
 Main_SCC.R,data_outputs_SCC.R,sources,(none),CSV/RDS files with SCC suffix
 initialization_SCC.R,initialization.R (03_Functions),sources,(none),initialization() function defined
-initialization_SCC.R,initialization(),calls,"library_file, functions_path, lib_path",all functions loaded with local library priority
-control_optimization_parameters_SCC.R,load_control_parameters(),calls,control_file,parameters$control
-control_optimization_parameters_SCC.R,load_optimization_parameters(),calls,optimization_file,parameters$optimization
-control_optimization_parameters_SCC.R,load_debug_and_config_parameters(),calls,debug_and_config_file,parameters$debug_and_config
+initialization_SCC.R,initialization(),calls,"paths$library_file, functions_path, lib_path",all functions loaded with local library priority
 Console_code.txt,scc_settings.sh,sources (bash),SCC_* variables,"TASKS_PER_JOB, JOB_NAME, SCC_QUEUE, SCC_QOS, SCC_USER, SCC_USERNAME, SCC_OUTPUT_FORMATS"
 Console_code.txt,Install_libraries.R,calls (Rscript),(none),R libraries installed in 00_Libraries
 Console_code.txt,Job_array_r.sh,calls (sbatch),"--array, SBATCH_EXTRA, SCC_OUTPUT_FORMATS",Slurm job submitted
@@ -57,3 +98,9 @@ Job_array_r.sh,Main_SCC.R,calls (Rscript),17 positional args from Optim_paramete
 Job_array_r.sh,scc_settings.sh,sources (bash),SCC_* variables,SCC_OUTPUT_FORMATS
 Job_array_r.sh,job_tracker.csv,reads/writes,job status update,auto-launches next pending job
 GUI_parametric.R,save_optim_params.R,calls,"df, scc_path, settings","Optim_parameters.csv, scc_settings.sh"
+PostProcess_hyperparameter_analysis.R,load_hyperparameter_data.R,sources,input_dir,global_df
+PostProcess_hyperparameter_analysis.R,compute_boxplot_stats.R,sources,"y_vals, percentile params","stats, out, n"
+PostProcess_hyperparameter_analysis.R,plot_and_save.R,sources,"draw_fn, file_path",JPEG file written
+GUI_hyperparameter.R,load_hyperparameter_data.R,sources,input_dir,global_df
+GUI_hyperparameter.R,compute_boxplot_stats.R,sources,"y_vals, percentile params","stats, out, n"
+GUI_hyperparameter.R,plot_and_save.R,sources,"draw_fn, file_path",JPEG file written

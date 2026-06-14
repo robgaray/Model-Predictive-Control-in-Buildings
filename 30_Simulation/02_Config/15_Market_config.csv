@@ -1,0 +1,12 @@
+# Market definition and horizon parameters
+parameter,value
+market_resolution,15
+Complex_Market_Config,yes
+Optimization_horizon_scheduling,36
+Implementation_horizon_scheduling,24
+Anticipation_scheduling,12
+optimization_aim_scheduling,E
+Optimization_horizon_piloting,12
+Implementation_horizon_piloting,6
+Anticipation_piloting,1
+optimization_aim_piloting,E

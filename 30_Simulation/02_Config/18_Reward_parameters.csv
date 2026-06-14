@@ -1,0 +1,16 @@
+# Reward function parameters
+parameter,value
+Alpha_Service_Min,50
+Service_T_Low,20
+Service_T_High,25
+Setback_T_Low,5
+Setback_T_High,45
+Service_Anticipation_Begin,3
+Service_Anticipation_End,3
+Service_AT_Low_Sched_HDD,2
+Service_AT_High_Sched_CDD,2
+HDD_base,15
+HDD_period,7
+CDD_base,23
+CDD_period,7
+Revenue_discount_per_hour,0.25

@@ -1,0 +1,6 @@
+# ESIOS API Token
+# ---------------
+# Place your personal ESIOS API token on the first non-comment line below.
+# Lines starting with '#' are ignored, as are blank lines.
+# Request a token at: https://www.esios.ree.es/en/access-my-esios
+YOUR_ESIOS_API_TOKEN_HERE

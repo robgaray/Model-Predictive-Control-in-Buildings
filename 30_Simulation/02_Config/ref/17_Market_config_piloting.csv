@@ -1,0 +1,26 @@
+# Market configuration table
+Market,closure,begin,end,end_optimization,aim
+cID1,1,0,24,6,E
+cID2,1,1,23,6,E
+cID3,1,2,22,6,E
+cID4,1,3,21,6,E
+cID5,1,4,20,6,E
+cID6,1,5,19,6,E
+cID7,1,6,18,6,E
+cID8,1,7,17,6,E
+cID9,1,8,16,6,E
+cID10,1,9,15,6,E
+cID11,1,10,14,6,E
+cID12,1,11,13,6,E
+cID13,1,12,12,6,E
+cID14,1,13,11,6,E
+cID15,1,14,10,6,E
+cID16,1,15,9,6,E
+cID17,1,16,8,6,E
+cID18,1,17,7,6,E
+cID19,1,18,12,6,E
+cID20,1,19,11,6,E
+cID21,1,20,10,6,E
+cID22,1,21,9,6,E
+cID23,1,22,8,6,E
+cID24,1,23,7,6,E

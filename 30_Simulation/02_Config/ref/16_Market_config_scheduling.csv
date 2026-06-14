@@ -1,0 +1,5 @@
+# Market configuration table
+Market,closure,begin,end,end_optimization,aim
+DA,12,0,24,6,E
+ID1,6,0,24,6,E
+ID2,3,0,24,6,E
