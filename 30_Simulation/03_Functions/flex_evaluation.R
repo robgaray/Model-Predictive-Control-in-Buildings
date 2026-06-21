@@ -75,7 +75,7 @@
 # -------------------------------------------------------------
 flex_evaluation <- function(period_chunk, parameters, simulation_control) {
 
-  i_flex                   <- simulation_control$indexes_global$i_flex
+  i_flex                   <- simulation_control$indexes_local$i_flex
   flexibility_event_length <- simulation_control$flexibility$flexibility_event_length
   flexibility              <- simulation_control$flexibility$flexibility
 

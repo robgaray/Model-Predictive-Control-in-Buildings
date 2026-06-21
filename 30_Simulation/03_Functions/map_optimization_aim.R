@@ -33,19 +33,19 @@ map_optimization_aim <- function(aim_raw,
                                  row_index) {
   aim_chr <- toupper(trimws(as.character(aim_raw)[1]))
 
-  if (aim_chr %in% c("E", "O")) {
+  if (aim_chr %in% c("E", "VACIO")) {
     return("energy")
   }
 
-  if (aim_chr %in% c("E+F", "O+F")) {
+  if (aim_chr %in% c("E+F", "VACIO")) {
     return("flexibility")
   }
   
-  if(aim_chr %in% c("VACIO", "VACIO")) {
+  if(aim_chr %in% c("O", "VACIO")) {
     return("operation")
   }
   
-  if(aim_chr %in% c("VACIO", "VACIO")) {
+  if(aim_chr %in% c("O+F", "VACIO")) {
     return("operationflex")
   }
 

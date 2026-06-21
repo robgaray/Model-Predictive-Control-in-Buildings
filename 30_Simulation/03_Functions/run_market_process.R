@@ -190,7 +190,6 @@ run_market_process <- function(prefix,
                                                   calculation_mode    = 1,
                                                   calculation_context = "plan")
       } else  if (parameters$control$optimization_aim == "operationflex") {
-        stop("Optimization aim not yet implemented: ", parameters$control$optimization_aim)
         optimization_chunk <- evaluate_control(period_chunk       = optimization_chunk,
                                                parameters         = parameters,
                                                simulation_control = simulation_control)$period_chunk

@@ -153,7 +153,7 @@ evaluate_control <- function(period_chunk,
         n_slots_to_test <- 1
         
         # Continue testing until we reach the end or stop condition
-        while ((CONT_002 + n_slots_to_test - 1) <= length(unique_market_slots)) {
+        while ((CONT_002 + n_slots_to_test - 1) <= length(unique_market_slots)-1) {
           
           # Get the last market_slot in the current test range
           last_market_slot_idx <- CONT_002 + n_slots_to_test - 1
