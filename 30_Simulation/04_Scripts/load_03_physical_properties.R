@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_03_physical_properties.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads physical properties from 03_Physical_properties.csv,
@@ -12,16 +12,19 @@
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$physical_properties_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
-
-  validate_parameter_config(raw_values, "03_Physical_properties.csv", validation_config)
+  # read_and_validate_parameter_csv is called to read
+  # 03_Physical_properties.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$physical_properties_file, "03_Physical_properties.csv", validation_config
+  )
 
   parameters$physical_properties <- lapply(raw_values, as.numeric)
   rm(raw_values)
 
+  # validate_physical_properties is called to apply the
+  # domain-specific consistency checks that go beyond the generic
+  # type/range validation already performed above.
   validate_physical_properties(parameters$physical_properties)
 
   cat("Physical properties loaded\n")

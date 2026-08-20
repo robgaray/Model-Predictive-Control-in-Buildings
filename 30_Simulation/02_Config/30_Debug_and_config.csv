@@ -1,7 +1,7 @@
 # Debug and configuration parameters
-parameter,value
-month_subset,1
-period_subset,2000
-verbose,1
-parallel,1
-Price_emulation,1
+parameter,value,unit
+month_subset,1,-
+period_subset,1000,-
+verbose,1,-
+parallel,1,-
+Price_emulation,1,-

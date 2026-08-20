@@ -1,0 +1,8 @@
+# Energy market price discount/premium parameters
+parameter,value,unit
+Energy_Export_discount,30,%
+Energy_Sell_discount,10,%
+Price_variation_day_ahead,-20,%
+Price_variation_5h,-10,%
+Price_variation_1_5h,0,%
+Price_variation_below_1h,25,%

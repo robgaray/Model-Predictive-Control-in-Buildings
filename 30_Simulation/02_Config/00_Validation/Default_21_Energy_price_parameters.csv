@@ -1,0 +1,10 @@
+# Default values for 21_Energy_price_parameters.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 21_Energy_price_parameters.csv.
+# Energy market price discount/premium parameters
+parameter,value,unit
+Energy_Export_discount,30,%
+Energy_Sell_discount,10,%
+Price_variation_day_ahead,-20,%
+Price_variation_5h,-10,%
+Price_variation_1_5h,0,%
+Price_variation_below_1h,25,%

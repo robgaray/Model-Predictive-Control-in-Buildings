@@ -1,6 +1,6 @@
 # Physical properties of building materials and air
-parameter,value
+parameter,value,unit
 #
 # Properties of air
-Cp_air,1.005
-dens_air,1.204
+Cp_air,1.005,kJ/(kg.K)
+dens_air,1.204,kg/m3

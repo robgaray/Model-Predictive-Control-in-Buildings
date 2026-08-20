@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: map_optimization_aim.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Maps raw market aim values to internal optimization aim labels.
@@ -22,7 +22,7 @@
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by run_market_process(), load_15_market_config.R,
-# market_columns_setup.R.
+# load_market_config_table().
 # -------------------------------------------------------------
 # functions/scripts called
 # (none)
@@ -33,19 +33,19 @@ map_optimization_aim <- function(aim_raw,
                                  row_index) {
   aim_chr <- toupper(trimws(as.character(aim_raw)[1]))
 
-  if (aim_chr %in% c("E", "VACIO")) {
+  if (aim_chr == "E") {
     return("energy")
   }
 
-  if (aim_chr %in% c("E+F", "VACIO")) {
+  if (aim_chr == "E+F") {
     return("flexibility")
   }
   
-  if(aim_chr %in% c("O", "VACIO")) {
+  if (aim_chr == "O") {
     return("operation")
   }
   
-  if(aim_chr %in% c("O+F", "VACIO")) {
+  if (aim_chr == "O+F") {
     return("operationflex")
   }
 

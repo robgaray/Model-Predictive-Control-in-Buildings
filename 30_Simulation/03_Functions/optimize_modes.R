@@ -225,9 +225,10 @@ ga_mutation_int <- function(object, parent, ...) {
 #                      parameters$optimization (population_size,
 #                        iteration_number, run_number, pcrossover, pmutation,
 #                        parallel, as returned by load_optimization_parameters())
-#   indexes        : Named list. Index metadata (passed through for
+#   simulation_control : Named list. Index/step metadata (passed through for
 #                    interface consistency).
-# NOTE: This parameter is named 'simulation_control' in the calling code.
+#   marginal_context : Named list or NULL. Passed through to the fitness
+#                    function and, via clusterExport(), to worker processes.
 #
 # Outputs
 #   set_point_optimized : Data frame with setpoint columns and hysteresis
@@ -265,6 +266,7 @@ ga_mutation_int <- function(object, parent, ...) {
 #   ga_crossover_int()             - custom crossover operator (this file)
 #   ga_mutation_int()              - custom mutation operator (this file)
 #   fitness_funct_optimize_mode()  - GA fitness function
+#   maxmode()                      - pairs the best GA solution with target_periods
 #   convert_modes_to_setpoints()   - maps mode selections to setpoint values
 #   evaluate_control()             - building simulation and reward
 #                                    (called inside fitness function)
@@ -274,11 +276,22 @@ ga_mutation_int <- function(object, parent, ...) {
 #                                    (called inside evaluate_control)
 #   reward_function()              - reward calculation
 #                                    (called inside evaluate_control)
+#   compute_marginal_energy_cost() - marginal cash flow, base-energy term
+#                                    (called inside reward_function, when
+#                                    marginal_context is provided)
+#   compute_marginal_distribution_cost() - marginal distribution cost
+#                                    (called inside reward_function, when
+#                                    marginal_context is provided)
+#   compute_marginal_flex_revenue() - marginal cash flow, explicit
+#                                    flexibility term (called inside
+#                                    reward_function, flexibility/
+#                                    operationflex modes only)
 # -------------------------------------------------------------
 optimize_modes <- function(period_chunk,
                            timestamps,
                            parameters,
-                           simulation_control
+                           simulation_control,
+                           marginal_context = NULL
                            ) {
   
   # 1. Define GA chromosome structure for mode selection (integer vector)
@@ -323,20 +336,39 @@ optimize_modes <- function(period_chunk,
         varlist = c(
           "fitness_funct_optimize_mode",
           "evaluate_control",
+          "maxmode",
           "convert_modes_to_setpoints",
           "period_calculation",
           "flex_evaluation",
           "reward_function",
+          "compute_marginal_energy_cost",
+          "compute_marginal_distribution_cost",
+          "compute_marginal_flex_revenue",
+          "calc_differential_cost",
+          "split_market_operation",
+          "value_flex_operation",
           "initialize_plan_flex_columns",
           "period_chunk",
           "parameters2",
           "timestamps",
           "n_periods",
           "n_modes",
-          "simulation_control"
+          "simulation_control",
+          "marginal_context"
           ),
         envir = environment()
         )
+
+      # Compile C++ simulation module on each worker process
+      clusterExport(
+        cl,
+        "cpp_source_path",
+        envir = globalenv()
+      )
+      clusterEvalQ(
+        cl,
+        Rcpp::sourceCpp(cpp_source_path)
+      )
     }
   }
 
@@ -359,8 +391,13 @@ optimize_modes <- function(period_chunk,
       population = ga_population_int,
       crossover  = ga_crossover_int,
       mutation   = ga_mutation_int,
-      parallel   = (parameters$debug_and_config$parallel == 1),
+      parallel   = if (parameters$debug_and_config$parallel == 1) cl else FALSE,
       monitor    = FALSE,
+      # fitness_funct_optimize_mode is wired in as the GA's fitness
+      # function so every candidate chromosome is scored through the
+      # same period_calculation()/evaluate_control()/reward_function()
+      # pipeline used elsewhere, keeping the reward calculation
+      # consistent across optimization paths.
       fitness    = function(x) fitness_funct_optimize_mode(
                                  x                 = as.integer(round(x)),
                                  n_modes           = n_modes,
@@ -368,17 +405,24 @@ optimize_modes <- function(period_chunk,
                                  timestamps        = timestamps,
                                  parameters        = parameters2,
                                  period_chunk      = period_chunk,
-                                 simulation_control = simulation_control
+                                 simulation_control = simulation_control,
+                                 marginal_context  = marginal_context
                                )
     )
   }
 
   # 5. Stop cluster (if parallel)
   # -------------------------------------------------------------
+  # rm(cl) + gc() force the PSOCK connection objects to be released
+  # right away; otherwise R's automatic gc cycles may not reach them
+  # before the session ends, and they get closed with a warning at exit.
+  # -------------------------------------------------------------
   {
     if (parameters$debug_and_config$parallel == 1) {
       stopCluster(cl)
       registerDoSEQ()
+      rm(cl)
+      gc(verbose = FALSE)
     }
   }
 
@@ -389,11 +433,13 @@ optimize_modes <- function(period_chunk,
   # -------------------------------------------------------------
   {
     best_solution <- as.integer(round(ga_result@solution[1, ]))
-    
+
     # Create mode data frame
-    setpoint_modes_df_optimized <- data.frame(
-      period  = timestamps$target_periods,
-      maxmode = best_solution
+    setpoint_modes_df_optimized <- maxmode(
+      x              = best_solution,
+      n_modes        = n_modes,
+      n_periods      = n_periods,
+      target_periods = timestamps$target_periods
     )
     rm(ga_result, best_solution)
 

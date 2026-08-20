@@ -1,0 +1,65 @@
+# Simulation_Variables_Building.txt
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Declarative registry of System_df's state/control/economic variables
+# for this building model. Read by generate_system_df.R (sourced from
+# assemble_main_df.R) to build System_df's column set automatically,
+# so that a different building model (different period_calculation
+# logic, different physical properties) can define its own variable
+# set here without any change to the loading code. See
+# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part C.
+#
+# Columns:
+#   variable      : base variable name.
+#   type          : semantic category (state | context | action | energy |
+#                   economic | evaluation | optimization). Documentation
+#                   only, not used to drive any logic.
+#   initial_value : generic value used to initialize the variable at
+#                   row 1 when no other source of a real initial
+#                   condition exists. Ti and Te are the documented
+#                   exception: their row-1 value is overwritten by
+#                   parameters$model$Ti_0/Te_0 in simulation.R
+#                   (Model initialization block), regardless of the
+#                   generic value declared here - see Part G of the
+#                   plan document above.
+#   scenario      : yes -> the variable is expanded into 3 columns,
+#                   <variable>_exec, <variable>_plan, <variable>_plan_flex.
+#                   no  -> the variable is kept as a single column,
+#                   <variable>, with no suffix.
+# -------------------------------------------------------------
+variable	type	initial_value	scenario
+Ti	state	0	yes
+Te	state	0	yes
+Scheduling	context	0	no
+Occupancy	context	0	no
+STP_heat	action	0	yes
+STP_heat_high	context	0	yes
+STP_heat_low	context	0	yes
+STP_cool	action	0	yes
+STP_cool_high	context	0	yes
+STP_cool_low	context	0	yes
+Comfort	evaluation	0	yes
+Act_vent	action	0	no
+Act_heat	action	0	yes
+Act_cool	action	0	yes
+Q_heat	action	0	yes
+Q_cool	action	0	yes
+Elec_heat	energy	0	yes
+Elec_cool	energy	0	yes
+Elec_total	energy	0	yes
+Elec_total_no_flex	energy	0	no
+Elec_flex_plan	energy	0	no
+Elec_purchase_cost_market	economic	0	no
+Elec_sell_revenue_market	economic	0	no
+Elec_flex_sell_revenue_market	economic	0	no
+Elec_flex_purchase_cost_market	economic	0	no
+Elec_market_net_cost_h	economic	0	no
+Elec_deviations_net_cost_h	economic	0	no
+Elec_net_cost_h	economic	0	no
+Elec_flex_commitment_revenue_h	economic	0	no
+Elec_flex_execution_revenue_h	economic	0	no
+Elec_flex_deviations_net_cost_h	economic	0	no
+Elec_cost_distr_h	economic	0	no
+Reward	optimization	0	no

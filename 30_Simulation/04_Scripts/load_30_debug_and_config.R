@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_30_debug_and_config.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads debug and configuration parameters from
@@ -13,15 +13,17 @@
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$debug_and_config_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
+  # read_and_validate_parameter_csv is called to read
+  # 30_Debug_and_config.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$debug_and_config_file, "30_Debug_and_config.csv", validation_config
+  )
 
-  validate_parameter_config(raw_values, "30_Debug_and_config.csv", validation_config)
+  # load_debug_and_config_parameters is called to turn the raw
+  # key/value pairs into the structured debug/config parameter list.
+  parameters$debug_and_config <- load_debug_and_config_parameters(raw_values)
   rm(raw_values)
-
-  parameters$debug_and_config <- load_debug_and_config_parameters(paths$debug_and_config_file)
 
   cat("Debug and config parameters loaded\n")
 }

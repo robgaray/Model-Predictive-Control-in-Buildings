@@ -38,7 +38,7 @@
 # model_parameters <- compute_Rvent(model_parameters, physical_properties)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by data_model_parameters.R after loading model_parameters
+# Called by load_11_model_parameters.R after loading model_parameters
 # and physical_properties.
 # -------------------------------------------------------------
 # functions/scripts called

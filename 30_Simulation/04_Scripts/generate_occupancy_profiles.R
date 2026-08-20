@@ -1,13 +1,13 @@
 # -------------------------------------------------------------
 # Script: generate_occupancy_profiles.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Generates Main_df$Occupancy from parameters$use_patterns.
 # Each timestamp is mapped to a MONTH row, weekday column and
 # hourly TYPE value. Hour 00 is mapped to H24.
-# Sourced by Main.R and Main_SCC.R before simulation.
+# Sourced by Main.R before simulation.
 # -------------------------------------------------------------
 
 {

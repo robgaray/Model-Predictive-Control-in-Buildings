@@ -1,5 +1,6 @@
 # Market configuration table
 Market,closure,begin,end,end_optimization,aim
+text,h,h,h,h,code
 cID1,1,0,24,6,O
 cID2,1,1,23,6,O+F
 cID3,1,2,22,6,O

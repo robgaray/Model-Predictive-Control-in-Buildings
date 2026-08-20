@@ -1,33 +1,28 @@
 # -------------------------------------------------------------
 # Script: load_19_forecast_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads forecast parameters from 19_Forecast_parameters.csv,
 # validates values against Parameter_config.csv, reads
 # forecast_type directly as text ("accurate" or "inaccurate"),
-# validates it strictly, and stores the result in
-# parameters$forecast.
+# and stores the result in parameters$forecast. Its validity is
+# already enforced by Parameter_config.csv (Options type, Error
+# level, "accurate,inaccurate") inside
+# read_and_validate_parameter_csv(), so it is not re-checked here.
 # Sourced from load_all_parameters.R.
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$forecast_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
-
-  validate_parameter_config(raw_values, "19_Forecast_parameters.csv", validation_config)
+  # read_and_validate_parameter_csv is called to read
+  # 19_Forecast_parameters.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$forecast_file, "19_Forecast_parameters.csv", validation_config
+  )
 
   forecast_type <- trimws(as.character(raw_values$forecast_type))
-
-  if (!forecast_type %in% c("accurate", "inaccurate")) {
-    stop(paste0(
-      "Invalid forecast_type: '", forecast_type,
-      "'. Must be 'accurate' or 'inaccurate'."
-    ))
-  }
 
   text_params <- c("forecast_type")
   numeric_values <- lapply(raw_values[!names(raw_values) %in% text_params], as.numeric)

@@ -1,20 +1,19 @@
 # -------------------------------------------------------------
 # Function: load_control_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# This function reads a CSV configuration file containing control
-# parameters and returns them as a named list.
-# The CSV file must have at least two columns: 'parameter' and 'value'.
-# Lines beginning with '#' are treated as comments and ignored.
+# This function structures the already-parsed, already-validated
+# control parameters (as read and validated by
+# read_and_validate_parameter_csv()) into a named list.
 # Numeric values are coerced to numeric. The control_type parameter
 # is read as text ("modes" or "setpoints") and returned as-is.
 # -------------------------------------------------------------
 # Inputs
-#   control_file : Character. Path to the CSV configuration file that
-#                  defines control parameters. Expected parameters in
-#                  the file are:
+#   values : Named list. Raw parameter/value pairs for control
+#            parameters, as returned by read_and_validate_parameter_csv().
+#            Expected parameters are:
 #                    set_point_range_heating_low  – lower bound of heating setpoint range (°C)
 #                    set_point_range_heating_high – upper bound of heating setpoint range (°C)
 #                    set_point_range_cooling_low  – lower bound of cooling setpoint range (°C)
@@ -46,39 +45,30 @@
 #     flexibility_splits        : Numeric scalar. Number of flexibility fraction steps for parametric evaluation.
 # -------------------------------------------------------------
 # Code outline
-# 1. Read CSV configuration file
-# 2. Extract control_type as text; convert all other values to numeric
+# 1. Extract control_type as text; convert all other values to numeric
 # -------------------------------------------------------------
 # Usage instructions
-# params <- load_control_parameters(file_path)
+# params <- load_control_parameters(raw_values)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by control_optimization_parameters.R and control_optimization_parameters_SCC.R
+# Called by load_12_control_parameters.R.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - control_type must be "modes" or "setpoints"; any other value will produce
-#     an error when validated by validate_parameter_config().
+#     an error when validated by validate_parameter_config() (in
+#     read_and_validate_parameter_csv(), before this function is called).
 #   - All non-text values are read as character and then coerced to numeric;
 #     non-numeric entries in the 'value' column will produce NA with a coercion
 #     warning.
-#   - Comment lines (starting with '#') in the CSV are skipped via the
-#     comment.char = "#" argument to read.csv().
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)
 # -------------------------------------------------------------
 
-load_control_parameters <- function(control_file) {
-  
-  # Read CSV and separate text vs numeric parameters
+load_control_parameters <- function(values) {
+
+  # Separate text vs numeric parameters
   {
-    df <- read.csv(control_file, comment.char = "#",
-                   stringsAsFactors = FALSE)
-    
-    values <- as.list(df$value)
-    names(values) <- df$parameter
-    rm(df)
-    
     control_type <- trimws(as.character(values$control_type))
     
     text_params <- c("control_type")

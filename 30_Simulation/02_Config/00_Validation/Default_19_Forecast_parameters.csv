@@ -1,0 +1,8 @@
+# Default values for 19_Forecast_parameters.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 19_Forecast_parameters.csv.
+# Weather forecast parameters
+parameter,value,unit
+forecast_type,accurate,text (accurate/inaccurate)
+forecast_n_days_back,7,days
+forecast_weight_history,0.2,-
+t_ext_24h_default,10,degC

@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: fitness_funct_optimize_setpoint.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function is the fitness function used by the Genetic Algorithm
@@ -25,6 +25,7 @@
 #                                                  period timestamps.
 #   simulation_control : Named list. Simulation control object passed through
 #                        to evaluate_control().
+#   marginal_context   : Named list or NULL. Passed through to evaluate_control().
 #
 # Outputs
 #   evaluation : Numeric scalar. Reward value extracted from evaluate_control()
@@ -50,9 +51,13 @@ fitness_funct_optimize_setpoint <- function(setpoint_array,
                                             period_chunk,
                                             parameters,
                                             timestamps,
-                                            simulation_control) {
+                                            simulation_control,
+                                            marginal_context = NULL) {
   horizon <- length(timestamps$target_periods)
 
+  # convert_setpoints is called to reshape this GA candidate's raw
+  # heating/cooling setpoint array into the structured setpoint data
+  # frame (with hysteresis deadbands) required by evaluate_control().
   set_point_df <- convert_setpoints(
     setpoints_heating = setpoint_array[1:horizon],
     setpoints_cooling = setpoint_array[(horizon + 1):(2 * horizon)],
@@ -60,11 +65,15 @@ fitness_funct_optimize_setpoint <- function(setpoint_array,
     target_periods    = timestamps$target_periods
   )
 
+  # evaluate_control is called to simulate the building over this
+  # candidate's setpoint schedule and return the scalar reward that the
+  # GA uses to rank this individual.
   evaluation <- evaluate_control(
     period_chunk       = period_chunk,
     set_point_df       = set_point_df,
     parameters         = parameters,
-    simulation_control = simulation_control
+    simulation_control = simulation_control,
+    marginal_context   = marginal_context
   )
 
   return(evaluation$reward)

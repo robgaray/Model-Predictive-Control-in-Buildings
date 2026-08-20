@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: initialization.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This script performs the initialization phase of the MPC simulation.
@@ -11,14 +11,19 @@
 #   3. Initialises file directory paths
 #   4. Validates required files and directories
 #   5. Loads libraries and functions
+#   6. Compiles the C++ simulation module
 # -------------------------------------------------------------
 # Inputs
 # (none) - this script initializes the environment from scratch.
 # -------------------------------------------------------------
 # Outputs
-# functions_path : Character. Path to the functions directory.
 # paths : List. Paths to all required data/config files used by Main.R
 # and sourced scripts (e.g., paths$control_file, paths$output_path).
+# (functions_path is created and used internally to source
+# 03_Functions/*.R via initialization(), then rm()'d before this script
+# ends - it does not persist in the environment.)
+# period_simulation_cpp() : Function. Exposed by Rcpp::sourceCpp() from
+# 30_Simulation/03_1_Functions_Cpp/period_simulation_cpp.cpp.
 # -------------------------------------------------------------
 # Code outline
 # 1. Clean environment
@@ -26,6 +31,7 @@
 # 3. Initialize file paths
 # 4. Validate required files and directories
 # 5. Load libraries and functions
+# 6. Compile the C++ simulation module
 # -------------------------------------------------------------
 # Usage
 # source(file.path("30_Simulation", "04_Scripts", "initialization.R"))
@@ -66,7 +72,11 @@
   
   paths <- list(
     output_path                 = file.path(WD, "30_Simulation", "90_Output"),
-    main_file                   = file.path(data_path, "Main_df.rds"),
+    meteo_file                  = file.path(data_path, "Meteo_df.rds"),
+    energy_prices_file          = file.path(data_path, "Energy_Prices_df.rds"),
+    meteo_validation_file       = file.path(config_path, "00_Validation", "Validation_Meteo_df.csv"),
+    energy_prices_validation_file = file.path(config_path, "00_Validation", "Validation_Energy_Prices_df.csv"),
+    system_variables_file       = file.path(config_path, "01_Model_Descriptions", "01_Building", "Simulation_Variables_Building.txt"),
     library_file                = file.path(config_path, "01_Libraries.txt"),
     needed_cols_file            = file.path(config_path, "02_Needed_cols.csv"),
     model_file                  = file.path(config_path, "11_Model_parameters.csv"),
@@ -81,7 +91,8 @@
     market_config_piloting_file   = file.path(config_path, "17_Market_config_piloting.csv"),
     forecast_file               = file.path(config_path, "19_Forecast_parameters.csv"),
     debug_and_config_file       = file.path(config_path, "30_Debug_and_config.csv"),
-    flex_price_sim_file         = file.path(config_path, "20_Flex_price_simulation.csv"),
+    energy_price_file           = file.path(config_path, "21_Energy_price_parameters.csv"),
+    flexibility_generation_file = file.path(config_path, "22_Flexibility_generation_parameters.csv"),
     parameter_validation_file   = file.path(config_path, "00_Validation", "Parameter_config.csv")
   )
 
@@ -115,10 +126,32 @@
 # Loading of libraries and functions
 # -----------------------------------------------------------
 {
+  # The initialization() function (03_Functions/initialization.R) is
+  # sourced first so it becomes available to call.
   source(file.path(functions_path, "initialization.R"))
+  # initialization() is called to load the required libraries listed
+  # in paths$library_file and to source every function file under
+  # functions_path, making all project functions available.
   initialization(paths$library_file, functions_path)
-  
-  cat("libraries loaded\n")
-  cat("functions loaded\n")
+
   rm(functions_path)
+}
+
+# -----------------------------------------------------------
+# Compilation of the C++ simulation module
+# -----------------------------------------------------------
+{
+  cpp_source_path <- normalizePath(
+    file.path(
+      "30_Simulation",
+      "03_1_Functions_Cpp",
+      "period_simulation_cpp.cpp"
+    ),
+    mustWork = TRUE
+  )
+  # Rcpp::sourceCpp compiles and loads period_simulation_cpp.cpp so
+  # that period_simulation_cpp() is callable as an R function for the
+  # rest of the simulation.
+  Rcpp::sourceCpp(cpp_source_path)
+  cat("C++ simulation module compiled\n")
 }

@@ -1,6 +1,6 @@
 # Parameter validation configuration file
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Structure:
@@ -71,6 +71,11 @@ file_name,parameter_name,type,output,options
 15_Market_config.csv,Implementation_horizon_piloting,Real,Error,"1,24"
 15_Market_config.csv,Anticipation_piloting,Real,Error,"0,24"
 15_Market_config.csv,optimization_aim_piloting,Options,Error,"O,E,O+F,E+F"
+15_Market_config.csv,Max_flex_periods_day,Integer,Error,"0,24"
+15_Market_config.csv,Max_flex_com_price,Real,Error,"0,1000"
+15_Market_config.csv,Max_flex_exec_price,Real,Error,"0,1000"
+15_Market_config.csv,Max_flex_period_duration,Real,Error,"0,24"
+15_Market_config.csv,Max_flex_probability,Real,Error,"0,1"
 18_Reward_parameters.csv,Alpha_Service_Min,Real,Error,"0,1000"
 18_Reward_parameters.csv,Service_T_Low,Real,Error,"-20,60"
 18_Reward_parameters.csv,Service_T_High,Real,Error,"-20,60"
@@ -80,15 +85,26 @@ file_name,parameter_name,type,output,options
 18_Reward_parameters.csv,Service_Anticipation_End,Real,Error,"0,24"
 18_Reward_parameters.csv,Service_AT_Low_Sched_HDD,Real,Error,"0,20"
 18_Reward_parameters.csv,Service_AT_High_Sched_CDD,Real,Error,"0,20"
-18_Reward_parameters.csv,HDD_base,Real,Error,"-30,30"
+18_Reward_parameters.csv,T_ref_Heating_Season,Real,Error,"-30,30"
 18_Reward_parameters.csv,HDD_period,Real,Error,"1,60"
-18_Reward_parameters.csv,CDD_base,Real,Error,"-30,50"
+18_Reward_parameters.csv,T_ref_Cooling_Season,Real,Error,"-30,50"
 18_Reward_parameters.csv,CDD_period,Real,Error,"1,60"
 18_Reward_parameters.csv,Revenue_discount_per_hour,Real,Error,"0,1"
 19_Forecast_parameters.csv,forecast_type,Options,Error,"accurate,inaccurate"
 19_Forecast_parameters.csv,forecast_n_days_back,Integer,Error,"1,365"
 19_Forecast_parameters.csv,forecast_weight_history,Real,Error,"0,1"
 19_Forecast_parameters.csv,t_ext_24h_default,Real,Error,"-30,60"
+21_Energy_price_parameters.csv,Energy_Export_discount,Real,Error,"0,100"
+21_Energy_price_parameters.csv,Energy_Sell_discount,Real,Error,"0,100"
+21_Energy_price_parameters.csv,Price_variation_day_ahead,Real,Error,"-100,100"
+21_Energy_price_parameters.csv,Price_variation_5h,Real,Error,"-100,100"
+21_Energy_price_parameters.csv,Price_variation_1_5h,Real,Error,"-100,100"
+21_Energy_price_parameters.csv,Price_variation_below_1h,Real,Error,"-100,100"
+22_Flexibility_generation_parameters.csv,Max_shift_hours,Real,Error,"0,24"
+22_Flexibility_generation_parameters.csv,P_advance,Real,Error,"0,1"
+22_Flexibility_generation_parameters.csv,P_delay,Real,Error,"0,1"
+22_Flexibility_generation_parameters.csv,P_event_base,Real,Error,"0,1"
+22_Flexibility_generation_parameters.csv,decay_rate,Real,Error,"0,100"
 30_Debug_and_config.csv,month_subset,Integer,Error,"0,12"
 30_Debug_and_config.csv,period_subset,Integer,Error,"0,1000000"
 30_Debug_and_config.csv,verbose,Options,Error,"0,1"

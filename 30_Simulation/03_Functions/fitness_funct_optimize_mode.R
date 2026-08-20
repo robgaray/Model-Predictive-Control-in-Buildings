@@ -30,6 +30,7 @@
 #                  period_calculation() (called inside evaluate_control()).
 #   simulation_control : Named list. Simulation control object passed through
 #                        to evaluate_control().
+#   marginal_context   : Named list or NULL. Passed through to evaluate_control().
 #
 # Outputs
 #   evaluation : Numeric scalar. Reward value extracted from evaluate_control()
@@ -47,6 +48,7 @@
 # Called by optimize_modes.R as the GA fitness function.
 # -------------------------------------------------------------
 # functions/scripts called
+#   maxmode()                   - pairs the mode index vector with target_periods
 #   convert_modes_to_setpoints() - maps mode selections to setpoint values
 #                                  with hysteresis deadbands
 #   evaluate_control()         - simulates the building and returns the scalar
@@ -58,22 +60,31 @@ fitness_funct_optimize_mode <- function(x,
                                         timestamps,
                                         parameters,
                                         period_chunk,
-                                        simulation_control) {
+                                        simulation_control,
+                                        marginal_context = NULL) {
 
   # 1. Create mode data frame from integer vector
   # -------------------------------------------------------------
   # x is already an integer vector with one mode index per period
   # -------------------------------------------------------------
   {
-    set_point_df_inner <- data.frame(
-      period  = timestamps$target_periods,
-      maxmode = as.integer(x)
+    # maxmode is called to pair this GA candidate's per-period mode
+    # indices with their corresponding target_periods timestamps, so
+    # they can be converted to setpoints below.
+    set_point_df_inner <- maxmode(
+      x              = x,
+      n_modes        = n_modes,
+      n_periods      = n_periods,
+      target_periods = timestamps$target_periods
     )
   }
 
   # 2. Convert modes to setpoints
   # -------------------------------------------------------------
   {
+    # convert_modes_to_setpoints is called to translate this candidate's
+    # mode-per-period schedule into the heating/cooling setpoint values
+    # (with hysteresis deadbands) required by evaluate_control().
     set_point_df_conv <- convert_modes_to_setpoints(
       setpoint_modes_df = set_point_df_inner,
       setpoint_modes    = parameters$setpoint_modes,
@@ -85,11 +96,15 @@ fitness_funct_optimize_mode <- function(x,
   # 3. Evaluate control and compute reward
   # -------------------------------------------------------------
   {
+    # evaluate_control is called to simulate the building over this
+    # candidate's setpoint schedule and return the scalar reward that
+    # the GA uses to rank this individual.
     evaluation <- evaluate_control(
       period_chunk       = period_chunk,
       set_point_df       = set_point_df_conv,
       parameters         = parameters,
-      simulation_control = simulation_control
+      simulation_control = simulation_control,
+      marginal_context   = marginal_context
     )
   }
 

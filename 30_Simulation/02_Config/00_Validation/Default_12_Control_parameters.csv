@@ -1,0 +1,17 @@
+# Default values for 12_Control_parameters.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 12_Control_parameters.csv.
+# HVAC control parameters
+parameter,value,unit
+set_point_range_heating_low,5,degC
+set_point_range_heating_high,26,degC
+set_point_range_cooling_low,20,degC
+set_point_range_cooling_high,50,degC
+Deadband,0.5,degC
+control_type,modes,text (modes/setpoints)
+set_point_default_cooling,24,degC
+set_point_default_heating,21,degC
+flexibility_event_length_max,2,h
+flexibility_recover_timespan,2,h
+thermal_stabilization_timespan,2,h
+minimum_flexibility,0,kW
+flexibility_splits,1,-

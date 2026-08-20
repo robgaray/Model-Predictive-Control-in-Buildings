@@ -1,15 +1,15 @@
 # HVAC control parameters
-parameter,value
-set_point_range_heating_low,5
-set_point_range_heating_high,26
-set_point_range_cooling_low,20
-set_point_range_cooling_high,50
-Deadband,0.5
-control_type,modes
-set_point_default_cooling,24
-set_point_default_heating,21
-flexibility_event_length_max,2
-flexibility_recover_timespan,2
-thermal_stabilization_timespan,2
-minimum_flexibility,0
-flexibility_splits,1
+parameter,value,unit
+set_point_range_heating_low,5,degC
+set_point_range_heating_high,26,degC
+set_point_range_cooling_low,20,degC
+set_point_range_cooling_high,50,degC
+Deadband,0.5,degC
+control_type,modes,text (modes/setpoints)
+set_point_default_cooling,24,degC
+set_point_default_heating,21,degC
+flexibility_event_length_max,2,h
+flexibility_recover_timespan,2,h
+thermal_stabilization_timespan,2,h
+minimum_flexibility,0,kW
+flexibility_splits,1,-

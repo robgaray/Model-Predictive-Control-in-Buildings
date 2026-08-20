@@ -12,3 +12,4 @@ GA
 lubridate
 doParallel
 data.table
+Rcpp

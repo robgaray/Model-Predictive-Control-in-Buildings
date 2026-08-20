@@ -1,25 +1,33 @@
 # -------------------------------------------------------------
 # Function: load_optimization_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# This function reads optimization hyperparameters for the GA
-# from 14_Optimization_parameters.csv and returns them as a
-# validated named list.
+# This function structures the already-parsed optimization
+# hyperparameters for the GA (as read and validated by
+# read_and_validate_parameter_csv() from 14_Optimization_parameters.csv)
+# into a validated named list, clamping out-of-range values.
+# -------------------------------------------------------------
+# Inputs
+# values : Named list. Raw parameter/value pairs for optimization
+#          parameters, as returned by read_and_validate_parameter_csv().
+# -------------------------------------------------------------
+# Outputs
+# Named list with population_size, iteration_number, run_number,
+# pcrossover, pmutation.
+# -------------------------------------------------------------
+# Usage instructions
+# params <- load_optimization_parameters(raw_values)
+# -------------------------------------------------------------
+# Where this function/script is used
+# Called by load_14_optimization_parameters.R.
+# -------------------------------------------------------------
+# functions/scripts called
+# (none)
 # -------------------------------------------------------------
 
-load_optimization_parameters <- function(optimization_file) {
-
-  df <- read.csv(
-    optimization_file,
-    comment.char      = "#",
-    stringsAsFactors  = FALSE
-  )
-
-  values <- as.list(df$value)
-  names(values) <- trimws(df$parameter)
-  rm(df)
+load_optimization_parameters <- function(values) {
 
   value_num <- function(name) {
     if (is.null(values[[name]])) {

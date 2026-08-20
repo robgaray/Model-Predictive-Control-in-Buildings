@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_11_model_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads model parameters from 11_Model_parameters.csv,
@@ -14,17 +14,23 @@
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$model_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
-
-  validate_parameter_config(raw_values, "11_Model_parameters.csv", validation_config)
+  # read_and_validate_parameter_csv is called to read
+  # 11_Model_parameters.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$model_file, "11_Model_parameters.csv", validation_config
+  )
 
   model_params_raw <- lapply(raw_values, as.numeric)
   rm(raw_values)
 
+  # validate_model_parameters is called to apply the domain-specific
+  # consistency checks that go beyond the generic type/range
+  # validation already performed above.
   model_params_raw <- validate_model_parameters(model_params_raw)
+  # compute_Rvent is called to derive the ventilation resistance
+  # parameters from the raw model parameters and the already-loaded
+  # physical properties, before the model list is stored.
   model_params_raw <- compute_Rvent(model_params_raw, parameters$physical_properties)
 
   parameters$model <- model_params_raw

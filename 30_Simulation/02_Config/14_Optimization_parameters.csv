@@ -1,7 +1,7 @@
 # Optimization and MPC horizon parameters
-parameter,value
-population_size,40
-iteration_number,30
-run_number,2
-pcrossover,0
-pmutation,0.2
+parameter,value,unit
+population_size,40,-
+iteration_number,30,-
+run_number,2,-
+pcrossover,0,-
+pmutation,0.2,-

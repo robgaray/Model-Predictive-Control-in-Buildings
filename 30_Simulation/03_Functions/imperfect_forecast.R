@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: imperfect_forecast.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Generates imperfect (weather) forecasts.
@@ -50,7 +50,9 @@
 # 3. Apply weighting between historical average and persistence
 # -------------------------------------------------------------
 # Usage instructions
-# forecast_df <- imperfect_forecast(i0, time_sec, Main_df, parameters, i_end_horizon)
+# forecast_df <- imperfect_forecast(Main_df, target_col = "Text",
+#   i0 = i0, i_end_horizon = i_end_horizon, n_days_back = n_days_back,
+#   forecast_weight_history = forecast_weight_history, time_col = "time")
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by context_forecast_step.R when forecast_type is "inaccurate".

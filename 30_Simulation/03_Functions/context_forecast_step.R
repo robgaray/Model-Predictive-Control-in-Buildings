@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: context_forecast_step.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function extracts or generates a fake forecast context for a
@@ -37,8 +37,13 @@
 #                        forecast_n_days_back    (default 5)
 #                        forecast_weight_history (default 0.2)
 #                        Also requires:
-#                        debug_and_config_parameters$verbose: Logical. If TRUE, progress
-#                                                             messages are printed.
+#                        debug_and_config_parameters$verbose: Logical. Read
+#                                                             into a local
+#                                                             variable but not
+#                                                             currently used
+#                                                             (no progress
+#                                                             messages are
+#                                                             printed).
 # -------------------------------------------------------------
 # Outputs
 #   A named list with one element:
@@ -97,6 +102,9 @@ context_forecast_step <- function(simulation_control,
     n_days_back             <- if (!is.null(parameters$forecast$forecast_n_days_back)) parameters$forecast$forecast_n_days_back else 5
     forecast_weight_history <- if (!is.null(parameters$forecast$forecast_weight_history)) parameters$forecast$forecast_weight_history else 0.2
     
+    # imperfect_forecast is called to blend the ground-truth external
+    # temperature with a historical average, so the returned forecast
+    # progressively deviates from the actual value along the horizon.
     pred_air_temperature <- imperfect_forecast(
       Main_df,
       target_col = "Text",
@@ -106,7 +114,9 @@ context_forecast_step <- function(simulation_control,
       forecast_weight_history = forecast_weight_history,
       time_col = "time"
     )
-    
+
+    # imperfect_forecast is called again, this time on solar radiation,
+    # to build the same kind of degraded forecast for SolarR.
     pred_solar_radiation <- imperfect_forecast(
       Main_df,
       target_col = "SolarR",

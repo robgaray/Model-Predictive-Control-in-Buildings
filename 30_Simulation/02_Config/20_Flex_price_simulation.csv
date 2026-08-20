@@ -1,7 +1,0 @@
-# Flexibility price simulation parameters
-parameter,value
-Max_flex_periods_day,2
-Max_flex_com_price,0.5
-Max_flex_exec_price,1
-Max_flex_period_duration,2
-Max_flex_probability,1

@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_04_use_patterns.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads occupancy use patterns from 04_Use_Patterns.csv,
@@ -43,11 +43,11 @@
   rm(type_lines, month_lines)
 
   if (nrow(use_type_df) > 0 &&
-      tolower(trimws(as.character(use_type_df$TYPE[1]))) == "texto") {
+      tolower(trimws(as.character(use_type_df$TYPE[1]))) == "text") {
     use_type_df <- use_type_df[-1, , drop = FALSE]
   }
   if (nrow(use_month_df) > 0 &&
-      tolower(trimws(as.character(use_month_df$MONTH[1]))) == "texto") {
+      tolower(trimws(as.character(use_month_df$MONTH[1]))) == "text") {
     use_month_df <- use_month_df[-1, , drop = FALSE]
   }
 

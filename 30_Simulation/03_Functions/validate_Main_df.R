@@ -1,12 +1,16 @@
 # -------------------------------------------------------------
 # Function: validate_Main_df.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function performs structural and content validation of the
 # main simulation data frame (Main_df) before it is used in the
-# MPC simulation loop.
+# MPC simulation loop. Main_df is assembled by assemble_main_df.R from
+# 2 real input dataframes (Meteo_df, Energy_Prices_df) and 3 synthetic
+# dataframes (System_df, Flexibility_actions_df, Meteo_transformations_df)
+# - see
+# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md.
 # It checks the following aspects:
 #   1. That Main_df is a non-empty data frame.
 #   2. That all required columns are present.
@@ -23,30 +27,46 @@
 #             all required columns listed below (both measured/input
 #             columns and output/plan columns that will be populated
 #             during the simulation run):
-#               time, Text, SolarR,
-#               Elec_unit_cost_buy, Elec_unit_cost_sell,
+#               time,
+#               # Meteo_df
+#               Text, SolarR,
+#               # Energy_Prices_df
+#               Elec_unit_cost_buy, Elec_unit_cost_distribution,
 #               Flex_unit_cost_down_com, Flex_unit_cost_down_exec,
-#               Flex_unit_cost_up_com, Flex_unit_cost_up_exec,
-#               Flex_Probab, Flex_Act,
-#               Occupancy, Scheduling, Act_vent, T_ext_24h,
-#               Text_forec, Text_forec_ant, SolarR_forec, SolarR_forec_ant,
-#               Ti, Te, STP_heat, STP_heat_high, STP_heat_low,
-#               STP_cool, STP_cool_high, STP_cool_low,
-#               Act_heat, Act_cool, Q_heat, Q_cool,
-#               Elec_heat, Elec_cool, Elec_total, Comfort,
-#               Ti_plan, Te_plan, STP_heat_plan, STP_heat_high_plan,
-#               STP_heat_low_plan, STP_cool_plan, STP_cool_high_plan,
-#               STP_cool_low_plan, Act_heat_plan, Act_cool_plan,
-#               Q_heat_plan, Q_cool_plan,
-#               Elec_heat_plan, Elec_cool_plan, Elec_total_plan, Comfort_plan,
-#               Ti_plan_flex, Te_plan_flex,
-#               STP_heat_low_plan_flex, STP_heat_high_plan_flex,
-#               STP_cool_low_plan_flex, STP_cool_high_plan_flex,
-#               Act_heat_plan_flex, Act_cool_plan_flex,
-#               Q_heat_plan_flex, Q_cool_plan_flex,
-#               Elec_heat_plan_flex, Elec_cool_plan_flex,
-#               Elec_total_plan_flex, Comfort_plan_flex,
-#               Elec_Cost, Elec_flex_plan, Reward
+#               Flex_unit_cost_up_com, Flex_unit_cost_up_exec, Flex_Probab,
+#               # System_df (from Simulation_Variables_Building.txt: 16
+#               # scenario=yes variables expanded into _exec/_plan/_plan_flex,
+#               # 17 scenario=no variables kept as a single column)
+#               Ti_exec, Ti_plan, Ti_plan_flex,
+#               Te_exec, Te_plan, Te_plan_flex,
+#               Scheduling, Occupancy,
+#               STP_heat_exec, STP_heat_plan, STP_heat_plan_flex,
+#               STP_heat_high_exec, STP_heat_high_plan, STP_heat_high_plan_flex,
+#               STP_heat_low_exec, STP_heat_low_plan, STP_heat_low_plan_flex,
+#               STP_cool_exec, STP_cool_plan, STP_cool_plan_flex,
+#               STP_cool_high_exec, STP_cool_high_plan, STP_cool_high_plan_flex,
+#               STP_cool_low_exec, STP_cool_low_plan, STP_cool_low_plan_flex,
+#               Comfort_exec, Comfort_plan, Comfort_plan_flex,
+#               Act_vent,
+#               Act_heat_exec, Act_heat_plan, Act_heat_plan_flex,
+#               Act_cool_exec, Act_cool_plan, Act_cool_plan_flex,
+#               Q_heat_exec, Q_heat_plan, Q_heat_plan_flex,
+#               Q_cool_exec, Q_cool_plan, Q_cool_plan_flex,
+#               Elec_heat_exec, Elec_heat_plan, Elec_heat_plan_flex,
+#               Elec_cool_exec, Elec_cool_plan, Elec_cool_plan_flex,
+#               Elec_total_exec, Elec_total_plan, Elec_total_plan_flex,
+#               Elec_total_no_flex,
+#               Elec_flex_plan,
+#               Elec_purchase_cost_market, Elec_sell_revenue_market,
+#               Elec_flex_sell_revenue_market, Elec_flex_purchase_cost_market,
+#               Elec_market_net_cost_h, Elec_deviations_net_cost_h, Elec_net_cost_h,
+#               Elec_flex_commitment_revenue_h, Elec_flex_execution_revenue_h,
+#               Elec_flex_deviations_net_cost_h, Elec_cost_distr_h, Reward,
+#               # Flexibility_actions_df
+#               Flex_Act,
+#               # Meteo_transformations_df
+#               T_ext_24h, Text_forec, Text_forec_ant,
+#               SolarR_forec, SolarR_forec_ant
 #
 # Outputs
 #   Invisibly returns TRUE if all checks pass.
@@ -64,7 +84,7 @@
 # validate_Main_df(Main_df)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by data_model_parameters.R after loading the main data frame.
+# Called by load_all_parameters.R after assembling Main_df.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - If Main_df is not a data frame, an error is raised via stop().
@@ -77,8 +97,8 @@
 #     listing the offending column names.
 #   - If Occupancy or Scheduling are not integer 0/1 columns, an error is
 #     raised via stop().
-#   - If binary columns (Act_vent, Act_heat, Act_cool) contain values
-#     other than 0 or 1, an error is raised via stop().
+#   - If binary columns (Act_vent, Act_heat_exec, Act_cool_exec) contain
+#     values other than 0 or 1, an error is raised via stop().
 #   - If Text is outside the range [-50, 60] °C, a warning() is issued
 #     (soft check, simulation continues).
 #   - If Elec_unit_cost_buy contains values below -1, a warning() is issued
@@ -90,141 +110,117 @@
 # -------------------------------------------------------------
 
 validate_Main_df <- function(Main_df) {
-  
+
   # ---------------------------------------------------------
   # Basic structural checks
   # ---------------------------------------------------------
   if (!is.data.frame(Main_df)) {
     stop("Main_df is not a data.frame")
   }
-  
+
   if (nrow(Main_df) == 0) {
     stop("Main_df is empty")
   }
-  
+
   # ---------------------------------------------------------
   # Required columns (contractual interface)
   # ---------------------------------------------------------
   required_cols <- c(
     # Timestamp
     "time",
-    # External environmental conditions
+    # Meteo_df
     "Text",
     "SolarR",
-    # Energy and flexibility prices
+    # Energy_Prices_df
     "Elec_unit_cost_buy",
-    "Elec_unit_cost_sell",
+    "Elec_unit_cost_distribution",
     "Flex_unit_cost_down_com",
     "Flex_unit_cost_down_exec",
     "Flex_unit_cost_up_com",
     "Flex_unit_cost_up_exec",
-    # Flexibility probability and execution
     "Flex_Probab",
-    "Flex_Act",
-    # Occupancy
-    "Occupancy",
+    # System_df - state
+    "Ti_exec", "Ti_plan", "Ti_plan_flex",
+    "Te_exec", "Te_plan", "Te_plan_flex",
+    # System_df - context
     "Scheduling",
+    "Occupancy",
+    "STP_heat_exec", "STP_heat_plan", "STP_heat_plan_flex",
+    "STP_heat_high_exec", "STP_heat_high_plan", "STP_heat_high_plan_flex",
+    "STP_heat_low_exec", "STP_heat_low_plan", "STP_heat_low_plan_flex",
+    "STP_cool_exec", "STP_cool_plan", "STP_cool_plan_flex",
+    "STP_cool_high_exec", "STP_cool_high_plan", "STP_cool_high_plan_flex",
+    "STP_cool_low_exec", "STP_cool_low_plan", "STP_cool_low_plan_flex",
+    # System_df - evaluation
+    "Comfort_exec", "Comfort_plan", "Comfort_plan_flex",
+    # System_df - action
     "Act_vent",
-    # Derived variables from external conditions
+    "Act_heat_exec", "Act_heat_plan", "Act_heat_plan_flex",
+    "Act_cool_exec", "Act_cool_plan", "Act_cool_plan_flex",
+    "Q_heat_exec", "Q_heat_plan", "Q_heat_plan_flex",
+    "Q_cool_exec", "Q_cool_plan", "Q_cool_plan_flex",
+    # System_df - energy
+    "Elec_heat_exec", "Elec_heat_plan", "Elec_heat_plan_flex",
+    "Elec_cool_exec", "Elec_cool_plan", "Elec_cool_plan_flex",
+    "Elec_total_exec", "Elec_total_plan", "Elec_total_plan_flex",
+    "Elec_total_no_flex",
+    "Elec_flex_plan",
+    # System_df - economic
+    "Elec_purchase_cost_market", "Elec_sell_revenue_market",
+    "Elec_flex_sell_revenue_market", "Elec_flex_purchase_cost_market",
+    "Elec_market_net_cost_h", "Elec_deviations_net_cost_h", "Elec_net_cost_h",
+    "Elec_flex_commitment_revenue_h", "Elec_flex_execution_revenue_h",
+    "Elec_flex_deviations_net_cost_h", "Elec_cost_distr_h",
+    # System_df - optimization
+    "Reward",
+    # Flexibility_actions_df
+    "Flex_Act",
+    # Meteo_transformations_df
     "T_ext_24h",
-    # Weather forecast
     "Text_forec",
     "Text_forec_ant",
     "SolarR_forec",
-    "SolarR_forec_ant",
-    # Execution variables
-    "Ti",
-    "Te",
-    "STP_heat",
-    "STP_heat_high",
-    "STP_heat_low",
-    "STP_cool",
-    "STP_cool_high",
-    "STP_cool_low",
-    "Act_heat",
-    "Act_cool",
-    "Q_heat",
-    "Q_cool",
-    "Elec_heat",
-    "Elec_cool",
-    "Elec_total",
-    "Comfort",
-    # Plan variables
-    "Ti_plan",
-    "Te_plan",
-    "STP_heat_plan",
-    "STP_heat_high_plan",
-    "STP_heat_low_plan",
-    "STP_cool_plan",
-    "STP_cool_high_plan",
-    "STP_cool_low_plan",
-    "Act_heat_plan",
-    "Act_cool_plan",
-    "Q_heat_plan",
-    "Q_cool_plan",
-    "Elec_heat_plan",
-    "Elec_cool_plan",
-    "Elec_total_plan",
-    "Comfort_plan",
-    # Plan_flex variables
-    "Ti_plan_flex",
-    "Te_plan_flex",
-    "STP_heat_low_plan_flex",
-    "STP_heat_high_plan_flex",
-    "STP_cool_low_plan_flex",
-    "STP_cool_high_plan_flex",
-    "Act_heat_plan_flex",
-    "Act_cool_plan_flex",
-    "Q_heat_plan_flex",
-    "Q_cool_plan_flex",
-    "Elec_heat_plan_flex",
-    "Elec_cool_plan_flex",
-    "Elec_total_plan_flex",
-    "Comfort_plan_flex",
-    # Reward calculation variables
-    "Elec_Cost",
-    "Elec_flex_plan",
-    "Reward"
+    "SolarR_forec_ant"
     )
-  
+
   missing_cols <- setdiff(required_cols, names(Main_df))
-  
+
   if (length(missing_cols) > 0) {
     stop(
       "Main_df is missing required columns:\n",
       paste(missing_cols, collapse = ", ")
     )
   }
-  
+
   # ---------------------------------------------------------
   # time consistency
   # ---------------------------------------------------------
   if (!inherits(Main_df$time, "POSIXct")) {
     stop("time must be POSIXct")
   }
-  
+
   if (any(is.na(Main_df$time))) {
     stop("time contains NA values")
   }
-  
+
   if (any(diff(as.numeric(Main_df$time)) <= 0)) {
     stop("time is not strictly increasing")
   }
-  
+
   # ---------------------------------------------------------
   # Numeric columns consistency
   # ---------------------------------------------------------
   numeric_cols <- setdiff(required_cols, "time")
-  
+
   non_numeric <- numeric_cols[!sapply(Main_df[numeric_cols], is.numeric)]
-  
+
   if (length(non_numeric) > 0) {
     stop(
       "The following columns must be numeric:\n",
       paste(non_numeric, collapse = ", ")
     )
   }
-  
+
   # ---------------------------------------------------------
   # Binary flag checks (0/1 expected)
   # ---------------------------------------------------------
@@ -239,24 +235,24 @@ validate_Main_df <- function(Main_df) {
     }
   }
 
-  binary_cols <- c("Act_vent", "Act_heat", "Act_cool")
+  binary_cols <- c("Act_vent", "Act_heat_exec", "Act_cool_exec")
   for (CONT_001 in binary_cols) {
     vals <- unique(na.omit(Main_df[[CONT_001]]))
     if (!all(vals %in% c(0, 1))) {
       stop(paste("Column", CONT_001, "contains values other than 0/1"))
     }
   }
-  
+
   # ---------------------------------------------------------
   # Categorical variable checks (currently none required)
   # ---------------------------------------------------------
-  
+
   # ---------------------------------------------------------
   # Expected NA patterns (documented behavior)
   # Note: NA values have been converted to 0 per requirements
   # ---------------------------------------------------------
   # This section is now simplified since NAs are converted to 0
-  
+
   # ---------------------------------------------------------
   # Sanity checks based on known physical ranges (soft checks)
   # ---------------------------------------------------------
@@ -264,15 +260,15 @@ validate_Main_df <- function(Main_df) {
       max(Main_df$Text, na.rm = TRUE) > 60) {
     warning("Text outside expected physical range")
   }
-  
+
   if (min(Main_df$Elec_unit_cost_buy, na.rm = TRUE) < -1) {
     warning("Elec_unit_cost_buy contains unusually low values")
   }
-  
+
   if (min(Main_df$SolarR, na.rm = TRUE) < 0) {
     stop("SolarR contains negative values")
   }
-  
+
   # ---------------------------------------------------------
   # Successful validation
   # ---------------------------------------------------------
@@ -283,6 +279,6 @@ validate_Main_df <- function(Main_df) {
     format(min(Main_df$time)), "→",
     format(max(Main_df$time)), "\n"
   )
-  
+
   invisible(TRUE)
 }

@@ -1,0 +1,18 @@
+# Default values for 18_Reward_parameters.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 18_Reward_parameters.csv.
+# Reward function parameters
+parameter,value,unit
+Alpha_Service_Min,50,EUR/h
+Service_T_Low,20,degC
+Service_T_High,25,degC
+Setback_T_Low,5,degC
+Setback_T_High,45,degC
+Service_Anticipation_Begin,3,h
+Service_Anticipation_End,3,h
+Service_AT_Low_Sched_HDD,2,degC
+Service_AT_High_Sched_CDD,2,degC
+T_ref_Heating_Season,15,degC
+HDD_period,7,days
+T_ref_Cooling_Season,23,degC
+CDD_period,7,days
+Revenue_discount_per_hour,0.25,-

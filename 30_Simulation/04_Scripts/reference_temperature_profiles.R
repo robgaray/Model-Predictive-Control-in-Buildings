@@ -1,12 +1,12 @@
 # -------------------------------------------------------------
 # Script: reference_temperature_profiles.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Generates the service and scheduling temperature profiles used
 # by the reward-related comfort calculations.
-# Sourced by Main.R and Main_SCC.R before simulation.
+# Sourced by Main.R before simulation.
 # -------------------------------------------------------------
 
 {

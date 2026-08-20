@@ -1,0 +1,35 @@
+# File paths configuration file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# -------------------------------------------------------------
+# Single source of truth for the file names of every configuration
+# file that lives directly under 30_Simulation/02_Config/. Consumed
+# by 20_GUI/01_Configure_Simulation/GUI_config.R so that the GUI and
+# the rest of the project do not each keep their own hard-coded copy
+# of these file names.
+# -------------------------------------------------------------
+# Structure:
+#   key      : identifier used by the code to look up the path
+#   filename : path of the file, relative to 30_Simulation/02_Config/
+#   unit     : always "-" (a file path has no physical unit); kept so
+#              a missing value is never ambiguous between "no unit"
+#              and "unit not yet documented"
+# -------------------------------------------------------------
+key,filename,unit
+library_file,01_Libraries.txt,-
+needed_cols_file,02_Needed_cols.csv,-
+parameter_validation_file,00_Validation/Parameter_config.csv,-
+physical_properties_file,03_Physical_properties.csv,-
+use_patterns_file,04_Use_Patterns.csv,-
+model_file,11_Model_parameters.csv,-
+control_file,12_Control_parameters.csv,-
+setpoint_mode_file,13_Modes_setpoints.csv,-
+optimization_file,14_Optimization_parameters.csv,-
+market_file,15_Market_config.csv,-
+market_config_scheduling_file,16_Market_config_scheduling.csv,-
+market_config_piloting_file,17_Market_config_piloting.csv,-
+reward_file,18_Reward_parameters.csv,-
+forecast_file,19_Forecast_parameters.csv,-
+energy_price_file,21_Energy_price_parameters.csv,-
+flexibility_generation_file,22_Flexibility_generation_parameters.csv,-
+debug_and_config_file,30_Debug_and_config.csv,-

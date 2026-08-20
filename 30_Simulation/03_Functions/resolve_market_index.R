@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: resolve_market_index.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Converts a market timestamp to its index position in a
@@ -20,7 +20,8 @@
 # resolve_market_index(time_raw, column_name, row_index, time_vector)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R and run_market_process().
+# Called by simulation.R only (no longer called from
+# run_market_process()).
 # -------------------------------------------------------------
 # functions/scripts called
 # (none)

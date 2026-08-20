@@ -1,0 +1,9 @@
+# Default values for 14_Optimization_parameters.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 14_Optimization_parameters.csv.
+# Optimization and MPC horizon parameters
+parameter,value,unit
+population_size,40,-
+iteration_number,30,-
+run_number,2,-
+pcrossover,0,-
+pmutation,0.2,-

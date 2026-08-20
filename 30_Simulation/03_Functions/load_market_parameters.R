@@ -1,24 +1,38 @@
 # -------------------------------------------------------------
 # Function: load_market_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# This function reads market-related parameters from
-# 15_Market_config.csv and returns them as a validated named list.
+# This function structures the already-parsed market-related
+# parameters (as read and validated by
+# read_and_validate_parameter_csv() from 15_Market_config.csv) into a
+# validated named list, clamping out-of-range values.
+# -------------------------------------------------------------
+# Inputs
+# values : Named list. Raw parameter/value pairs for market
+#          parameters, as returned by read_and_validate_parameter_csv().
+# -------------------------------------------------------------
+# Outputs
+# Named list with market_resolution, Complex_Market_Config,
+# Optimization_horizon_scheduling, Implementation_horizon_scheduling,
+# Anticipation_scheduling, optimization_aim_scheduling,
+# Optimization_horizon_piloting, Implementation_horizon_piloting,
+# Anticipation_piloting, optimization_aim_piloting,
+# Max_flex_periods_day, Max_flex_com_price, Max_flex_exec_price,
+# Max_flex_period_duration, Max_flex_probability.
+# -------------------------------------------------------------
+# Usage instructions
+# params <- load_market_parameters(raw_values)
+# -------------------------------------------------------------
+# Where this function/script is used
+# Called by load_15_market_config.R.
+# -------------------------------------------------------------
+# functions/scripts called
+# (none)
 # -------------------------------------------------------------
 
-load_market_parameters <- function(market_file) {
-
-  df <- read.csv(
-    market_file,
-    comment.char      = "#",
-    stringsAsFactors  = FALSE
-  )
-
-  values <- as.list(df$value)
-  names(values) <- trimws(df$parameter)
-  rm(df)
+load_market_parameters <- function(values) {
 
   value_num <- function(name) {
     if (is.null(values[[name]])) {
@@ -44,7 +58,12 @@ load_market_parameters <- function(market_file) {
     Optimization_horizon_piloting     = value_num("Optimization_horizon_piloting"),
     Implementation_horizon_piloting   = value_num("Implementation_horizon_piloting"),
     Anticipation_piloting             = value_num("Anticipation_piloting"),
-    optimization_aim_piloting         = value_chr("optimization_aim_piloting")
+    optimization_aim_piloting         = value_chr("optimization_aim_piloting"),
+    Max_flex_periods_day              = value_num("Max_flex_periods_day"),
+    Max_flex_com_price                = value_num("Max_flex_com_price"),
+    Max_flex_exec_price               = value_num("Max_flex_exec_price"),
+    Max_flex_period_duration          = value_num("Max_flex_period_duration"),
+    Max_flex_probability              = value_num("Max_flex_probability")
   )
 
   if (is.na(market_parameters$market_resolution) ||
@@ -52,18 +71,18 @@ load_market_parameters <- function(market_file) {
     stop("market_resolution must be a numeric value > 0")
   }
 
-  if (market_parameters$Optimization_horizon_scheduling < 2) {
-    market_parameters$Optimization_horizon_scheduling <- 2
-    cat("WARNING: Optimization_horizon_scheduling has been set to 2 hours (minimum allowed value)\n")
+  if (market_parameters$Optimization_horizon_scheduling < 1) {
+    market_parameters$Optimization_horizon_scheduling <- 1
+    cat("WARNING: Optimization_horizon_scheduling has been set to 1 hour (minimum allowed value)\n")
   }
   if (market_parameters$Optimization_horizon_scheduling > 72) {
     market_parameters$Optimization_horizon_scheduling <- 72
     cat("WARNING: Optimization_horizon_scheduling has been set to 72 hours (maximum allowed value)\n")
   }
 
-  if (market_parameters$Implementation_horizon_scheduling < 2) {
-    market_parameters$Implementation_horizon_scheduling <- 2
-    cat("WARNING: Implementation_horizon_scheduling has been set to 2 hours (minimum allowed value)\n")
+  if (market_parameters$Implementation_horizon_scheduling < 1) {
+    market_parameters$Implementation_horizon_scheduling <- 1
+    cat("WARNING: Implementation_horizon_scheduling has been set to 1 hour (minimum allowed value)\n")
   }
   if (market_parameters$Implementation_horizon_scheduling > 48) {
     market_parameters$Implementation_horizon_scheduling <- 48
@@ -98,18 +117,18 @@ load_market_parameters <- function(market_file) {
     market_parameters$Optimization_horizon_piloting <- 1
     cat("WARNING: Optimization_horizon_piloting has been set to 1 hour (minimum allowed value)\n")
   }
-  if (market_parameters$Optimization_horizon_piloting > 24) {
-    market_parameters$Optimization_horizon_piloting <- 24
-    cat("WARNING: Optimization_horizon_piloting has been set to 24 hours (maximum allowed value)\n")
+  if (market_parameters$Optimization_horizon_piloting > 48) {
+    market_parameters$Optimization_horizon_piloting <- 48
+    cat("WARNING: Optimization_horizon_piloting has been set to 48 hours (maximum allowed value)\n")
   }
 
   if (market_parameters$Implementation_horizon_piloting < 1) {
     market_parameters$Implementation_horizon_piloting <- 1
     cat("WARNING: Implementation_horizon_piloting has been set to 1 hour (minimum allowed value)\n")
   }
-  if (market_parameters$Implementation_horizon_piloting > 12) {
-    market_parameters$Implementation_horizon_piloting <- 12
-    cat("WARNING: Implementation_horizon_piloting has been set to 12 hours (maximum allowed value)\n")
+  if (market_parameters$Implementation_horizon_piloting > 24) {
+    market_parameters$Implementation_horizon_piloting <- 24
+    cat("WARNING: Implementation_horizon_piloting has been set to 24 hours (maximum allowed value)\n")
   }
 
   if (market_parameters$Implementation_horizon_piloting >
@@ -123,9 +142,9 @@ load_market_parameters <- function(market_file) {
     market_parameters$Anticipation_piloting <- 0
     cat("WARNING: Anticipation_piloting has been set to 0 hours (minimum allowed value)\n")
   }
-  if (market_parameters$Anticipation_piloting > 6) {
-    market_parameters$Anticipation_piloting <- 6
-    cat("WARNING: Anticipation_piloting has been set to 6 hours (maximum allowed value)\n")
+  if (market_parameters$Anticipation_piloting > 24) {
+    market_parameters$Anticipation_piloting <- 24
+    cat("WARNING: Anticipation_piloting has been set to 24 hours (maximum allowed value)\n")
   }
   if (market_parameters$Anticipation_piloting >=
       market_parameters$Implementation_horizon_piloting) {
@@ -138,11 +157,11 @@ load_market_parameters <- function(market_file) {
 
   if (is.na(market_parameters$optimization_aim_scheduling) ||
       market_parameters$optimization_aim_scheduling == "") {
-    market_parameters$optimization_aim_scheduling <- "1"
+    stop("optimization_aim_scheduling must not be empty")
   }
   if (is.na(market_parameters$optimization_aim_piloting) ||
       market_parameters$optimization_aim_piloting == "") {
-    market_parameters$optimization_aim_piloting <- "1"
+    stop("optimization_aim_piloting must not be empty")
   }
 
   complex_market_config <- tolower(trimws(as.character(

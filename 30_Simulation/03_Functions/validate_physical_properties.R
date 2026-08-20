@@ -12,7 +12,7 @@
 # Inputs
 #   physical_properties : Named list. Physical properties loaded
 #                         from 03_Physical_properties.csv via
-#                         load_parameters(). Expected entries:
+#                         load_03_physical_properties.R. Expected entries:
 #                           Cp_air   - Specific heat of air (kJ/kg·K)
 #                                      Reference value: 1.005
 #                           dens_air - Density of air (kg/m3)
@@ -32,7 +32,7 @@
 # validate_physical_properties(physical_properties)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by data_model_parameters.R after loading physical_properties.
+# Called by load_03_physical_properties.R after loading physical_properties.
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)

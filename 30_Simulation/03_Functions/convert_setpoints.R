@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: convert_setpoints.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function converts high-level setpoints to low-level setpoints
@@ -40,7 +40,10 @@
 # 3. Return data frame with period and setpoint columns
 # -------------------------------------------------------------
 # Usage instructions
-# sp_df <- convert_setpoints(heat_set, cool_set, target_periods, parameters)
+# sp_df <- convert_setpoints(setpoints_heating = heat_set,
+#   setpoints_cooling = cool_set,
+#   Deadband = parameters$control$Deadband,
+#   target_periods = timestamps$target_periods)
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by fitness_funct_optimize_setpoint.R and optimize_setpoints.R.

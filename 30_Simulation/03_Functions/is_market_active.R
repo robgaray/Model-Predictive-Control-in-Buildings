@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: is_market_active.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Determines whether a market configuration value represents an
@@ -17,7 +17,9 @@
 # is_market_active(market_name_raw)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R and run_market_process().
+# Called by simulation.R (to guard calls to run_market_process()) and
+# by generate_flexibility_events.R (to enumerate active market
+# events).
 # -------------------------------------------------------------
 # functions/scripts called
 # (none)

@@ -1,5 +1,6 @@
 # Setpoint modes & associated heating and cooling setpoints
 mode,heating,cooling
+text,degC,degC
 1,5,45
 2,21,25
 3,22,25

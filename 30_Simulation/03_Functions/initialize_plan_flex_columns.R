@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: initialize_plan_flex_columns.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function initializes the *_plan_flex baseline columns from

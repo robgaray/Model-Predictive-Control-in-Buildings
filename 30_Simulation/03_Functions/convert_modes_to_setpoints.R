@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: convert_modes_to_setpoints.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # HVAC modes are used to define heating and cooling setpoints.
@@ -51,7 +51,10 @@
 # 4. Build output data frame with per-period setpoints
 # -------------------------------------------------------------
 # Usage instructions
-# sp_df <- convert_modes_to_setpoints(maxmode_result, parameters, target_periods)
+# sp_df <- convert_modes_to_setpoints(setpoint_modes_df = maxmode_result,
+#   setpoint_modes = parameters$setpoint_modes,
+#   Deadband = parameters$control$Deadband,
+#   target_periods = timestamps$target_periods)
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by fitness_funct_optimize_mode.R and optimize_modes.R.

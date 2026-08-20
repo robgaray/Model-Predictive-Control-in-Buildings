@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_18_reward_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads reward parameters from 18_Reward_parameters.csv,
@@ -11,12 +11,12 @@
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$reward_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
-
-  validate_parameter_config(raw_values, "18_Reward_parameters.csv", validation_config)
+  # read_and_validate_parameter_csv is called to read
+  # 18_Reward_parameters.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$reward_file, "18_Reward_parameters.csv", validation_config
+  )
 
   parameters$reward <- lapply(raw_values, as.numeric)
   rm(raw_values)

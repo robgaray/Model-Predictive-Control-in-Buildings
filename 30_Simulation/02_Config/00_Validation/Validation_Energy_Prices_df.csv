@@ -1,0 +1,23 @@
+# Energy_Prices_df column validation configuration file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Range/type validation for the columns of Energy_Prices_df, applied by
+# load_energy_prices_df.R (protection 5, see
+# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E).
+# Structure: same convention as Parameter_config.csv
+#   file_name      : name of the dataframe file
+#   parameter_name : name of the column to validate
+#   type           : Integer | Real
+#   output         : Error (stops execution) | Warning (issues a warning)
+#   options        : "min,max"
+# -------------------------------------------------------------
+file_name,parameter_name,type,output,options
+Energy_Prices_df.rds,Elec_unit_cost_buy,Real,Warning,"-1,5"
+Energy_Prices_df.rds,Elec_unit_cost_distribution,Real,Warning,"-1,1"
+Energy_Prices_df.rds,Flex_unit_cost_down_com,Real,Warning,"-1,5"
+Energy_Prices_df.rds,Flex_unit_cost_down_exec,Real,Warning,"-1,5"
+Energy_Prices_df.rds,Flex_unit_cost_up_com,Real,Warning,"-1,5"
+Energy_Prices_df.rds,Flex_unit_cost_up_exec,Real,Warning,"-1,5"
+Energy_Prices_df.rds,Flex_Probab,Real,Error,"0,1"

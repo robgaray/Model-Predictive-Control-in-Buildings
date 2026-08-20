@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Script: load_14_optimization_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Loads optimization parameters from 14_Optimization_parameters.csv,
@@ -13,15 +13,18 @@
 # -------------------------------------------------------------
 
 {
-  raw_df     <- read.csv(paths$optimization_file, comment.char = "#", stringsAsFactors = FALSE)
-  raw_values <- as.list(raw_df$value)
-  names(raw_values) <- trimws(raw_df$parameter)
-  rm(raw_df)
+  # read_and_validate_parameter_csv is called to read
+  # 14_Optimization_parameters.csv and check every value against the
+  # types/ranges defined in Parameter_config.csv.
+  raw_values <- read_and_validate_parameter_csv(
+    paths$optimization_file, "14_Optimization_parameters.csv", validation_config
+  )
 
-  validate_parameter_config(raw_values, "14_Optimization_parameters.csv", validation_config)
+  # load_optimization_parameters is called to turn the raw key/value
+  # pairs into the structured optimization parameter list, applying
+  # its internal clamping logic.
+  parameters$optimization <- load_optimization_parameters(raw_values)
   rm(raw_values)
-
-  parameters$optimization <- load_optimization_parameters(paths$optimization_file)
 
   cat("Optimization parameters loaded\n")
 }

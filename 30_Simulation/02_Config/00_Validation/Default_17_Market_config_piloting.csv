@@ -1,0 +1,29 @@
+# Default values for 17_Market_config_piloting.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 17_Market_config_piloting.csv.
+# Market configuration table
+Market,closure,begin,end,end_optimization,aim
+text,h,h,h,h,code
+cID1,1,0,24,6,O
+cID2,1,1,23,6,O+F
+cID3,1,2,22,6,O
+cID4,1,3,21,6,O+F
+cID5,1,4,20,6,O
+cID6,1,5,19,6,O+F
+cID7,1,6,18,6,O
+cID8,1,7,17,6,O+F
+cID9,1,8,16,6,O
+cID10,1,9,15,6,O+F
+cID11,1,10,14,6,O+F
+cID12,1,11,13,6,O+F
+cID13,1,12,12,6,O+F
+cID14,1,13,11,6,O+F
+cID15,1,14,10,6,O+F
+cID16,1,15,9,6,O+F
+cID17,1,16,8,6,O+F
+cID18,1,17,7,6,O+F
+cID19,1,18,12,6,O+F
+cID20,1,19,11,6,O+F
+cID21,1,20,10,6,O+F
+cID22,1,21,9,6,O+F
+cID23,1,22,8,6,O+F
+cID24,1,23,7,6,O+F

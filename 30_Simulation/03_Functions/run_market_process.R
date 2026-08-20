@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: run_market_process.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Executes one market optimization process (Scheduling or Piloting)
@@ -11,15 +11,25 @@
 # prefix             : Character. "Sched" or "Pilot".
 # row_index          : Integer. Current simulation row index.
 # period_chunk       : Data frame. Sliced Main_df period to process.
-# period_start_index : Integer. Global start index of period_chunk.
 # market_parameters  : List. Market fields for the current row.
 # simulation_control : List. Control metadata (indexes, evaluation,
 #                      flexibility, calculation_mode).
 # timestamps         : List. Timestamp metadata for period_chunk.
 # parameters         : List. Simulation parameters.
+# marginal_context   : Named list or NULL (default NULL). As returned
+#                      by resolve_marginal_context(), computed by
+#                      simulation.R from Main_df before this market's
+#                      optimization. Passed through to
+#                      optimize_control_step() (for "energy"/
+#                      "flexibility" aims) and evaluate_control() (for
+#                      "operationflex"); unused for "operation".
+# Callers must guard the call with is_market_active() on the
+# relevant *_Market_Name field; this function assumes the market is
+# active and does not re-check it.
 # -------------------------------------------------------------
 # Outputs
-# List with period_chunk and updated metadata.
+# Data frame. The updated period_chunk with plan/plan_flex columns
+# injected over the implementation horizon.
 # -------------------------------------------------------------
 # Usage instructions
 # run_market_process(prefix, row_index, period_chunk, ...)
@@ -28,8 +38,8 @@
 # Called by simulation.R in scheduling and piloting blocks.
 # -------------------------------------------------------------
 # functions/scripts called
-# is_market_active(), resolve_market_index(), map_optimization_aim(),
-# context_forecast_step(), implement_control_step(), optimize_control_step()
+# map_optimization_aim(), implement_control_step(),
+# optimize_control_step(), evaluate_control(), period_calculation()
 # -------------------------------------------------------------
 
 run_market_process <- function(prefix,
@@ -38,7 +48,8 @@ run_market_process <- function(prefix,
                                market_parameters,
                                simulation_control,
                                timestamps,
-                               parameters) {
+                               parameters,
+                               marginal_context = NULL) {
   market_name_col   <- paste0(prefix, "_Market_Name")
   bid_time_col      <- paste0(prefix, "_Market_Bid_time")
   period_begin_col  <- paste0(prefix, "_Market_Period_Begin")
@@ -48,16 +59,6 @@ run_market_process <- function(prefix,
 
   # 0. Error management
   {
-    if (!is_market_active(market_parameters[[market_name_col]])) {
-      return(list(
-        period_chunk      = period_chunk,
-        indexes           = simulation_control$indexes_local,
-        optimization_aim  = simulation_control$evaluation$optimization_aim,
-        target_periods    = NULL,
-        is_active         = FALSE
-      ))
-    }
-    
     if (simulation_control$indexes_local$i0 > simulation_control$indexes_local$i_begin_horizon) {
       stop("Invalid market range at row ", row_index,
            ": i0 > i_begin_horizon for ", prefix)
@@ -74,6 +75,9 @@ run_market_process <- function(prefix,
   
   # 1. Define Optimization aim
   {
+    # map_optimization_aim is called to translate this market's raw aim
+    # code (market_parameters[[market_aim_col]]) into the internal aim
+    # label that drives which optimization branch runs below.
     parameters$control$optimization_aim <- map_optimization_aim(
       aim_raw      = market_parameters[[market_aim_col]],
       column_name  = market_aim_col,
@@ -137,6 +141,10 @@ run_market_process <- function(prefix,
       
       # 3. Initialization
       {
+        # implement_control_step is called to run the initialization
+        # period's setpoints through the actual (non-forecast) building
+        # physics, so period_init holds real Ti/Te/comfort states before
+        # any of it is injected back into period_chunk below.
         period_init <- implement_control_step(
           period_chunk        = period_init,
           simulation_control  = simulation_control,
@@ -171,28 +179,45 @@ run_market_process <- function(prefix,
     {
       
       if (parameters$control$optimization_aim =="energy") {
+        # optimize_control_step is called to run the GA-based search for
+        # the setpoints/modes that minimise marginal energy cost over
+        # this horizon, since the aim is plain "energy".
         optimization_chunk <- optimize_control_step(
           period_chunk       = optimization_chunk,
           timestamps         = timestamps,
           parameters         = parameters,
-          simulation_control = simulation_control
+          simulation_control = simulation_control,
+          marginal_context   = marginal_context
         )$period_chunk
       } else if (parameters$control$optimization_aim == "flexibility") {
+        # optimize_control_step is called again here for the
+        # "flexibility" aim, so the same GA search additionally values
+        # explicit-flexibility revenue in its reward.
         optimization_chunk <- optimize_control_step(
           period_chunk       = optimization_chunk,
           timestamps         = timestamps,
           parameters         = parameters,
-          simulation_control = simulation_control
+          simulation_control = simulation_control,
+          marginal_context   = marginal_context
         )$period_chunk
       } else if (parameters$control$optimization_aim == "operation") {
-        optimization_chunk <- period_calculation (period_chunk        = optimization_chunk,                                           
+        # period_calculation is called directly (no GA search) to
+        # simulate the building under the setpoints already present in
+        # period_chunk, since "operation" only evaluates operation as
+        # scheduled, without optimizing it.
+        optimization_chunk <- period_calculation (period_chunk        = optimization_chunk,
                                                   parameters          = parameters,
                                                   calculation_mode    = 1,
                                                   calculation_context = "plan")
       } else  if (parameters$control$optimization_aim == "operationflex") {
+        # evaluate_control is called directly (no GA search) to simulate
+        # both the plan and the best flexibility scenario for the
+        # already-scheduled setpoints, since "operationflex" evaluates
+        # flexibility without optimizing the underlying schedule.
         optimization_chunk <- evaluate_control(period_chunk       = optimization_chunk,
                                                parameters         = parameters,
-                                               simulation_control = simulation_control)$period_chunk
+                                               simulation_control = simulation_control,
+                                               marginal_context   = marginal_context)$period_chunk
       } else {
         stop("Invalid optimization aim: ", parameters$control$optimization_aim)
       }

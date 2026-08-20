@@ -1,18 +1,18 @@
 # -------------------------------------------------------------
 # Function: load_debug_and_config_parameters.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# This function reads a CSV configuration file containing debug and
-# configuration parameters and returns them as a named list.
-# The CSV file must have at least two columns: 'parameter' and 'value'.
-# Lines beginning with '#' are treated as comments and ignored.
-# All values are coerced to numeric.
+# This function structures the already-parsed debug and
+# configuration parameters (as read and validated by
+# read_and_validate_parameter_csv() from 30_Debug_and_config.csv) into
+# a named list. All values are coerced to numeric.
 # -------------------------------------------------------------
 # Inputs
-#   debug_and_config_file : Character. Path to the CSV configuration file.
-#                           Expected parameters in the file are:
+#   values : Named list. Raw parameter/value pairs for debug and
+#            config parameters, as returned by
+#            read_and_validate_parameter_csv(). Expected parameters are:
 #                             month_subset    – month filter (0 = all months, 1-12 = specific month)
 #                             period_subset   – period filter (0 = all periods, >0 = limit timesteps)
 #                             verbose         – verbosity flag (0 = silent, 1 = print progress)
@@ -28,27 +28,21 @@
 #     Price_emulation : Price emulation flag (numeric, 1 or 0).
 # -------------------------------------------------------------
 # Code outline
-# 1. Read CSV configuration file
-# 2. Convert to named list with numeric values
+# 1. Coerce all values to numeric
+# 2. Build named list, converting verbose to logical (== 1)
 # -------------------------------------------------------------
 # Usage instructions
-# params <- load_debug_and_config_parameters(file_path)
+# params <- load_debug_and_config_parameters(raw_values)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by control_optimization_parameters.R and control_optimization_parameters_SCC.R
+# Called by load_30_debug_and_config.R.
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)
 # -------------------------------------------------------------
 
-load_debug_and_config_parameters <- function(debug_and_config_file) {
-  
-  df <- read.csv(debug_and_config_file, comment.char = "#",
-                 stringsAsFactors = FALSE)
-  
-  values <- as.list(df$value)
-  names(values) <- trimws(df$parameter)
-  rm(df)
+load_debug_and_config_parameters <- function(values) {
+
   values <- lapply(values, function(x) as.numeric(trimws(as.character(x))))
   
   debug_and_config_parameters <- list(

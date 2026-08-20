@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: validate_parameter_config.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Validates a named list of parameter values against the rules
@@ -23,6 +23,12 @@
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
+# -------------------------------------------------------------
+# Where this function/script is used
+# Called by read_and_validate_parameter_csv().
+# -------------------------------------------------------------
+# functions/scripts called
+#   (none)
 # -------------------------------------------------------------
 
 validate_parameter_config <- function(values, file_name, validation_config) {

@@ -2,15 +2,36 @@ source_item,called_item,type,variables_passed,variables_returned
 Main.R,initialization.R (04_Scripts),sources,(none),"functions loaded, libraries loaded"
 Main.R,load_all_parameters.R,sources,(none),"Main_df, parameters (all sub-lists)"
 Main.R,market_columns_setup.R,sources,(none),Main_df (Sched_ and Pilot_ market columns initialized and mapped)
-Main.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
+market_columns_setup.R,build_market_timeline(),calls,"role, config_table, implementation_horizon, optimization_horizon, anticipation, optimization_aim, aim_label_energy, aim_label_flex, complex_market_config, time_min, time_max, Main_df",Main_df (role's Market_Name/Bid_time/Period_Begin/Period_End/Optimization_Horizon/Market_Aim columns written)
+Main.R,flexibility_generation.R,sources (conditional),(none),"Main_df (Flex_unit_cost_down_com/_down_exec/_up_com/_up_exec, Flex_Probab, Flex_Act overwritten; basic per-day algorithm or, if Complex_Market_Config == yes, generate_flexibility_events())"
+flexibility_generation.R,generate_flexibility_events(),calls (Complex_Market_Config == yes only),"Main_df, parameters","Main_df (as above, market-aware algorithm)"
+generate_flexibility_events(),compute_available_segments(),calls,"horizon_begin, horizon_end, forbidden_intervals",free segments (data frame start/end)
+generate_flexibility_events(),place_flex_candidate(),calls,"available_segments, market_resolution_sec, max_duration_hours","candidate (t_start_sec, duration_sec) or NULL"
+generate_flexibility_events(),try_flex_echo(),calls,"event, horizon_begin, horizon_end, other_events, P_advance, P_delay, Max_shift_hours, market_resolution_sec","echo result (accepted, t_start_sec, duration_sec)"
+try_flex_echo(),compute_available_segments(),calls,"horizon_begin, horizon_end, forbidden",data frame of available segments
 Main.R,generate_occupancy_profiles.R,sources,(none),Main_df$Occupancy (generated)
 Main.R,generate_scheduling_profiles.R,sources,(none),Main_df$Scheduling (generated)
 Main.R,climate_priority.R,sources,(none),Main_df$Overall_Climate (generated)
+Main.R,energy_price_signals_setup.R,sources,(none),"derives 12 buy/sell price signals in Main_df from Elec_unit_cost_buy/Elec_unit_cost_distribution and the 4 legacy Flex_unit_cost_* signals (interim buy/sell duplicates; export_buy/sell reconstructed as buy - distribution; see 01_Agent_Comments/20260720_Plan_Redefinicion_Precios_Energia.md and 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md)"
+Main.R,full_market_information_setup.R,sources,(none),"13 price matrices (Elec_unit_cost_import_buy_df, _import_sell_df, _export_buy_df, _export_sell_df, Elec_unit_cost_distribution_df, Flex_unit_cost_down_com_buy_df, _down_com_sell_df, _down_exec_buy_df, _down_exec_sell_df, _up_com_buy_df, _up_com_sell_df, _up_exec_buy_df, _up_exec_sell_df), one row per market event, max_steps_ahead"
+Main.R,market_commitments_setup.R,sources,(none),"12 output matrices (Elec_buy_plan_df, Elec_sell_plan_df, Elec_net_plan_df, Elec_buy_plan_flex_df, Elec_sell_plan_flex_df, Elec_net_plan_flex_df, Elec_flex_down_sell_plan_df, Elec_flex_down_buy_plan_df, Elec_flex_up_sell_plan_df, Elec_flex_up_buy_plan_df, Elec_Cost_plan_df, Elec_flex_Cost_plan_df), one row per market event, initialised to 0"
+Main.R,economic_analysis_setup.R,sources,(none),"economic_analysis list (market and slot accumulator tables plus the index sub-list), initialised to 0"
 Main.R,reference_temperature_profiles.R,sources,(none),"Main_df$Service_T_*, Main_df$Scheduling_T_* (generated)"
-Main.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
+Main.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time, market_commitments and economic_analysis (accumulated)"
+Main.R,economic_analysis_finalize.R,sources,(none),"economic_analysis (market and slot tables, completed with the execution phase and the reported fractions)"
 Main.R,data_outputs.R,sources,(none),CSV/RDS files written to paths$output_path
 initialization.R (04_Scripts),initialization.R (03_Functions),sources,(none),initialization() function defined
 initialization.R (04_Scripts),initialization(),calls,"paths$library_file, functions_path","all 03_Functions/*.R sourced, libraries loaded"
+load_all_parameters.R,assemble_main_df.R,sources,(none),"Main_df (assembled from Meteo_df/Energy_Prices_df + System_df/Flexibility_actions_df/Meteo_transformations_df)"
+assemble_main_df.R,load_meteo_df.R,sources,paths$meteo_file,Meteo_df (validated)
+assemble_main_df.R,load_energy_prices_df.R,sources,paths$energy_prices_file,Energy_Prices_df (validated)
+load_meteo_df.R,validate_time_grid(),calls,"Meteo_df$time, file_name",detected step (seconds)
+load_meteo_df.R,validate_dataframe_config(),calls,"Meteo_df, file_name, validation_config",TRUE or error/warning
+load_energy_prices_df.R,validate_time_grid(),calls,"Energy_Prices_df$time, file_name",detected step (seconds)
+load_energy_prices_df.R,validate_dataframe_config(),calls,"Energy_Prices_df, file_name, validation_config",TRUE or error/warning
+assemble_main_df.R,generate_system_df(),calls,"paths$system_variables_file, master_grid","System_df (61 columns, from Simulation_Variables_Building.txt)"
+assemble_main_df.R,generate_flexibility_actions_df(),calls,master_grid,Flexibility_actions_df (Flex_Act)
+assemble_main_df.R,generate_meteo_transformations_df(),calls,master_grid,"Meteo_transformations_df (T_ext_24h, Text_forec*, SolarR_forec*)"
 load_all_parameters.R,load_03_physical_properties.R,sources,(none),parameters$physical_properties
 load_all_parameters.R,load_04_use_patterns.R,sources,(none),parameters$use_patterns
 load_all_parameters.R,load_11_model_parameters.R,sources,(none),parameters$model
@@ -22,85 +43,86 @@ load_all_parameters.R,load_14_optimization_parameters.R,sources,(none),parameter
 load_all_parameters.R,load_15_market_config.R,sources,(none),parameters$market
 load_all_parameters.R,load_16_market_config_scheduling.R,sources,(none),parameters$market_config_scheduling
 load_all_parameters.R,load_17_market_config_piloting.R,sources,(none),parameters$market_config_piloting
+load_16_market_config_scheduling.R,load_market_config_table(),calls,"path, file_name, market_resolution","data frame (market config)"
+load_17_market_config_piloting.R,load_market_config_table(),calls,"path, file_name, market_resolution","data frame (market config)"
+load_market_config_table(),map_optimization_aim(),calls,"aim_raw, column_name, row_index",validated aim code (per row)
+load_all_parameters.R,load_21_energy_price_parameters.R,sources,(none),parameters$energy_price
+load_all_parameters.R,load_22_flexibility_generation.R,sources,(none),parameters$flexibility_generation
 load_all_parameters.R,load_30_debug_and_config.R,sources,(none),parameters$debug_and_config
 load_all_parameters.R,validate_Main_df(),calls,Main_df,TRUE or error
-load_03_physical_properties.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_03_physical_properties.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
 load_03_physical_properties.R,validate_physical_properties(),calls,parameters$physical_properties,TRUE or error
-load_11_model_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
+load_11_model_parameters.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
 load_11_model_parameters.R,validate_model_parameters(),calls,model_params_raw,validated model params
 load_11_model_parameters.R,compute_Rvent(),calls,"model_params_raw, parameters$physical_properties",model_params_raw with Rvent fields
-load_12_control_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_12_control_parameters.R,load_control_parameters(),calls,paths$control_file,parameters$control
-load_14_optimization_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_14_optimization_parameters.R,load_optimization_parameters(),calls,paths$optimization_file,parameters$optimization
-load_15_market_config.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_15_market_config.R,load_market_parameters(),calls,paths$market_file,parameters$market
+load_12_control_parameters.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_12_control_parameters.R,load_control_parameters(),calls,raw_values,parameters$control
+load_14_optimization_parameters.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_14_optimization_parameters.R,load_optimization_parameters(),calls,raw_values,parameters$optimization
+load_15_market_config.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_15_market_config.R,load_market_parameters(),calls,raw_values,parameters$market
 load_15_market_config.R,map_optimization_aim(),calls,"aim_raw, column_name, row_index","'energy' or 'flexibility'"
-load_18_reward_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_19_forecast_parameters.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_30_debug_and_config.R,validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
-load_30_debug_and_config.R,load_debug_and_config_parameters(),calls,paths$debug_and_config_file,parameters$debug_and_config
-simulation.R,inspection_step.R,sources (conditional),"inspection_step, inspection_proc, inspection_phase, Main_df, simulation_control, inspection_range","snapshot CSV and diagnostic plot (side effects)"
+load_18_reward_parameters.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_19_forecast_parameters.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_30_debug_and_config.R,read_and_validate_parameter_csv(),calls,"path, file_name, validation_config",raw_values
+load_30_debug_and_config.R,load_debug_and_config_parameters(),calls,raw_values,parameters$debug_and_config
+read_and_validate_parameter_csv(),validate_parameter_config(),calls,"raw_values, file_name, validation_config",TRUE or error/warning
 simulation.R,context_forecast_step(),calls,"simulation_control (Sched/Pilot-driven indexes_global), time_sec, Main_df, parameters","ctx list with forecast_df"
 simulation.R,implement_control_step(),calls,"period_chunk, simulation_control (with calculation_mode), timestamps, parameters","period_chunk (simulated)"
-simulation.R,optimize_control_step(),calls,"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
+simulation.R,optimize_control_step(),calls,"period_chunk, timestamps, parameters, simulation_control, marginal_context","{set_point_actual, period_chunk}"
 simulation.R,is_market_active(),calls,market_name_raw,TRUE/FALSE
 simulation.R,resolve_market_index(),calls,"time_raw, column_name, row_index, time_vector",resolved index
-simulation.R,run_market_process(),calls,"prefix, row_index, period_chunk, period_start_index, needed_cols, market_parameters, simulation_control, timestamps, parameters","period_chunk and updated market metadata"
+simulation.R,resolve_marginal_context(),calls,"row_index, Main_df, simulation_control, market_time, full_market_information","marginal_context (E_orig/prices per target market interval, including distribution_rate_by_market)"
+simulation.R,run_market_process(),calls,"prefix, row_index, period_chunk, market_parameters, simulation_control, timestamps, parameters, marginal_context","period_chunk and updated market metadata"
+simulation.R,integrate_market_process(),calls,"prefix, row_index, results_df, Main_df, simulation_control, market_time, full_market_information, market_commitments, economic_analysis","{Main_df, market_commitments, economic_analysis}"
+simulation.R,reset_index_list(),calls,(none),zeroed index list (i0/i1/i_begin_horizon/i_end_horizon/i_end_control/idx_period/idx_horizon/idx_ctrl/i_flex)
+integrate_market_process(),propagate_differential_cost(),calls,"row_m, col_j, mkt_target, E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell, cost_df, Main_df, weight_col='Elec_total_plan'/'Elec_total_plan_flex', target_col='Elec_market_net_cost_h'","{Main_df, cost_df}"
+propagate_differential_cost(),calc_differential_cost(),calls,"E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell",net cash flow per target slot
+calc_differential_cost(),split_market_operation(),calls,"E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell","list(qty_buy_new, qty_buy_back, qty_sell_new, qty_sell_back, val_buy_new, val_buy_back, val_sell_new, val_sell_back)"
+propagate_differential_cost(),propagate_unit_value(),calls,"row_m, col_j, mkt_target, delta_C, cost_df, Main_df, weight_col, target_col","{Main_df, cost_df}"
+integrate_market_process(),propagate_unit_value(),"calls (explicit flexibility, both Scheduling and Piloting)","row_m, col_j, mkt_target, delta_C=flex_revenue_by_market-flex_buyback_by_market, cost_df=market_commitments$Elec_flex_Cost_plan_df, Main_df, weight_col='Elec_flex_plan', target_col='Elec_flex_commitment_revenue_h'","{Main_df, cost_df}"
+integrate_market_process(),value_flex_operation(),"calls (per target interval, both Scheduling and Piloting)","E_orig=E_orig_expflex_by_market, E_new=E_new_expflex_by_market, price_down_sell, price_down_buy, price_up_sell, price_up_buy","{down_sold, down_bought, up_sold, up_bought, revenue}"
+integrate_market_process(),split_market_operation(),calls,"E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell (base energy for Scheduling, flex-adjusted energy for Piloting)","{qty_buy_new, qty_buy_back, qty_sell_new, qty_sell_back, val_buy_new, val_buy_back, val_sell_new, val_sell_back} per target interval"
+integrate_market_process(),accumulate_market_operation(),calls,"economic_analysis, operation, dest_row, dest_slot, is_scheduling",economic_analysis (updated market row and slot row)
+economic_analysis_finalize.R,split_market_operation(),calls,"Elec_total_plan, Elec_total_exec and the row import/export prices of Main_df","the execution-phase deviation split into bought/rebought/sold/resold quantities and values"
+integrate_market_process(),(inline sum of value_flex_operation() results),calls,"flex_revenue_by_market, flex_buyback_by_market (both Scheduling and Piloting)","Main_df$Elec_flex_sell_revenue_market (+=) / Elec_flex_purchase_cost_market (-=), on this decision's own row"
 run_market_process(),is_market_active(),calls,market_name_raw,TRUE/FALSE
 run_market_process(),resolve_market_index(),calls,"time_raw, column_name, row_index, time_vector",resolved index
 run_market_process(),map_optimization_aim(),calls,"aim_raw, column_name, row_index",optimization_aim
 run_market_process(),context_forecast_step(),calls,"simulation_control, time_sec, period_chunk, parameters","ctx list with forecast_df"
 run_market_process(),implement_control_step(),calls,"period_init, simulation_control, timestamps, parameters, calculation_context='plan'","period_init with *_plan"
-run_market_process(),optimize_control_step(),calls,"optimization_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
+run_market_process(),optimize_control_step(),calls,"optimization_chunk, timestamps, parameters, simulation_control, marginal_context","{set_point_actual, period_chunk}"
+run_market_process(),evaluate_control(),calls (aim=operationflex),"optimization_chunk, parameters, simulation_control, marginal_context","{period_chunk, reward}"
+run_market_process(),period_calculation(),calls (aim=operation),"optimization_chunk, parameters, calculation_mode=1, calculation_context=plan",period_chunk with *_plan columns
 context_forecast_step(),imperfect_forecast(),calls (conditional),"Main_df, parameters, i0, i_end_horizon","forecast data frame"
-implement_control_step(),period_calculation(),calls,"period_chunk, parameters, calculation_mode (from simulation_control), set_point_df","period_chunk with Ti, Te, Q_heat, Q_cool, Elec_*"
-optimize_control_step(),optimize_setpoints(),calls (if setpoint),"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
-optimize_control_step(),optimize_modes(),calls (if modes),"period_chunk, timestamps, parameters, simulation_control","{set_point_actual, period_chunk}"
-optimize_control_step(),evaluate_control(),calls (final),"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
+implement_control_step(),period_calculation(),calls,"period_chunk, parameters, calculation_mode (from simulation_control), set_point_df","period_chunk with context-suffixed Ti, Te, Q_heat, Q_cool, Elec_* (e.g. Ti_exec for calculation_context='execution')"
+implement_control_step(),calc_differential_cost(),calls (calculation_context='execution' only),"E_orig=Elec_total_plan, E_new=Elec_total_exec, Elec_unit_cost_import_buy/sell, Elec_unit_cost_export_buy/sell",Elec_deviations_net_cost_h (per-row)
+implement_control_step(),(inline - no function call),calls (calculation_context='execution' only),Elec_unit_cost_distribution * abs(Elec_total_exec),"Elec_cost_distr_h (per-row)"
+implement_control_step(),(inline - no function call),calls (calculation_context='execution' only),Elec_market_net_cost_h + Elec_deviations_net_cost_h,"Elec_net_cost_h (per-row)"
+optimize_control_step(),optimize_setpoints(),calls (if setpoint),"period_chunk, timestamps, parameters, simulation_control, marginal_context","{set_point_actual, period_chunk}"
+optimize_control_step(),optimize_modes(),calls (if modes),"period_chunk, timestamps, parameters, simulation_control, marginal_context","{set_point_actual, period_chunk}"
+optimize_control_step(),evaluate_control(),calls (final),"period_chunk, set_point_df, parameters, simulation_control, marginal_context","{period_chunk, reward}"
 optimize_setpoints(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
-optimize_setpoints(),fitness_funct_optimize_setpoint(),calls (via GA),"setpoint_array, period_chunk, timestamps, parameters, simulation_control",scalar reward value
+optimize_setpoints(),fitness_funct_optimize_setpoint(),calls (via GA),"setpoint_array, period_chunk, timestamps, parameters, simulation_control, marginal_context",scalar reward value
 optimize_setpoints(),convert_setpoints(),calls,"optimized_heating, optimized_cooling, target_periods, parameters",set_point_actual
 optimize_modes(),GA::ga(),calls,"fitness function, bounds, control params",best solution chromosome
-optimize_modes(),fitness_funct_optimize_mode(),calls (via GA),"x, n_modes, n_periods, timestamps, parameters, period_chunk, simulation_control",scalar reward value
-optimize_modes(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
+optimize_modes(),fitness_funct_optimize_mode(),calls (via GA),"x, n_modes, n_periods, timestamps, parameters, period_chunk, simulation_control, marginal_context",scalar reward value
+optimize_modes(),maxmode(),calls,"x, n_modes, n_periods, target_periods","data.frame(period, maxmode)"
 optimize_modes(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, x_mode",set_point_actual
 fitness_funct_optimize_setpoint(),convert_setpoints(),calls,"setpoint_array, target_periods, parameters",set_point_df
-fitness_funct_optimize_setpoint(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
-fitness_funct_optimize_mode(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
+fitness_funct_optimize_setpoint(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control, marginal_context","{period_chunk, reward}"
+fitness_funct_optimize_mode(),maxmode(),calls,"x, n_modes, n_periods, target_periods","data.frame(period, maxmode)"
 fitness_funct_optimize_mode(),convert_modes_to_setpoints(),calls,"setpoint_modes_df, target_periods, maxmode_result",set_point_df
-fitness_funct_optimize_mode(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control","{period_chunk, reward}"
+fitness_funct_optimize_mode(),evaluate_control(),calls,"period_chunk, set_point_df, parameters, simulation_control, marginal_context","{period_chunk, reward}"
 evaluate_control(),period_calculation(),calls,"period_chunk, parameters, calculation_mode=1, calculation_context, set_point_df",period_chunk with *_plan columns
 evaluate_control(),initialize_plan_flex_columns(),calls,period_chunk,period_chunk with *_plan_flex baseline
 evaluate_control(),flex_evaluation(),calls (conditional),"period_chunk, parameters, simulation_control_2 (with i_flex, flexibility_event_length, flexibility set)",period_chunk with updated *_plan_flex columns
-evaluate_control(),reward_function(),calls,"period_chunk, parameters, simulation_control",period_chunk with Reward column
+evaluate_control(),reward_function(),calls,"period_chunk, parameters, simulation_control, marginal_context","period_chunk with Reward column (and internal Elec_Cost_plan, transient, not persisted to Main_df under that name)"
+reward_function(),compute_marginal_energy_cost(),calls (marginal_context is mandatory),"E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, P_import_buy_by_market, P_import_sell_by_market, P_export_buy_by_market, P_export_sell_by_market",marginal cost (scalar)
+compute_marginal_energy_cost(),calc_differential_cost(),calls,"E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell",differential cost per target interval
+reward_function(),compute_marginal_distribution_cost(),calls (base-energy term only),"E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, distribution_rate_by_market","marginal distribution cost (scalar, negative = expense) = -distribution_rate * (abs(E_new)-abs(E_orig)), no calc_differential_cost() involved"
+reward_function(),compute_marginal_flex_revenue(),"calls (flexibility/operationflex modes only, marginal_context is mandatory)","E_candidate=Elec_flex_plan, MarketUTC_candidate, market_utc, E_orig_by_market=E_orig_expflex_by_market, price_down_sell_by_market, price_down_buy_by_market, price_up_sell_by_market, price_up_buy_by_market",marginal flexibility cash flow (scalar)
+compute_marginal_flex_revenue(),value_flex_operation(),calls,"E_orig, E_new, price_down_sell, price_down_buy, price_up_sell, price_up_buy","{down_sold, down_bought, up_sold, up_bought, revenue} per target interval"
 flex_evaluation(),period_calculation(),calls,"period_chunk_subset, parameters, calculation_mode_vec (derived internally), calculation_context = plan_flex",period_chunk_subset with *_plan_flex simulation updates
-convert_modes_to_setpoints(),maxmode(),calls,"x_bin, n_modes, n_periods, target_periods","{maxmode, error}"
-data_outputs.R,(none - base R),writes,"Main_df, parameters, execution_time, paths",CSV/RDS files
-Main_SCC.R,initialization_SCC.R,sources,(none),"functions loaded, libraries from 00_Libraries"
-Main_SCC.R,load_all_parameters.R,sources,(none),"Main_df, parameters (all sub-lists; no subsetting or market column init)"
-Main_SCC.R,control_optimization_parameters_SCC.R,sources,(none),"parameters with SCC CLI overrides, Main_df subsetted"
-Main_SCC.R,market_columns_setup.R,sources,(none),Main_df (Sched_ and Pilot_ market columns initialized and mapped)
-Main_SCC.R,price_emulation.R,sources (conditional),(none),Main_df (updated flex prices)
-Main_SCC.R,generate_occupancy_profiles.R,sources,(none),Main_df$Occupancy (generated)
-Main_SCC.R,generate_scheduling_profiles.R,sources,(none),Main_df$Scheduling (generated)
-Main_SCC.R,climate_priority.R,sources,(none),Main_df$Overall_Climate (generated)
-Main_SCC.R,reference_temperature_profiles.R,sources,(none),"Main_df$Service_T_*, Main_df$Scheduling_T_* (generated)"
-Main_SCC.R,simulation.R,sources,(none),"Main_df (complete with results), execution_time"
-Main_SCC.R,data_outputs_SCC.R,sources,(none),CSV/RDS files with SCC suffix
-initialization_SCC.R,initialization.R (03_Functions),sources,(none),initialization() function defined
-initialization_SCC.R,initialization(),calls,"paths$library_file, functions_path, lib_path",all functions loaded with local library priority
-Console_code.txt,scc_settings.sh,sources (bash),SCC_* variables,"TASKS_PER_JOB, JOB_NAME, SCC_QUEUE, SCC_QOS, SCC_USER, SCC_USERNAME, SCC_OUTPUT_FORMATS"
-Console_code.txt,Install_libraries.R,calls (Rscript),(none),R libraries installed in 00_Libraries
-Console_code.txt,Job_array_r.sh,calls (sbatch),"--array, SBATCH_EXTRA, SCC_OUTPUT_FORMATS",Slurm job submitted
-Console_code.txt,job_tracker.csv,writes,"job_index, start_task, end_task, status, slurm_job_id",job tracking table
-Job_array_r.sh,Main_SCC.R,calls (Rscript),17 positional args from Optim_parameters.csv,"CSV/RDS output files"
-Job_array_r.sh,scc_settings.sh,sources (bash),SCC_* variables,SCC_OUTPUT_FORMATS
-Job_array_r.sh,job_tracker.csv,reads/writes,job status update,auto-launches next pending job
-GUI_parametric.R,save_optim_params.R,calls,"df, scc_path, settings","Optim_parameters.csv, scc_settings.sh"
-PostProcess_hyperparameter_analysis.R,load_hyperparameter_data.R,sources,input_dir,global_df
-PostProcess_hyperparameter_analysis.R,compute_boxplot_stats.R,sources,"y_vals, percentile params","stats, out, n"
-PostProcess_hyperparameter_analysis.R,plot_and_save.R,sources,"draw_fn, file_path",JPEG file written
-GUI_hyperparameter.R,load_hyperparameter_data.R,sources,input_dir,global_df
-GUI_hyperparameter.R,compute_boxplot_stats.R,sources,"y_vals, percentile params","stats, out, n"
-GUI_hyperparameter.R,plot_and_save.R,sources,"draw_fn, file_path",JPEG file written
+data_outputs.R,(none - base R),writes,"Main_df, parameters, execution_time, economic_analysis, paths",CSV/RDS files
+period_calculation(),period_simulation_cpp(),calls,"Ti, Te, Act_heat, Act_cool, Q_heat, Q_cool, Elec_heat, Elec_cool, Elec_total, Comfort, SolarR, Text, T_ext_24h, Act_vent, time, comfort_low, comfort_high, STP_heat_low, STP_heat_high, STP_cool_low, STP_cool_high, calculation_mode_vec, Ci, Ce, Rie, Rea, Aw, Ae, Shading_0, Shading_1, Setpoint_Shading1, AT_hp_heat_1, AT_hp_heat_2, Q_hp_heat_1, Q_hp_heat_2, COP_hp_heat_1_coef1, COP_hp_heat_1_coef2, COP_hp_heat_1_coef3, Tsup_hp_heat, Q_hp_cool, COP_hp_cool, Rvent01, Rvent1, Rvent2, Rvent2_HR, Setpoint_Rvent1, inertial_fact (no economic calculation; column names carry the _exec/_plan/_plan_flex suffix from calculation_context)","list with updated vectors"

@@ -1,0 +1,7 @@
+# Market-aware flexibility generation parameters (Complex_Market_Config == "yes" only)
+parameter,value,unit
+Max_shift_hours,2,h
+P_advance,0.05,-
+P_delay,0.05,-
+P_event_base,0.05,-
+decay_rate,0.05,h-1

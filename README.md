@@ -1,8 +1,33 @@
 # Model Predictive Control for Buildings
 
-This project is a test environment for Model Predictive Control in Buildings. I could write much more, but it is better that you explore each subsection below to better understand it and see if it is useful for you.
+This project is a test environment for Model Predictive Control in Buildings. Much more could be written here, but it is easier to explore each subsection below to understand the project and see if it is useful for a given case.
 
-# Content of this repository
+## Index
+
+1. [Content of this repository](#1-content-of-this-repository)
+2. [Context](#2-context)
+3. [Components](#3-components)
+4. [Model](#4-model)
+5. [Control modes & setpoints](#5-control-modes--setpoints)
+6. [Policy](#6-policy)
+7. [Market Structure](#7-market-structure)
+8. [Decision making processes and optimization aims](#8-decision-making-processes-and-optimization-aims)
+9. [Marginal cost in the evaluation of solutions](#9-marginal-cost-in-the-evaluation-of-solutions)
+10. [Genetic algorithm](#10-genetic-algorithm)
+11. [Optimization and control horizons](#11-optimization-and-control-horizons)
+12. [Flexibility events](#12-flexibility-events)
+13. [Parametrization and Graphic User Interface](#13-parametrization-and-graphic-user-interface)
+14. [Input-Output files](#14-input-output-files)
+15. [Economic data structures](#15-economic-data-structures)
+16. [Notes on code usage](#16-notes-on-code-usage)
+17. [Changes and version control](#17-changes-and-version-control)
+18. [Known Issues](#18-known-issues)
+19. [Discontinued items](#19-discontinued-items)
+20. [Authors & contributors](#20-authors--contributors)
+21. [Future works](#21-future-works)
+22. [Acknowledgements](#22-acknowledgements)
+
+# 1. Content of this repository
 
 In this repository, a model predictive control for building is tested. A full-year simulation is performed and the most optimal action path is decided periodically.
 
@@ -18,17 +43,19 @@ The specific interest of this repository is that the optimal action is defined i
 
 Some output:
 
-![](99_Readme/reward_vs_run_number.jpeg){width="600"}
+<img src="99_Readme/reward_vs_run_number.jpeg" width="600" />
 
-![](99_Readme/week_52.jpg){width="600"}
+<img src="99_Readme/week_52.jpg" width="600" />
 
 It should be noted that figures correspond to an earlier version of the code. Although the code allows for a more complex decision-making process, these figures represent a basic approach where at each midnight, the action path for the following day is decided.
 
 The code is fully parametrized, and tested for parametric simulations in supercomputers. Auxiliary scripts and graphic interfaces are provided. (all this is better explained below)
 
-# Context
+[back to top](#model-predictive-control-for-buildings)
 
-Buildings are inertial systems. Conditioning these for human use also implies that a large share of energy is used to heat-up/cool-down building structures. These structures have a relevant inertia, with associated transient processes. There is some time in between when we start heating-up buildings until these get to a comfortable status. Equally, if heating is turned off, temperature variations will be slow, allowing to keep comfort for some time.
+# 2. Context
+
+Buildings are inertial systems. Conditioning these for human use also implies that a large share of energy is used to heat-up/cool-down building structures. These structures have a relevant inertia, with associated transient processes. There is some time between starting to heat a building and reaching a comfortable status. Equally, if heating is turned off, temperature variations will be slow, allowing to keep comfort for some time.
 
 There is an increasing number of houses heated/cooled with electric systems, commonly heat pumps. These systems present a number of particularities that should be considered for their operation:
 
@@ -44,25 +71,31 @@ Additionally, electric networks are increasingly populated with renewable energy
 
 Again, the thermal inertia in buildings seems to be a good source of flexibility. Once heated, the building will remain hot/warm for some time, even if Heat Pumps are stopped/operated at lower load for some time.
 
-# Components
+[back to top](#model-predictive-control-for-buildings)
+
+# 3. Components
 
 The Model Predictive Control system consists of the following:
 
-- A full year worth of meteorological data and electricity prices `/01_Simulation/01_Data/Main_df.csv` (or.rds)
+- A full year worth of meteorological data and electricity prices `30_Simulation/01_Data/Meteo_df.rds` and `30_Simulation/01_Data/Energy_Prices_df.rds` (or .csv)
 
-- A semi physical (RC) building energy model linked to a heat pump model `/01_Simulation/02_Config/Model_parameters.csv`
+- A semi physical (RC) building energy model linked to a heat pump model `30_Simulation/02_Config/11_Model_parameters.csv`
 
 - A genetic algorithm to perform the predictive optimization
 
 - A policy to assess the goodness of a particular solution
 
-- A large set of configuration files allowing for the parametrization of the simulation `/01_Simulation/02_Config/`
+- A large set of configuration files allowing for the parametrization of the simulation `30_Simulation/02_Config/`
 
-## Model
+[back to top](#model-predictive-control-for-buildings)
+
+# 4. Model
 
 The energy model is based on a reduced order (RC) building model with integrated HVAC and heat pump models. The details of the model, including the building physics, thermostat, heating and cooling systems, ventilation, shading, and occupancy are described in [Model](99_Readme/Model.md).
 
-## Control modes & setpoints
+[back to top](#model-predictive-control-for-buildings)
+
+# 5. Control modes & setpoints
 
 2 control modes are foreseen:
 
@@ -76,35 +109,13 @@ Even if simulations are performed at a lower resolution, setpoints and modes are
 
 Although still in early stages of research, it seems that Mode-based optimization is a faster and better approach.
 
-## Decision making processes and Optimization aims
+[back to top](#model-predictive-control-for-buildings)
 
-**NEW V3.** Decision-making process occurs in two steps:
-
-- Scheduling. A long-term setpoint/operational mode schedule is defined. This is commonly linked to day-ahead and/or intra-day markets, where schedules up to \~ 36h ahead are defined.
-
-- Piloting. Here, the already-defined overall schedule is "piloted" and potentially adapted for changes in the price of energy or potential short-term flexibility needs
-
-In these cases the following optimization aims are considered:
-
-- Energy: System setpoints/modes are optimized so that the energy cost is minimized (or revenues maximized).
-
-- Energy+Flexibility: System setpoints/modes are optimized, for minimal energy costs/maximal energy revenues, but also leaving some space to commit flexibility services to the market.
-
-- **NEW V3.** Operation: This mode is only possible when a previous Energy (or Energy+Flexibility) optimization has been executed. It is used in Piloting decision processes, where setpoints are already pre-defined, but the volumes of purchased energy can be modified due to closer forecasting of the behavior of the building.
-
-- **NEW V3.** Operation+Flexibility: This mode is similar to the previous one, but allows for the commitment in the flexibility market on short notice.
-
-In all cases, the [policy] weights economic costs/revenues and comfort levels.
-
-Considering that scheduling and piloting processes have different aims, heating and cooling thresholds are established separately for each of them. Typicall (but not strictly required), Scheduling constraints are heavier than Piloting. Allowing for greater adaptarion in the short term. These are established in `/01_Simulation/02_Config/18_Reward_parameters.csv`
-
-More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
-
-## Policy
+# 6. Policy
 
 A policy that incorporates heating costs and comfort is used.
 
-- Comfort: System temperature is compared with reference temperaturesduring the occupancy periods. If the building outside confort bounds, a high penalty is given (the negative of the `Alpha_confort` parameter, now set to 50). Reference temperatures are defined separately for Scheduling and Piloting periods.
+- Comfort: System temperature is compared with reference temperatures during the occupancy periods. If the building is outside comfort bounds, a high penalty is given (the negative of the `Alpha_confort` parameter, now set to 50). Reference temperatures are defined separately for Scheduling and Piloting periods.
 
 - Energy (and flexibility): The cost of Energy is aimed to be minimized. Accordingly, the cost of heating is considered as a negative reward.
 
@@ -116,11 +127,81 @@ For the cases where the optimization aim is flexibility, a more complex reward f
 
 - Comfort is assessed both for the case with baseline operation and for the extreme case where all the flexibility is activated.
 
-- The revenues for flexibility commitments are incorporated. With regards to the activation of flexibility, this is considered, but wheighted for the likelyhood of activation.
+- The revenues for flexibility commitments are incorporated. With regards to the activation of flexibility, this is considered, but weighted for the likelihood of activation.
 
 More information on this is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
-## Genetic algorithm for MPC
+[back to top](#model-predictive-control-for-buildings)
+
+# 7. Market Structure
+
+In this work, energy flows are defined in a 3-level market:
+
+1. Scheduling
+2. Piloting
+3. Execution
+
+Quite in line with how markets operate in Western Europe.
+
+- Scheduling markets correspond with day-ahead and intra-day markets. In these markets the base programme for energy production and use is defined, quite in advance (i.e. day-ahead markets close 12h before the actually-traded day). Given this anticipation, it is common to have poor accuracy in load prediction, particularly for small and non-industrial loads. There is one day-ahead and 3 intra-day markets per day.
+
+- Piloting markets are scheduled every hour and allow to adapt loads starting \~one hour after market closure. This allows to substantially adapt the base energy use programme with better and shorter load forecasts.
+
+- Execution is not a market per se. This is just real-life energy delivery. It is common to have some deviations in this delivery when compared with the energy traded in the previous markets.
+
+The following picture shows the structure of Day Ahead (DA), Intra Day (ID) and Continuous Intra Day (cID) in Spain.
+
+![](99_Readme/OMIE.jpg)
+
+Source: [OMIE, Mercado de Electricidad (2026/06/13)](https://www.omie.es/es/mercado-de-electricidad)
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 8. Decision making processes and optimization aims
+
+Decision-making process occurs in two steps:
+
+- Scheduling. A long-term setpoint/operational mode schedule is defined. This is commonly linked to day-ahead and/or intra-day markets, where schedules up to \~ 36h ahead are defined.
+
+- Piloting. Here, the already-defined overall schedule is "piloted" and potentially adapted for changes in the price of energy or potential short-term flexibility needs
+
+In these cases the following optimization aims are considered:
+
+- Energy: System setpoints/modes are optimized so that the energy cost is minimized (or revenues maximized).
+
+- Energy+Flexibility: System setpoints/modes are optimized, for minimal energy costs/maximal energy revenues, but also leaving some space to commit flexibility services to the market.
+
+- Operation: This mode is only possible when a previous Energy (or Energy+Flexibility) optimization has been executed. It is used in Piloting decision processes, where setpoints are already pre-defined, but the volumes of purchased energy can be modified due to closer forecasting of the behavior of the building.
+
+- Operation+Flexibility: This mode is similar to the previous one, but allows for the commitment in the flexibility market on short notice.
+
+In all cases, the [policy](#6-policy) weights economic costs/revenues and comfort levels.
+
+Considering that scheduling and piloting processes have different aims, heating and cooling thresholds are established separately for each of them. Typicall (but not strictly required), Scheduling constraints are heavier than Piloting. Allowing for greater adaptarion in the short term. These are established in `30_Simulation/02_Config/18_Reward_parameters.csv`
+
+More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 9. Marginal cost in the evaluation of solutions
+
+In agreement with the process explained in the preceding sections, for each moment in time, energy flows are traded several times throughout the preceding scheduling and piloting markets.
+
+In each of these trades (except in the first one), the optimizer must define a course of action, considering previously committed energy/flexibility trades. For instance, in IDA2, there might be X kWh already purchased for H07Q2.
+
+The optimizer shall define if X is sufficient, too much or too few energy. And then define if more energy must be purchased or sold. This is what we call Marginal operation. An Energy purchase/sell that would adapt existing commitments to meet the desired net energy flow. Say that one option states that X+Y kWh are needed for H07Q2. In this case Y kWh must be purchased.
+
+At IDA2, only Y needs to be purchased. Accordinly, it is only Y that needs to be introduced into the energy cost terms in the [Policy](#6-policy) (together with distribution costs, etc.).
+
+As a result, the formula defined in the [Policy](#6-policy) considers:
+
+- All the confort terms within the optimization horizon
+
+- Only marginal costs/revenues within the optimization horizon
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 10. Genetic algorithm
 
 The MPC system optimizes the performance of HVAC systems in the building by considering different setpoints/operation modes in the future and their effect in the system. A Genetic Algorithm is used for this, particularly the ga() function in the GA library.
 
@@ -140,29 +221,9 @@ Genetic algorithms in this work are parametrized with the following parameters:
 
 - Number of runs: Number of times where the full process is executed
 
-## Market Structure
+[back to top](#model-predictive-control-for-buildings)
 
-In this work, energy flows are defined in a 3-level market:
-
-1. Scheduling
-2. Piloting
-3. Execution
-
-Quite in line with how markets operate in Western Europe.
-
-- Scheduling markets correspond with day-ahead and intra-day markets. In these markets the base programme for energy production and use is defined, quite in advance (i.e. day-ahead markets close 12h before the actually-traded day). Given this anticipation, it is common to have poor accuracy in load predicion, particularly for small and non-industrial loads. There is one day-ahead ad 3 intra-day markets per day.
-
-- Piloting markets are scheduled every hour and allow to adapt loads starting \~one hour after market closure. This allows to substantially adapt the base energy use programme with better and shorter load forecasts.
-
-- Execution is not a market per se. This is just real-life energy delivery. It is common to have some deviations in this delivery when compared with the energy traded in the previous markets.
-
-The following picture shows the structure of Day Ahead (DA), Intra Day (ID) and Continuous Intra Day (cID) in Spain.
-
-![](99_Readme/OMIE.jpg)
-
-Source: [OMIE, Mercado de Electricidad (2026/06/13)](https://www.omie.es/es/mercado-de-electricidad)
-
-## Optimization and control horizons
+# 11. Optimization and control horizons
 
 The MPC optimizes a system considering its performance over a given time. In this case, two timeframes are considered:
 
@@ -178,101 +239,77 @@ Considering how energy markets operate, there is a need to forecast energy/flexi
 
 This is illustrated in the figure below.
 
-![](99_Readme/optimizer_horizons.jpg){width="800"}
+<img src="99_Readme/optimizer_horizons.jpg" width="800" />
 
-# Data
+[back to top](#model-predictive-control-for-buildings)
 
-## Data used in the simulation
-
-Sample ata for 2024 is available at `/01_Data/Main_df.rds` (the same data is also available in a csv file).
-
-Some other data sources:
-
-Climate data for any location in the world can be sourced from [OpenMeteo](https://open-meteo.com/)
-
-Electricity data for any country in Europe can be sourced from <https://ember-energy.org/data/european-wholesale-electricity-price-data/>
-
-## Flexibility events
+# 12. Flexibility events
 
 Flexibility events are defined synthetically, so that the simulation can show the result of a response to a flexibility price incentive. More details on how the flexibility price signals are generated is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
-# Parametrization of simulations (Model, Optimizer,....)
+[back to top](#model-predictive-control-for-buildings)
 
-This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `/01_Simulation/02_Config/`, or through the Graphic User Interface provided in `/40_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify all configuration files without manual CSV editing.
+# 13. Parametrization and Graphic User Interface
 
-For a detailed description of the available parameters, configuration files, and how to use the GUI, see [Model_Parametrization](99_Readme/Model_Parametrization.md).
+This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `30_Simulation/02_Config/`, or through the Graphic User Interface provided in `20_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify all configuration files without manual CSV editing.
 
-# Code Architecture
+[back to top](#model-predictive-control-for-buildings)
 
-For a detailed visual representation of the code structure, including the hierarchical relationships between scripts and functions, see the [Code Hierarchy Chart](90_Structure/Main_relations.md).
+# 14. Input-Output files
 
-# Notes on code usage
+The simulation reads two input data files (weather and energy prices) and writes a set of CSV/RDS output files per run:
 
-This code is developed in R 4.5.0.
+- Full timestep-by-timestep results
+
+- A simulation summary
+
+- Two economic analysis tables.
+
+File locations, the general content and purpose of each file, and a full documentation is available in [Input-Output files](99_Readme/Input_Output_Files.md).
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 15. Economic data structures
+
+Three objects are used to document economic operations:
+
+- `full_market_information`: Prices for all Energy and Flexibility flows in each market along the simulation.
+
+- `market_commitments`: Commitments made by the building in each market.
+
+- `economic_analysis`: Information on economic flows associated to the commitments. Aggregated by market or by market slot.
+
+These are each a grouped of several independent data frames . Detailed documentation of these is available in [Economic data structures](99_Readme/Economic_Data_Structures.md).
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 16. Notes on code usage
 
 Main.R is the main script, allowing to execute the simulation.
 
+This code is developed in R 4.5.0.
+
+This repository is currently under development, with a rapid evolution in features, and associated changes in code structure, and data formats. Regretfully, this is not properly documented. Sorry.
+
 The user should expect a **very long execution time**. Depending on the hyperparameter selection for the GA function, execution time is somewhere in between 1h and several days.
 
-Hyperparamter tuning for the GA function is unfeasible in a personal computer. We performed this by means of parametric simulations in a supercomputer facility. The code used for this activity is referred to in the following section.
+Hyperparameter tuning for the GA function is unfeasible on a personal computer. This used to be performed by means of parametric simulations in a supercomputer facility. Given that the code is rapidly evolving, this part of the code was discontinued - see [Discontinued items](#19-discontinued-items) below - but it should be easy to redefine a similar code based on the examples from V2.
 
-# Computation at Scale
+[back to top](#model-predictive-control-for-buildings)
 
-Running full-year Model Predictive Control simulations and parametric studies can require very long execution times. High-performance computing resources, such as supercomputers, are often necessary to run these simulations in a reasonable time frame. This repository includes adapted code and a Graphic User Interface to define and deploy parametric simulations on SLURM-based supercomputer environments.
+# 17. Changes and version control
 
-For a detailed description of how to run simulations at scale, manage jobs, and use the supercomputer GUI, see [Computation_at_scale](99_Readme/Computation_at_scale.md).
+The current version of this work is Version v4. It has the previous changes from previous versions:
 
-# Auxiliary code and Graphic User Interfaces
+### V4
 
-## Graphic User Interface
+- Optimization approach considering Marginal costs (see section 9 above).
 
-A few graphic user interfaces are available to parametrize simulations under 40_GUI:
+- Definition of complex economic data structures and outputs (see sections 14 and 15 above).
 
-- `/01_Configure_Simulations/` allows to easily edit all configuration files under `/01_Simulation/02_Config/` This is already presented under [Parametrization of simulations (Model, Optimizer,....)] above.
+- Formal discontinuation of some auxiliary tools & code (not even updated in V3).
 
-- `/02_Configure_Parametric_Simulations/` allows to generate parametric simulations for supercomputers easily /see under [Computation at Scale]). NOTE: All items linked to the use of supercomputers was not tested in V3. Accordingly, these will most probably fail. These remain in the repository for later updated in V3.X.
-
-## Parametric simulations
-
-Already presented under [Computation at Scale].
-
-NOTE: All items linked to the use of supercomputers was not tested in V3. Accordingly, these will most probably fail. These remain in the repository for later updated in V3.X.
-
-## Utils to get data (incomplete)
-
-Weather and electricity market data is required.
-
-`/10_Utils_data/` has some scripts to get weather data from [OpenMeteo](https://open-meteo.com/) and energy prices from [EESIOS](https://www.esios.ree.es/es/pagina/api).
-
-From there on, there is a need to adapt energy prices to get three signals:
-
-- Spot Price of Electricity [€/MWh]
-
-- Revenue for flexibility commitments [€/MWh]
-
-- Revenue for the execution of commitments [€/MWh]
-
-This is performed with quite straightforward arithmetic operations, considering the above-indicated data sources, as well as fees for TSO/DSOs. This is not yet incorporated into the repository.
-
-The reader/user should consider that these scripts have been fully written with generative AI, with minimal supervision. But they have been tested to work properly to execute their tasks.
-
-## Analysis scripts
-
-`/20_Postprocess/`
-
-Auxiliary scripts are available for the evaluation of parametric simulations (`/20_Postprocess/01_Hyperparameter_Analysis`) and plotting the time series of a simulation (`/20_Postprocess/02_Flexibility_Analysis`).
-
-These shall be considered as basic scripts for supervision of simulations and early-stage model output analysis. But they are useful.
-
-The reader/user should consider that these scripts have been fully written with generative AI, with minimal supervision (as they are used for the generation of preliminary graphs).
-
-NOTE: All items linked to the use of supercomputers was not tested in V3. Accordingly, these will most probably fail. These remain in the repository for later updated in V3.X.
-
-# Changes and version control
-
-The current version of this work is Version v3. It has the previous changes from previous versions:
-
-**V3**
+### V3
 
 - Re-structuration of market to resemble market structures
 
@@ -280,7 +317,7 @@ The current version of this work is Version v3. It has the previous changes from
 
 - New coding approach to Mode-based optimization in ga(), now with modes encoded as interger values instead of one-hot encoding(in V2).
 
-**V2**
+### V2
 
 - Mode-based optimization
 
@@ -288,25 +325,31 @@ The current version of this work is Version v3. It has the previous changes from
 
 - Incorporation of weather forecasting errors
 
-**V1**
+### V1
 
 - First load optimization MPC, setpoint-based
 
-## Known Issues
+See [Discontinued items](#19-discontinued-items) below for functionality that used to exist but is no longer part of the repository.
 
-- There are a few hardcoded issues in the code, for me to update over time:
+[back to top](#model-predictive-control-for-buildings)
 
-- - In `load_15_market_config.R`, line 55. When a flexibility-oriented optimizations is performed, control and forecast types are forced . It is unclear if this is still needed, as the algorithm seems to work fine for setpoint-based and inplerfect forecast optimizations.
+# 18. Known Issues
 
-- Flexibility events are not yet triggered in the code.
+No known issues at present.
 
-- I have mostly focused on simulation code. Accordingly, code under `/10_PreProcess/` , `/31_SCC_Simulation/` , `/40_PostProcess/` and `/50_Utils_Data/` is most likely to be outdated or not directly operative. Will reviewed and updated as a minor V3.X version.
+[back to top](#model-predictive-control-for-buildings)
 
-- All items linked to the use of supercomputers were not tested in V3. Accordingly, these will most probably fail. These remain in the repository to be later updated as a minor V3.X version.
+# 19. Discontinued items
 
-- Files under `/90_Structure/`are likely to be slightly outdated. Will reviewed and updated as a minor V3.X version.
+The following components were part of earlier versions of this repository but have been removed. Their full source and documentation remain recoverable from the repository's git history.
 
-# Authors & contributors
+- **Supercomputer execution scripts** (`31_SCC_Simulation/`) - the adapted `Main_SCC.R` and SLURM job-array scripts used to run parametric simulations on the DIPC supercomputing facility. Present through V2.
+- **Post-processing / analysis scripts** (`40_PostProcess/`) - hyperparameter-analysis and flexibility/time-series plotting scripts for reviewing parametric simulation batches (`01_Hyperparameter_Analysis`, `02_Flexibility_Analysis`). Present through V2.
+- **Parametric-simulation GUI** (`20_GUI/02_Configure_Parametric_Simulations/`) - a Shiny application (`GUI_parametric.R`) to define and deploy parametric simulation batches on the supercomputer described above. Present through V2.
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 20. Authors & contributors
 
 The main author of this code is [Dr. Roberto Garay-Martinez](https://robertogaray.com/).
 
@@ -316,24 +359,28 @@ The following contributions are acknowledged:
 - [Mr. Noe Fontier](https://www.linkedin.com/in/noe-fontier/). Contributed with the development of model formulae (under the guidance of Dr. Garay-Martinez).
 - [Ms. Ane Oleaga Cano](https://www.linkedin.com/in/ane-oleaga-cano-74166a225). Contributed with the compilation of time series on energy prices.
 
-# Future works
+[back to top](#model-predictive-control-for-buildings)
 
-This is v3 of an ongoing work. I expect to increase the aim, and complexity of this work. Particularly with regards to the following topics:
+# 21. Future works
 
-- Update scripts for parametric simulations, and auxiliary scripts to meet the new definition of parametrization files, and data frame structures (minor update avter V3).
+This is V4 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
 
 - Incorporate the execution of flexibility to the simulation. Currently load profile is optimized considering flexibility commitments, but these are not executed.
 
 - Incorporate the execution of flexibility to the simulation, considering imperfect forecasts. This will lead to side works on how to define the level of commitment so that it is executable even with imperfect forecasts
 
-- "Improve" imperfect forecasts. I´m thinking on different possibilities such as: non-controlled heat sources/sinks, or using different models for forecasts and simulation, among others. Also, self-identification of hidden states in the models for forecasting (Although this is known in the simulatior, the forecast should self-define this state).
+- "Improve" imperfect forecasts. Different possibilities are being considered, such as non-controlled heat sources/sinks, or using different models for forecasts and simulation, among others. Also, self-identification of hidden states in the models for forecasting (although this is known in the simulator, the forecast should self-define this state).
 
 - Generalize the MPC approach to aggregated systems (i.e. building + PV) or other systems (i.e. swimming pool heating).
 
 - ...
 
-All of the above will take some time (it is not clear to me if I will perform all of them), and is a potential source of new ideas.
+All of the above will take some time (it is not clear whether all of them will be carried out), and is a potential source of new ideas.
 
-# Acknowledgements
+[back to top](#model-predictive-control-for-buildings)
 
-I have used the DIPC Supercomputing Center to test our code, and run our simulations (probably now in the range of \>1exp4 simulations or \>1exp5 hours of computational time). I acknowledge the technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center).
+# 22. Acknowledgements
+
+The DIPC Supercomputing Center has been used to test the code, and run the simulations (probably now in the range of \>1exp4 simulations or \>1exp5 hours of computational time). The technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center) is acknowledged.
+
+[back to top](#model-predictive-control-for-buildings)

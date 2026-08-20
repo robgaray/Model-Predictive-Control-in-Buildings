@@ -7,8 +7,6 @@
 # This function processes an integer mode vector (one mode index per
 # market period) and pairs it with the corresponding timestamps to
 # create a structured data frame.
-# This function has been simplified from the original one-hot encoding
-# approach and now works directly with integer mode indices.
 # -------------------------------------------------------------
 # Inputs
 #   x              : Integer vector of length n_periods. Each element is
@@ -34,9 +32,10 @@
 # result <- maxmode(x, n_modes, n_periods, target_periods)
 # -------------------------------------------------------------
 # Where this function/script is used
-# This function maintains backward compatibility with previous code structure.
-# It is no longer strictly necessary with the integer-based GA approach,
-# but provides a clean interface for building mode data frames.
+# Called by optimize_modes.R (to pair the best GA solution with
+# target_periods) and by fitness_funct_optimize_mode.R (to pair each
+# candidate chromosome with target_periods before conversion to
+# setpoints).
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - n_modes and n_periods are kept as parameters for interface compatibility

@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: optimize_setpoints.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK4
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function optimizes heating and cooling setpoints over a
@@ -33,9 +33,10 @@
 #                      parameters$optimization (population_size,
 #                        iteration_number, run_number, pcrossover, pmutation,
 #                        parallel, as returned by load_optimization_parameters())
-#   indexes        : Named list. Index metadata (passed through to
-#                    fitness function for interface consistency).
-# NOTE: This parameter is named 'simulation_control' in the calling code.
+#   simulation_control : Named list. Index/step metadata (passed through to
+#                    the fitness function for interface consistency).
+#   marginal_context : Named list or NULL. Passed through to the fitness
+#                    function and, via clusterExport(), to worker processes.
 #
 # Outputs
 #   set_point_optimized : Data frame with setpoint columns and hysteresis
@@ -47,7 +48,8 @@
 # 2. Configure genetic algorithm (GA) parameters
 # 3. Run GA optimization with fitness function
 # 4. Extract best setpoint solution
-# 5. Evaluate final control with best setpoints
+# 5. Convert best solution to a set_point_df with hysteresis deadbands
+#    via convert_setpoints()
 # -------------------------------------------------------------
 # Usage instructions
 # result <- optimize_setpoints(period_chunk, timestamps, parameters, simulation_control)
@@ -81,11 +83,22 @@
 #                                       (called inside evaluate_control)
 #   reward_function()                 - reward calculation
 #                                       (called inside evaluate_control)
+#   compute_marginal_energy_cost()    - marginal cash flow, base-energy term
+#                                       (called inside reward_function,
+#                                       when marginal_context is provided)
+#   compute_marginal_distribution_cost() - marginal distribution cost
+#                                       (called inside reward_function,
+#                                       when marginal_context is provided)
+#   compute_marginal_flex_revenue()   - marginal cash flow, explicit
+#                                       flexibility term (called inside
+#                                       reward_function, flexibility/
+#                                       operationflex modes only)
 # -------------------------------------------------------------
 optimize_setpoints <- function(period_chunk,
                                timestamps,
                                parameters,
-                               simulation_control
+                               simulation_control,
+                               marginal_context = NULL
                                ) {
   # Optimization vector definition
   {
@@ -115,24 +128,48 @@ optimize_setpoints <- function(period_chunk,
       clusterExport(
         cl,
         varlist = c(
+          "fitness_funct_optimize_setpoint",
           "evaluate_control",
           "convert_setpoints",
           "period_calculation",
           "flex_evaluation",
           "reward_function",
+          "compute_marginal_energy_cost",
+          "compute_marginal_distribution_cost",
+          "compute_marginal_flex_revenue",
+          "calc_differential_cost",
+          "split_market_operation",
+          "value_flex_operation",
           "initialize_plan_flex_columns",
           "period_chunk",
           "parameters2",
           "horizon",
           "timestamps",
-          "simulation_control"
+          "simulation_control",
+          "marginal_context"
         ),
         envir = environment()
+      )
+
+      # Compile C++ simulation module on each worker process
+      clusterExport(
+        cl,
+        "cpp_source_path",
+        envir = globalenv()
+      )
+      clusterEvalQ(
+        cl,
+        Rcpp::sourceCpp(cpp_source_path)
       )
     }
   }
 
   # Optimization (real-valued GA)
+  # fitness_funct_optimize_setpoint is wired in as the GA's fitness
+  # function so every candidate setpoint array is scored through the
+  # same period_calculation()/evaluate_control()/reward_function()
+  # pipeline used elsewhere, keeping the reward calculation consistent
+  # across optimization paths.
   ga_result <- ga(
     type       = "real-valued",
     fitness    = function(x) fitness_funct_optimize_setpoint(
@@ -140,7 +177,8 @@ optimize_setpoints <- function(period_chunk,
                                period_chunk      = period_chunk,
                                parameters        = parameters2,
                                timestamps        = timestamps,
-                               simulation_control = simulation_control
+                               simulation_control = simulation_control,
+                               marginal_context  = marginal_context
                              ),
     lower      = lower_bounds,
     upper      = upper_bounds,
@@ -149,21 +187,29 @@ optimize_setpoints <- function(period_chunk,
     run        = parameters$optimization$run_number,
     pcrossover = parameters$optimization$pcrossover,
     pmutation  = parameters$optimization$pmutation,
-    parallel   = (parameters$debug_and_config$parallel == 1),
+    parallel   = if (parameters$debug_and_config$parallel == 1) cl else FALSE,
     monitor    = FALSE
   )
   
   # Stop cluster
+  # rm(cl) + gc() force the PSOCK connection objects to be released
+  # right away; otherwise R's automatic gc cycles may not reach them
+  # before the session ends, and they get closed with a warning at exit.
   if (parameters$debug_and_config$parallel == 1) {
     stopCluster(cl)   # Stop cluster to free resources
     registerDoSEQ()   # Return to sequential execution
+    rm(cl)
+    gc(verbose = FALSE)
   }
   
   # Postprocessing
   {
     set_point_optimized <- ga_result@solution[1, ]
     rm(ga_result)
-    
+
+    # convert_setpoints is called to split the best GA solution into
+    # heating/cooling setpoint vectors and build the set_point_df with
+    # hysteresis deadbands expected by period_calculation().
     set_point_optimized <- convert_setpoints(
       setpoints_heating = set_point_optimized[1:horizon],
       setpoints_cooling = set_point_optimized[(horizon + 1):(2 * horizon)],

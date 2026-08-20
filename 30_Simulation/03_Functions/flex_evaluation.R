@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Function: flex_evaluation.R
 # Part of the Model Predictive Control in buildings repository
-# https://github.com/robgaray/Model-Predictive-Control-in-Buildings_WORK5
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # This function evaluates the impact of a flexibility event on a
@@ -22,7 +22,7 @@
 #                              thermal_stabilization_timespan (all in hours), and
 #                              minimum_flexibility (kW).
 #   simulation_control       : Named list. Simulation control object. Must contain:
-#                              simulation_control$indexes_global$i_flex (Integer scalar.
+#                              simulation_control$indexes_local$i_flex (Integer scalar.
 #                              Row number in period_chunk at which the flexibility
 #                              event starts).
 #                              simulation_control$flexibility$flexibility_event_length
@@ -53,7 +53,7 @@
 # Called by evaluate_control.R during flexibility optimization.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
-#   - simulation_control$indexes_global$i_flex must be a single integer row index within period_chunk.
+#   - simulation_control$indexes_local$i_flex must be a single integer row index within period_chunk.
 #   - simulation_control$flexibility$flexibility_event_length must be <= flexibility_event_length_max.
 #   - simulation_control$flexibility$flexibility must be in (0, 1].
 #   - If the time distance from i_flex to the last row of period_chunk
@@ -68,6 +68,14 @@
 #     they are at least minimum_flexibility * delta_t smaller than the
 #     corresponding Q_*_plan values (clamped to 0 from below).
 #   - delta_t is computed in minutes, consistent with period_calculation().
+#   - COMPUTATIONAL COST: each call here runs period_calculation() once over
+#     a bounded window (flexibility_event_length + flexibility_recover_timespan
+#     + thermal_stabilization_timespan), so this function's own cost does not
+#     grow with the optimization horizon. However, evaluate_control()'s
+#     nested market-slot loop can call this function O(L^2) times per
+#     evaluation (L = number of market slots in the horizon) - see the
+#     COMPUTATIONAL COST note in evaluate_control.R's header for the
+#     aggregate cost.
 # -------------------------------------------------------------
 # functions/scripts called
 #   period_calculation() - core building physics simulation, called with
