@@ -1,0 +1,24 @@
+# Simulation plausibility bounds file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Plausibility bounds of magnitudes that are not checked by
+# Parameter_config.csv, either because they are columns of an
+# assembled dataframe (Main_df) rather than parameters, or because
+# they are a second, looser check on top of the parameter's own
+# range. They are applied by validate_Main_df() and
+# validate_model_parameters() through get_validation_bounds(), and
+# every one of them only warns: a value outside these bounds is
+# unusual, not impossible.
+# Structure: same convention as Parameter_config.csv
+#   file_name      : name of the dataframe or parameter file
+#   parameter_name : name of the column or parameter to validate
+#   type           : Integer | Real
+#   output         : Error (stops execution) | Warning (issues a warning)
+#   options        : "min,max"; an empty side means unbounded on that side
+# -------------------------------------------------------------
+file_name,parameter_name,type,output,options
+Main_df,Text,Real,Warning,"-50,60"
+Main_df,Elec_unit_cost_buy,Real,Warning,"-1,"
+11_Model_parameters.csv,Volume,Real,Warning,"50,"

@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function validates the ventilation-related model parameters
 # loaded from 11_Model_parameters.csv. It checks that Efi_Vent_Rec,
 # Volume, and inertial_fact parameters exist and fall within their
@@ -21,6 +22,10 @@
 #                        Efi_Vent_Rec - Heat recovery efficiency (0-1)
 #                        Volume      - Building volume (m3), must be positive
 #                        inertial_fact - Thermal inertia factor (0-1)
+#   bounding_validation_config : Data frame. Content of
+#                      Validation_bounding_simulation.csv, holding the
+#                      plausibility bound below which the building
+#                      volume is reported as unusually small.
 # -------------------------------------------------------------
 # Outputs
 #   model_parameters : Named list. The input list with any missing
@@ -34,16 +39,16 @@
 # 3. Validate inertial_fact parameter
 # -------------------------------------------------------------
 # Usage instructions
-# model_parameters <- validate_model_parameters(model_parameters)
+# model_parameters <- validate_model_parameters(model_parameters, bounding_validation_config)
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by load_11_model_parameters.R after loading model_parameters.
 # -------------------------------------------------------------
 # functions/scripts called
-#   (none)
+#   get_validation_bounds()
 # -------------------------------------------------------------
 
-validate_model_parameters <- function(model_parameters) {
+validate_model_parameters <- function(model_parameters, bounding_validation_config) {
 
   # -------------------------------------------------------------
   # 1. Validate Efi_Vent_Rec parameter
@@ -87,13 +92,24 @@ validate_model_parameters <- function(model_parameters) {
       ))
     }
 
-    if (model_parameters$Volume < 50) {
+    # get_validation_bounds is called to read the plausibility bound of
+    # the building volume out of Validation_bounding_simulation.csv, so
+    # that the volume below which a building is unusually small is
+    # stated in configuration and not here.
+    volume_bounds <- get_validation_bounds(
+      bounding_validation_config, "11_Model_parameters.csv", "Volume"
+    )
+
+    if (!is.na(volume_bounds$min) &&
+        model_parameters$Volume < volume_bounds$min) {
       warning(paste(
-        "Parameter Volume is below 50 m3. Value:",
+        "Parameter Volume is below", volume_bounds$min, "m3. Value:",
         model_parameters$Volume,
         ". Please verify the building volume."
       ))
     }
+
+    rm(volume_bounds)
   }
 
   # -------------------------------------------------------------

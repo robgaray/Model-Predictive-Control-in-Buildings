@@ -4,19 +4,23 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Draws one flexibility event candidate (start + duration), both
 # discretized to the market_resolution grid (see
 # 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md, Parte
 # B.0): duration is an integer number of slots (>= 1, up to
 # max_duration_hours/slot), and the start is a slot-aligned position
 # within one of the given available segments, chosen so the candidate
-# fits entirely inside it. Used identically for Scheduling candidates
-# (segments = Available_m, with forbidden zones already removed),
-# Piloting candidates (segments = the market's own full horizon, no
-# forbidden zones), and basic-mode per-day candidates (segments = the
-# day's [0, 24h) window). Returns NULL whenever no candidate can be
-# placed (max_duration_hours shorter than one slot, or no segment long
-# enough) - a silent, no-error outcome by design (see Parte B.7).
+# fits entirely inside it. Used identically for:
+#   - Scheduling candidates: segments = Available_m, with forbidden
+#     zones already removed
+#   - Piloting candidates: segments = the market's own full horizon,
+#     no forbidden zones
+#   - basic-mode per-day candidates: segments = the day's [0, 24h)
+#     window
+# Returns NULL whenever no candidate can be placed (max_duration_hours
+# shorter than one slot, or no segment long enough) - a silent,
+# no-error outcome by design (see Parte B.7).
 # -------------------------------------------------------------
 # Inputs
 # available_segments  : Data frame with columns start, end (numeric,
@@ -26,16 +30,23 @@
 #                       equivalent), in hours.
 # -------------------------------------------------------------
 # Outputs
-# List with t_start_sec, duration_sec (both numeric, seconds), or NULL
-# if no candidate could be placed.
+# List with two numeric elements, in seconds, or NULL if no candidate
+# could be placed:
+#   - t_start_sec
+#   - duration_sec
 # -------------------------------------------------------------
 # Usage instructions
 # place_flex_candidate(available_segments, market_resolution_sec = 900,
 #   max_duration_hours = 2)
 # -------------------------------------------------------------
+# Code outline
+# 1. Draw a duration, in whole market slots, up to the maximum.
+# 2. Keep the segments long enough to hold it.
+# 3. Draw one of them, and a start inside it on the slot grid.
+# -------------------------------------------------------------
 # Where this function/script is used
 # Called by generate_flexibility_events.R (complex mode) and directly
-# by flexibility_generation.R (basic mode).
+# by 09_flexibility_price_emulation.R (basic mode).
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)

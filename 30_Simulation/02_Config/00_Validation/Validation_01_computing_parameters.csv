@@ -1,0 +1,22 @@
+# 01_computing_parameters.csv validation configuration file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Range/type validation for the parameters of
+# 01_computing_parameters.csv, applied by
+# load_01_computing_parameters.R through validate_parameter_config().
+# Structure: same convention as Parameter_config.csv
+#   file_name      : name of the parameter file
+#   parameter_name : name of the parameter to validate
+#   type           : Integer | Real
+#   output         : Error (stops execution) | Warning (issues a warning)
+#   options        : "min,max"
+# -------------------------------------------------------------
+file_name,parameter_name,type,output,options
+01_computing_parameters.csv,main_resolution_sec,Real,Error,"30,600"
+01_computing_parameters.csv,flex_energy_tol,Real,Error,"0,1"
+01_computing_parameters.csv,flexibility_event_margin_sec,Real,Error,"0,86400"
+01_computing_parameters.csv,price_lead_day_ahead_h,Real,Error,"0,168"
+01_computing_parameters.csv,price_lead_5h_h,Real,Error,"0,168"
+01_computing_parameters.csv,price_lead_1h_h,Real,Error,"0,168"

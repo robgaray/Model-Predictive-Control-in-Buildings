@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function performs the physical simulation of the
 # building for a given period based on climate data and
 # setpoint values.
@@ -15,7 +16,7 @@
 #    - calculates comfort level
 # This function performs no economic calculation (see EXCEPTIONS below):
 # Elec_Cost is resolved elsewhere, through reward_function() for "plan"/
-# "plan_flex" and through calc_differential_cost() for "execution".
+# "plan_flex_down" and through calc_differential_cost() for "execution".
 # A 2C simplified model is used, with a pseudo-static approach.
 # Histeresis-based thermostatic control is used for heating and
 # cooling systems.
@@ -39,18 +40,26 @@
 #                        Te          - Numeric. Initial envelope temperature (°C) at row 1. (Prefix applies based on context)
 #                        Act_heat    - Integer (0/1). Initial heating activation at row 1. (Prefix applies based on context)
 #                        Act_cool    - Integer (0/1). Initial cooling activation at row 1. (Prefix applies based on context)
-#                        Service_T_Low, Service_T_High     - Numeric. Comfort
+#                        Service_T_Low and Service_T_High - Numeric. Comfort
 #                                    band, required when calculation_context is
 #                                    "execution".
-#                        Scheduling_T_Low, Scheduling_T_High - Numeric. Comfort
+#                        Scheduling_T_Low and Scheduling_T_High - Numeric. Comfort
 #                                    band, required when calculation_context is
-#                                    "plan" or "plan_flex".
+#                                    "plan", "plan_flex_down" or
+#                                    "plan_flex_up".
 #                      If set_point_df is NULL, must ALSO contain (with context suffix):
-#                        STP_heat_low, STP_heat_high, STP_cool_low, STP_cool_high
+#                        - STP_heat_low
+#                        - STP_heat_high
+#                        - STP_cool_low
+#                        - STP_cool_high
 #                      Optional columns (carried over from period_chunk if
 #                      present, NA treated as 0, initialized to 0 if absent):
-#                        Q_heat, Q_cool, Elec_heat, Elec_cool,
-#                        Elec_total, Comfort
+#                        - Q_heat
+#                        - Q_cool
+#                        - Elec_heat
+#                        - Elec_cool
+#                        - Elec_total
+#                        - Comfort
 #   set_point_df     : Optional Data frame (Default: NULL). Setpoint schedule with columns:
 #                        period        - POSIXct. Market period timestamps.
 #                        STP_heat      - Numeric. Heating setpoint (°C).
@@ -61,10 +70,20 @@
 #                        STP_cool_high - Numeric. Upper cooling threshold (°C).
 #                      If provided, overwrites corresponding context-suffixed values in period_chunk.
 #   parameters       : List. Model parameters. Must include sub-list:
-#                        parameters$model - thermal model coefficients (Ci, Ce, Rie,
-#                                            Rea, Aw, Ae, heat pump coefficients,
-#                                            Rvent01, Rvent1, Rvent2, Rvent2_HR,
-#                                            Setpoint_Rvent1, inertial_fact, etc.)
+#                        parameters$model - thermal model coefficients, among them:
+#                                            - Ci
+#                                            - Ce
+#                                            - Rie
+#                                            - Rea
+#                                            - Aw
+#                                            - Ae
+#                                            - the heat pump coefficients
+#                                            - Rvent01
+#                                            - Rvent1
+#                                            - Rvent2
+#                                            - Rvent2_HR
+#                                            - Setpoint_Rvent1
+#                                            - inertial_fact
 #                      (Comfort thresholds are read from period_chunk, not from
 #                      parameters$reward - see period_chunk columns above.)
 #   calculation_mode : Integer scalar or vector. Computation mode per timestep:
@@ -72,13 +91,28 @@
 #                            histeresis control logic.
 #                        2 - Heat Input mode: Q_heat and Q_cool are read directly
 #                            from period_chunk columns.
+#                        3 - Setpoint with a per-step power cap: as mode 1, but
+#                            the decision of every step is bounded by
+#                            Q_heat_cap/Q_cool_cap before the RC equations, so
+#                            the bound propagates to the next step's state.
 #                      If a scalar is provided, it is expanded to all timesteps.
 #                      Default: 1.
+#   Q_heat_cap       : Numeric vector or NULL. Per-step upper bound on the
+#                      heating energy of the timesteps in mode 3 (kWh per step,
+#                      the same unit as the Q_heat columns). Must have one value
+#                      per row of period_chunk. NULL (the default) means no
+#                      bound anywhere, which leaves mode 3 identical to mode 1.
+#                      Ignored by the timesteps in modes 1 and 2.
+#   Q_cool_cap       : Numeric vector or NULL. Same as Q_heat_cap, for cooling.
 #   calculation_context: Character. Determines the dataframe columns to read from/write to.
-#                      Valid options: "execution" (default), "plan", "plan_flex".
+#                      Valid options: "execution" (default), "plan",
+#                      "plan_flex_down", "plan_flex_up".
 #                      "execution" reads/writes with "_exec" suffix (e.g. Ti_exec, Q_heat_exec, STP_heat_low_exec).
 #                      "plan" reads/writes with "_plan" suffix (e.g. Ti_plan, STP_heat_low_plan).
-#                      "plan_flex" reads/writes with "_plan_flex" suffix.
+#                      "plan_flex_down" reads/writes with "_plan_flex_down" suffix
+#                      (downward flexibility itinerary).
+#                      "plan_flex_up" reads/writes with "_plan_flex_up" suffix
+#                      (upward flexibility itinerary).
 # -------------------------------------------------------------
 # Outputs
 #   period_chunk : Data frame. The input data frame with the following columns
@@ -109,7 +143,7 @@
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called directly by evaluate_control(), implement_control_step(),
-# flex_evaluation(), and run_market_process() (for the "operation"
+# flex_evaluation_down(), flex_evaluation_up(), and run_market_process() (for the "operation"
 # optimization aim, which skips the GA optimizers). fitness_funct_optimize_setpoint()/
 # fitness_funct_optimize_mode() only reach it indirectly, via evaluate_control().
 # -------------------------------------------------------------
@@ -118,9 +152,17 @@
 #     data frame unchanged (no simulation is performed).
 #   - If set_point_df is NULL and suffixed setpoint columns are missing in 
 #     period_chunk, an error is raised via stop().
-#   - calculation_mode can be a per-timestep vector; invalid values (not 1 or 2)
-#     raise an error via stop(). A length mismatch with the number of timesteps
-#     also raises an error.
+#   - calculation_mode can be a per-timestep vector; invalid values (not 1, 2
+#     or 3) raise an error via stop(). A length mismatch with the number of
+#     timesteps also raises an error.
+#   - Q_heat_cap/Q_cool_cap are accepted whatever the modes in use, and are
+#     only read by the timesteps in mode 3. A non-NULL cap whose length does
+#     not match the number of timesteps raises an error via stop(); NA values
+#     inside a cap vector are treated as "no bound", the same as Inf.
+#   - The system lock these caps implement is an interpretation of the legal
+#     regulation of HVAC systems, which does not allow energy management
+#     through the alternating use of heating and cooling. See
+#     build_system_lock_caps.R.
 #   - Invalid calculation_context value will raise an error via stop().
 #   - If a MarketUTC value in period_chunk has no matching 'period' entry in
 #     set_point_df, the function raises an error via stop().
@@ -131,8 +173,8 @@
 #   - Setpoints are applied using hysteresis: heating activates when Ti drops
 #     below STP_heat_low and deactivates when Ti rises above STP_heat_high;
 #     cooling applies the same logic with STP_cool_low and STP_cool_high.
-#   - Optional columns Q_heat, Q_cool, Elec_heat, Elec_cool, Elec_total,
-#     and Comfort are carried over from period_chunk's existing
+#   - The optional columns listed under Inputs are carried over from
+#     period_chunk's existing
 #     value at row 1 (the initial-condition row, never recomputed by the
 #     simulation loop) whenever the column is already present, and
 #     initialized to 0 if absent from period_chunk; NA values in these
@@ -144,18 +186,22 @@
 #     temperature calculation when the thermal inertia distribution model is active.
 # -------------------------------------------------------------
 # functions/scripts called
-#   (none)
+#   period_simulation_cpp() - the timestep loop of the building
+#     physics, compiled from 03_1_Functions_Cpp
 # -------------------------------------------------------------
 period_calculation <- function(period_chunk,
                                parameters,
                                calculation_mode = 1,
                                calculation_context = "execution",
-                               set_point_df = NULL) {
+                               set_point_df = NULL,
+                               Q_heat_cap = NULL,
+                               Q_cool_cap = NULL) {
   # Validations
   {
     # Validate calculation_context
-    if (!calculation_context %in% c("execution", "plan", "plan_flex")) {
-      stop("Invalid calculation_context. Must be 'execution', 'plan', or 'plan_flex'.")
+    if (!calculation_context %in% c("execution", "plan", "plan_flex_down", "plan_flex_up")) {
+      stop("Invalid calculation_context. Must be 'execution', 'plan', ",
+           "'plan_flex_down' or 'plan_flex_up'.")
     }
     
     # Ensure that there is actually something to simulate (2 or more rows)
@@ -164,7 +210,8 @@ period_calculation <- function(period_chunk,
     
     # Handle calculation_mode: expand scalar to vector if needed
     {
-      # calculation_mode: 1 = Setpoint, 2 = Heat Input
+      # calculation_mode: 1 = Setpoint, 2 = Heat Input,
+      #                   3 = Setpoint with a per-step power cap
       # Each timestep can have a different value
       if (length(calculation_mode) == 1) {
         calculation_mode_vec <- rep(calculation_mode, nrow(period_chunk))
@@ -174,16 +221,41 @@ period_calculation <- function(period_chunk,
     }
     
     # Validate all calculation_mode values in the vector
-    invalid_vals <- unique(calculation_mode_vec[!(calculation_mode_vec %in% c(1, 2))])
+    invalid_vals <- unique(calculation_mode_vec[!(calculation_mode_vec %in% c(1, 2, 3))])
     if (length(invalid_vals) > 0) {
       stop("Invalid calculation_mode value(s): ", paste(invalid_vals, collapse = ", "),
-           ". Must be 1 (Setpoint) or 2 (Heat Input).")
+           ". Must be 1 (Setpoint), 2 (Heat Input) or 3 (Setpoint with cap).")
     }
     
     # Validate vector length matches number of timesteps
     if (length(calculation_mode_vec) != nrow(period_chunk)) {
       stop("calculation_mode vector length (", length(calculation_mode_vec),
            ") does not match number of timesteps (", nrow(period_chunk), ").")
+    }
+    
+    # Normalize the per-step power caps of calculation_mode 3. The C++ loop
+    # indexes them row by row, so they are always passed as full-length
+    # numeric vectors; the absence of a cap is expressed as Inf, which the
+    # loop's min() leaves without effect and which therefore makes mode 3
+    # behave exactly as mode 1.
+    {
+      normalize_power_cap <- function(cap, cap_name) {
+        if (is.null(cap)) return(rep(Inf, nrow(period_chunk)))
+        if (!is.numeric(cap)) {
+          stop(cap_name, " must be numeric or NULL.")
+        }
+        if (length(cap) != nrow(period_chunk)) {
+          stop(cap_name, " length (", length(cap),
+               ") does not match number of timesteps (", nrow(period_chunk), ").")
+        }
+        cap[is.na(cap)] <- Inf
+        return(cap)
+      }
+
+      Q_heat_cap_vec <- normalize_power_cap(Q_heat_cap, "Q_heat_cap")
+      Q_cool_cap_vec <- normalize_power_cap(Q_cool_cap, "Q_cool_cap")
+
+      rm(normalize_power_cap)
     }
     
     # Validate set_point_df structure when provided
@@ -222,7 +294,8 @@ period_calculation <- function(period_chunk,
   col_sfx <- switch(calculation_context,
                     "execution" = "_exec",
                     "plan"      = "_plan",
-                    "plan_flex" = "_plan_flex")
+                    "plan_flex_down" = "_plan_flex_down",
+                    "plan_flex_up"   = "_plan_flex_up")
   
   n <- nrow(period_chunk)
   
@@ -245,6 +318,8 @@ period_calculation <- function(period_chunk,
     COP_hp_heat_1_coef2 <- parameters$model$COP_hp_heat_1_coef2
     COP_hp_heat_1_coef3 <- parameters$model$COP_hp_heat_1_coef3
     Tsup_hp_heat        <- parameters$model$Tsup_hp_heat
+    Text_ref_hp_heat    <- parameters$model$Text_ref_hp_heat
+    Tsup_ref_hp_heat    <- parameters$model$Tsup_ref_hp_heat
     Q_hp_cool           <- parameters$model$Q_hp_cool
     COP_hp_cool         <- parameters$model$COP_hp_cool
     Rvent01             <- parameters$model$Rvent01
@@ -257,7 +332,7 @@ period_calculation <- function(period_chunk,
         all(c("Service_T_Low", "Service_T_High") %in% names(period_chunk))) {
       comfort_low  <- period_chunk$Service_T_Low
       comfort_high <- period_chunk$Service_T_High
-    } else if (calculation_context %in% c("plan", "plan_flex") &&
+    } else if (calculation_context %in% c("plan", "plan_flex_down", "plan_flex_up") &&
                all(c("Scheduling_T_Low", "Scheduling_T_High") %in% names(period_chunk))) {
       comfort_low  <- period_chunk$Scheduling_T_Low
       comfort_high <- period_chunk$Scheduling_T_High
@@ -279,7 +354,7 @@ period_calculation <- function(period_chunk,
         SolarR <- period_chunk$SolarR
         Text   <- period_chunk$Text
       } else {
-        # Use forecast columns for plan or plan_flex
+        # Use forecast columns for plan or plan_flex_down
         SolarR <- period_chunk$SolarR_forec
         Text   <- period_chunk$Text_forec
       }	   
@@ -502,6 +577,8 @@ period_calculation <- function(period_chunk,
       STP_cool_low         = STP_cool_low,
       STP_cool_high        = STP_cool_high,
       calculation_mode_vec = as.integer(calculation_mode_vec),
+      Q_heat_cap           = Q_heat_cap_vec,
+      Q_cool_cap           = Q_cool_cap_vec,
       Ci                   = Ci,
       Ce                   = Ce,
       Rie                  = Rie,
@@ -519,6 +596,8 @@ period_calculation <- function(period_chunk,
       COP_hp_heat_1_coef2  = COP_hp_heat_1_coef2,
       COP_hp_heat_1_coef3  = COP_hp_heat_1_coef3,
       Tsup_hp_heat         = Tsup_hp_heat,
+      Text_ref_hp_heat     = Text_ref_hp_heat,
+      Tsup_ref_hp_heat     = Tsup_ref_hp_heat,
       Q_hp_cool            = Q_hp_cool,
       COP_hp_cool          = COP_hp_cool,
       Rvent01              = Rvent01,
@@ -576,7 +655,8 @@ period_calculation <- function(period_chunk,
       "Setpoint_Shading1", "AT_hp_heat_1", "AT_hp_heat_2",
       "Q_hp_heat_1", "Q_hp_heat_2",
       "COP_hp_heat_1_coef1", "COP_hp_heat_1_coef2", "COP_hp_heat_1_coef3",
-      "Tsup_hp_heat", "Q_hp_cool", "COP_hp_cool",
+      "Tsup_hp_heat", "Text_ref_hp_heat", "Tsup_ref_hp_heat",
+      "Q_hp_cool", "COP_hp_cool",
       "Rvent01", "Rvent1", "Rvent2", "Rvent2_HR", "Setpoint_Rvent1",
       "inertial_fact", "comfort_low", "comfort_high",
       "col_sfx", "n",
@@ -591,7 +671,7 @@ period_calculation <- function(period_chunk,
       "rows_to_update", "idx",
       "STP_heat", "STP_heat_low", "STP_heat_high",
       "STP_cool", "STP_cool_low", "STP_cool_high",
-      "calculation_mode_vec",
+      "calculation_mode_vec", "Q_heat_cap_vec", "Q_cool_cap_vec",
       "req_sp_cols", "missing_sp_cols", "req_stp_cols", "missing_cols", "missing_rows",
       "invalid_vals"),
     ls()

@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function is the fitness function used by the Genetic Algorithm
 # in optimize_setpoints(). It converts a raw setpoint array produced
 # by the GA into a structured setpoint data frame, evaluates the
@@ -26,7 +27,7 @@
 #   simulation_control : Named list. Simulation control object passed through
 #                        to evaluate_control().
 #   marginal_context   : Named list or NULL. Passed through to evaluate_control().
-#
+# -------------------------------------------------------------
 # Outputs
 #   evaluation : Numeric scalar. Reward value extracted from evaluate_control()
 #                return list for the given setpoint schedule. Higher is better.
@@ -62,7 +63,9 @@ fitness_funct_optimize_setpoint <- function(setpoint_array,
     setpoints_heating = setpoint_array[1:horizon],
     setpoints_cooling = setpoint_array[(horizon + 1):(2 * horizon)],
     Deadband          = parameters$control$Deadband,
-    target_periods    = timestamps$target_periods
+    target_periods    = timestamps$target_periods,
+    pad_heating       = parameters$control$pad_heating,
+    pad_cooling       = parameters$control$pad_cooling
   )
 
   # evaluate_control is called to simulate the building over this

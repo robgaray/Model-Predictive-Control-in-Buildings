@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Returns a zeroed index list, matching the fields of
 # simulation_control$indexes_global / simulation_control$indexes_local
 # that must be reset after each market process (Scheduling, Piloting,
@@ -13,9 +14,16 @@
 # (none)
 # -------------------------------------------------------------
 # Outputs
-# Named list with i0, i1, i_begin_horizon, i_end_horizon,
-# i_end_control, idx_period, idx_horizon, idx_ctrl, i_flex, all set
-# to 0.
+# Named list with these elements, all set to 0:
+#   - i0
+#   - i1
+#   - i_begin_horizon
+#   - i_end_horizon
+#   - i_end_control
+#   - idx_period
+#   - idx_horizon
+#   - idx_ctrl
+#   - i_flex
 # -------------------------------------------------------------
 # Code outline
 # 1. Build and return the zeroed index list
@@ -25,7 +33,7 @@
 # simulation_control$indexes_local[names(reset_index_list())]  <- reset_index_list()
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R after the Scheduling, Piloting and Execution
+# Called by 14_simulation.R after the Scheduling, Piloting and Execution
 # processes of each simulation step.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:

@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Shiny interface for editing and saving simulation
 # configuration files in 30_Simulation/02_Config.
 # The interface reads parameter files and editable tables,
@@ -12,7 +13,7 @@
 # of any tab is pressed.
 # -------------------------------------------------------------
 # File paths: the file names of every configuration file are read
-# from 30_Simulation/02_Config/05_File_paths.csv (falls back to a
+# from 30_Simulation/02_Config/00_Inner_parameters/04_File_paths.csv (falls back to a
 # hard-coded default list if that file is missing/unreadable), so
 # this app no longer keeps its own separate copy of that list.
 # -------------------------------------------------------------
@@ -34,6 +35,53 @@
 # same rules used by the real simulation pipeline) both when loading
 # (to decide what counts as valid) and again right before saving (to
 # refuse to write anything if any field is currently invalid).
+# -------------------------------------------------------------
+# Inputs
+#   30_Simulation/02_Config/*.csv : the configuration files, with their
+#     names read from 04_File_paths.csv.
+#   30_Simulation/02_Config/00_Validation/ : Parameter_config.csv and
+#     the Default_ files that fill whatever is missing or invalid.
+#   20_GUI/01_Configure_Simulation/02_Config/GUI_fallback_values.csv :
+#     the values used when a row has no default either.
+#   The user's edits in the browser.
+# -------------------------------------------------------------
+# Outputs
+#   The same configuration files under 30_Simulation/02_Config/,
+#   rewritten when a save button is pressed and every value is valid.
+# -------------------------------------------------------------
+# Code outline
+# Libraries and paths of the app and of the repository, then:
+# 1. File paths (04_File_paths.csv)
+# 2. Validation rules (Parameter_config.csv), 2.1 parameter units and
+#    2.2 the fallback values of the GUI (02_Config/)
+# 3. Helper functions, sourced from 03_Functions/, and 3.1 the
+#    options of the closed-list parameters
+# 4. Initial (safe) loading of every configuration file
+# Then the user interface, one tab per group of configuration files;
+# the server, which keeps the edits in reactive state, validates and
+# saves; and shinyApp(ui, server).
+# -------------------------------------------------------------
+# Usage instructions
+# From the repository root, or from this folder:
+#   Rscript -e 'shiny::runApp("20_GUI/01_Configure_Simulation/GUI_config.R")'
+# or source it from RStudio. It needs shiny, shinyjs and DT.
+# -------------------------------------------------------------
+# Where this function/script is used
+# Run by hand. Nothing in the repository calls it.
+# -------------------------------------------------------------
+# functions/scripts called
+# The helpers of 20_GUI/01_Configure_Simulation/03_Functions/, one per
+# file:
+#   - validity checks
+#   - readers
+#   - safe loaders
+#   - writers
+#   - editor builders
+# and those of these packages:
+#   - shiny
+#   - shinyjs
+#   - DT
+# It calls no function or script of 30_Simulation/.
 # -------------------------------------------------------------
 
 library(shiny)
@@ -80,30 +128,33 @@ input_path <- "30_Simulation/02_Config"
 all_load_messages <- character(0)
 
 # -------------------------------------------------------------
-# 1. File paths (30_Simulation/02_Config/05_File_paths.csv)
+# 1. File paths (30_Simulation/02_Config/00_Inner_parameters/04_File_paths.csv)
 # -------------------------------------------------------------
 {
   default_file_names <- list(
-    library_file                  = "01_Libraries.txt",
-    needed_cols_file              = "02_Needed_cols.csv",
-    parameter_validation_file     = "00_Validation/Parameter_config.csv",
-    physical_properties_file      = "03_Physical_properties.csv",
-    use_patterns_file             = "04_Use_Patterns.csv",
-    model_file                    = "11_Model_parameters.csv",
-    control_file                  = "12_Control_parameters.csv",
-    setpoint_mode_file            = "13_Modes_setpoints.csv",
-    optimization_file             = "14_Optimization_parameters.csv",
-    market_file                   = "15_Market_config.csv",
-    market_config_scheduling_file = "16_Market_config_scheduling.csv",
-    market_config_piloting_file   = "17_Market_config_piloting.csv",
-    reward_file                   = "18_Reward_parameters.csv",
-    forecast_file                 = "19_Forecast_parameters.csv",
-    energy_price_file             = "21_Energy_price_parameters.csv",
-    flexibility_generation_file   = "22_Flexibility_generation_parameters.csv",
-    debug_and_config_file         = "30_Debug_and_config.csv"
+    library_file                     = "00_Inner_parameters/00_Libraries.txt",
+    needed_cols_file                 = "00_Inner_parameters/02_Needed_cols.csv",
+    parameter_validation_file        = "00_Validation/Parameter_config.csv",
+    physical_properties_file         = "00_Inner_parameters/03_Physical_properties.csv",
+    optimization_file                = "01_Optimization_parameters.csv",
+    control_file                     = "02_Control.csv",
+    market_file                      = "03_Market_config.csv",
+    market_config_scheduling_file    = "04_Market_config_scheduling.csv",
+    market_config_piloting_file      = "05_Market_config_piloting.csv",
+    energy_price_file                = "06_Energy_price_parameters.csv",
+    flexibility_price_emulation_file = "07_Flexibility_price_emulation_parameters.csv",
+    flexibility_events_file          = "08_Flexibility_Event_Configuration.csv",
+    reward_file                      = "09_Reward_parameters.csv",
+    reward_corrections_file          = "10_Reward_parameter_corrections.csv",
+    model_file                       = "11_Model_parameters.csv",
+    temperature_setpoints_file       = "12_Temperature_Setpoints.csv",
+    setpoint_mode_file               = "13_Modes_setpoints.csv",
+    use_patterns_file                = "14_Use_Patterns.csv",
+    forecast_file                    = "15_Forecast_parameters.csv",
+    debug_and_config_file            = "16_Debug_and_config.csv"
   )
 
-  paths_file_name <- "05_File_paths.csv"
+  paths_file_name <- "00_Inner_parameters/04_File_paths.csv"
   paths_table <- tryCatch(
     suppressWarnings(read.csv(file.path(config_path, paths_file_name), comment.char = "#",
                               stringsAsFactors = FALSE, strip.white = TRUE)),
@@ -140,15 +191,18 @@ all_load_messages <- character(0)
     model        = paths$model_file,
     occupancy    = paths$use_patterns_file,
     control      = paths$control_file,
+    temperature_setpoints = paths$temperature_setpoints_file,
+    flexibility_events    = paths$flexibility_events_file,
     modes        = paths$setpoint_mode_file,
     optimization = paths$optimization_file,
     market       = paths$market_file,
     sched        = paths$market_config_scheduling_file,
     pilot        = paths$market_config_piloting_file,
     reward       = paths$reward_file,
+    reward_corrections = paths$reward_corrections_file,
     forecast     = paths$forecast_file,
     energy_price = paths$energy_price_file,
-    flex_generation = paths$flexibility_generation_file,
+    flex_generation = paths$flexibility_price_emulation_file,
     debug        = paths$debug_and_config_file
   )
 
@@ -184,9 +238,10 @@ all_load_messages <- character(0)
 # -------------------------------------------------------------
 # 2.1. Parameter units (90_Structure/Parameter_Units.csv).
 # -------------------------------------------------------------
-# get_param_unit()/label_with_unit() are called by build_param_editor()
-# and build_group_editor() below to append "[unit]" to every parameter
-# label, per 00_Base_Criteria.md ("Units in graphic interfaces").
+# get_param_unit()/label_with_unit() (03_Functions/) read this table
+# for build_param_editor() and build_group_editor(), to append
+# "[unit]" to every parameter label, per 00_Base_Criteria.md ("Units
+# in graphic interfaces").
 # -------------------------------------------------------------
 {
   param_units_table <- tryCatch(
@@ -194,1044 +249,95 @@ all_load_messages <- character(0)
                               stringsAsFactors = FALSE)),
     error = function(e) NULL
   )
-
-  get_param_unit <- function(file_key, param_name) {
-    if (is.null(param_units_table)) {
-      return("")
-    }
-    match_row <- param_units_table[
-      param_units_table$file == file_key & param_units_table$parameter == param_name,
-    ]
-    if (nrow(match_row) != 1) {
-      return("")
-    }
-    unit <- trimws(match_row$proposed_unit[1])
-    if (unit == "-" || !nzchar(unit)) {
-      return("")
-    }
-    unit
-  }
-
-  label_with_unit <- function(param_name, file_key) {
-    unit <- get_param_unit(file_key, param_name)
-    if (nzchar(unit)) {
-      paste0(param_name, " [", unit, "]")
-    } else {
-      param_name
-    }
-  }
 }
 
 # -------------------------------------------------------------
-# 3. Default values. These are never hard-coded in this script: they
-#    live in 00_Validation/Default_<filename> files, one per
-#    configuration file, mirroring its structure exactly, and are
-#    read from disk through the same raw readers used for the real
-#    files (section 5 below). Whenever a value is missing or invalid
-#    in a real file, the matching entry from its Default_ file is
-#    used instead.
+# 2.2. Fallback values of the GUI (02_Config/GUI_fallback_values.csv)
 # -------------------------------------------------------------
-default_file_for <- function(filename) {
-  file.path("00_Validation", paste0("Default_", basename(filename)))
-}
-
+# The values the safe loaders use when a row is invalid in its file
+# and missing from its Default_ file too, and the tolerance of the
+# Integer check. They live in this app's own configuration folder,
+# never in the code. Without them the loaders would have nothing to
+# fall back on, so a missing or invalid file stops the app with a
+# message saying which file and which value.
 # -------------------------------------------------------------
-# 4. Validity checks (used both when loading, to decide what counts
-#    as valid, and again right before saving).
-# -------------------------------------------------------------
-check_param_valid <- function(value, file_name, param_name, validation_config) {
-  rules <- validation_config[
-    trimws(as.character(validation_config$file_name)) == file_name &
-      trimws(as.character(validation_config$parameter_name)) == param_name,
-  ]
-
-  value_char <- trimws(as.character(value))
-  if (length(value_char) == 0 || is.na(value_char) || !nzchar(value_char)) {
-    return(FALSE)
+{
+  fallback_file <- file.path(app_dir, "02_Config", "GUI_fallback_values.csv")
+  fallback_table <- tryCatch(
+    suppressWarnings(read.csv(fallback_file, comment.char = "#",
+                              stringsAsFactors = FALSE, strip.white = TRUE)),
+    error = function(e) NULL
+  )
+  numeric_names <- c("mode_heating_setpoint", "mode_cooling_setpoint",
+                     "market_closure", "market_begin", "market_end",
+                     "market_end_optimization", "occupancy_hour_value",
+                     "integer_tolerance")
+  text_names    <- c("market_aim_scheduling", "market_aim_piloting")
+  if (is.null(fallback_table) ||
+      !all(c("parameter", "value") %in% names(fallback_table))) {
+    stop("GUI_config.R: cannot read ", fallback_file)
   }
-
-  if (nrow(rules) == 0) {
-    return(TRUE)
+  fallback_values <- setNames(trimws(as.character(fallback_table$value)),
+                              trimws(as.character(fallback_table$parameter)))
+  invalid_fallback <- c(
+    numeric_names[is.na(suppressWarnings(as.numeric(fallback_values[numeric_names])))],
+    text_names[is.na(fallback_values[text_names]) | !nzchar(fallback_values[text_names])]
+  )
+  if (length(invalid_fallback) > 0) {
+    stop("GUI_config.R: ", fallback_file, " lacks a valid value for: ",
+         paste(invalid_fallback, collapse = ", "))
   }
+  gui_fallback <- c(
+    as.list(setNames(as.numeric(fallback_values[numeric_names]), numeric_names)),
+    as.list(fallback_values[text_names])
+  )
 
-  type        <- trimws(as.character(rules$type[1]))
-  options_str <- trimws(as.character(rules$options[1]))
-
-  if (type %in% c("Integer", "Real")) {
-    value_num <- suppressWarnings(as.numeric(value_char))
-    if (is.na(value_num)) return(FALSE)
-    if (type == "Integer" && abs(value_num - round(value_num)) > 1e-9) return(FALSE)
-    if (nzchar(options_str)) {
-      range_vals <- suppressWarnings(as.numeric(trimws(strsplit(options_str, ",")[[1]])))
-      if (length(range_vals) == 2 && !anyNA(range_vals) &&
-          (value_num < range_vals[1] || value_num > range_vals[2])) {
-        return(FALSE)
-      }
-    }
-    return(TRUE)
-  }
-
-  if (type == "Options") {
-    opts <- trimws(strsplit(options_str, ",")[[1]])
-    return(value_char %in% opts)
-  }
-
-  TRUE
-}
-
-validate_param_df_gui <- function(df, file_label, validation_config) {
-  errors <- character(0)
-  for (CONT_101 in seq_len(nrow(df))) {
-    pname <- trimws(as.character(df$parameter[CONT_101]))
-    pval  <- trimws(as.character(df$value[CONT_101]))
-    if (!check_param_valid(pval, file_label, pname, validation_config)) {
-      errors <- c(errors, sprintf(
-        "%s: the value of '%s' ('%s') is not valid.", file_label, pname, pval
-      ))
-    }
-  }
-  errors
-}
-
-modes_row_valid <- function(mode_val, heating_val, cooling_val) {
-  !is.na(suppressWarnings(as.numeric(mode_val))) &&
-    !is.na(suppressWarnings(as.numeric(heating_val))) &&
-    !is.na(suppressWarnings(as.numeric(cooling_val)))
-}
-
-validate_modes_df_gui <- function(df) {
-  errors <- character(0)
-  for (CONT_102 in seq_len(nrow(df))) {
-    heating_num <- suppressWarnings(as.numeric(df$heating[CONT_102]))
-    cooling_num <- suppressWarnings(as.numeric(df$cooling[CONT_102]))
-    if (is.na(heating_num) || is.na(cooling_num)) {
-      errors <- c(errors, sprintf(
-        "Modes: row %d has non-numeric values (heating='%s', cooling='%s').",
-        CONT_102, df$heating[CONT_102], df$cooling[CONT_102]
-      ))
-    }
-  }
-  errors
-}
-
-market_table_row_valid <- function(closure, begin, end, end_optimization, aim) {
-  nums <- suppressWarnings(as.numeric(c(closure, begin, end, end_optimization)))
-  if (anyNA(nums) || any(nums < 0)) return(FALSE)
-  trimws(as.character(aim)) %in% c("O", "E", "O+F", "E+F")
-}
-
-validate_market_table_df_gui <- function(df, file_label) {
-  errors <- character(0)
-  for (CONT_103 in seq_len(nrow(df))) {
-    if (!market_table_row_valid(df$closure[CONT_103], df$begin[CONT_103],
-                                df$end[CONT_103], df$end_optimization[CONT_103],
-                                df$aim[CONT_103])) {
-      errors <- c(errors, sprintf(
-        "%s: the row for market '%s' has invalid values.",
-        file_label, df$Market[CONT_103]
-      ))
-    }
-  }
-  errors
-}
-
-day_type_row_valid <- function(row_values) {
-  nums <- suppressWarnings(as.numeric(unlist(row_values)))
-  !anyNA(nums) && all(nums %in% c(0, 1))
-}
-
-validate_occupancy_dfs_gui <- function(day_types_df, month_profiles_df) {
-  errors        <- character(0)
-  hour_cols     <- paste0("H", sprintf("%02d", 1:24))
-  weekday_cols  <- paste0("D", sprintf("%02d", 1:7))
-
-  for (CONT_104 in seq_len(nrow(day_types_df))) {
-    if (!day_type_row_valid(day_types_df[CONT_104, hour_cols])) {
-      errors <- c(errors, sprintf(
-        "Occupancy: hourly profile '%s' contains values other than 0/1.",
-        day_types_df$TYPE[CONT_104]
-      ))
-    }
-  }
-
-  valid_types <- trimws(as.character(day_types_df$TYPE))
-  for (CONT_105 in seq_len(nrow(month_profiles_df))) {
-    refs <- trimws(as.character(unlist(month_profiles_df[CONT_105, weekday_cols])))
-    if (!all(refs %in% valid_types)) {
-      errors <- c(errors, sprintf(
-        "Occupancy: month '%s' references a nonexistent hourly profile.",
-        month_profiles_df$MONTH[CONT_105]
-      ))
-    }
-  }
-
-  errors
+  rm(fallback_file, fallback_table, numeric_names, text_names, fallback_values,
+     invalid_fallback)
 }
 
 # -------------------------------------------------------------
-# 5. Raw CSV readers (no error handling / no defaulting - used only
-#    inside the safe loaders below, which add both).
+# 3. Helper functions (03_Functions/)
 # -------------------------------------------------------------
-read_param_file <- function(filename) {
-  read.csv(
-    file.path(config_path, filename),
-    comment.char     = "#",
-    stringsAsFactors = FALSE,
-    strip.white      = TRUE
-  )
-}
-
-read_table_file <- function(filename) {
-  df <- read.csv(
-    file.path(config_path, filename),
-    comment.char     = "#",
-    stringsAsFactors = FALSE,
-    strip.white      = TRUE
-  )
-  label_col <- intersect(c("Market", "mode"), names(df))[1]
-  if (nrow(df) > 0 && !is.na(label_col)) {
-    first_label_value <- tolower(trimws(as.character(df[[label_col]][1])))
-    if (identical(first_label_value, "text")) {
-      df <- df[-1, , drop = FALSE]
-    }
+# Every helper of the app lives in its own file under 03_Functions/:
+# the validity checks, the raw readers, the safe loaders with their
+# defaults, the writers and the builders of the editors. They are
+# sourced into this environment rather than the global one, because
+# the readers and writers use config_path, and get_param_unit() uses
+# param_units_table, both resolved above; so they behave exactly as
+# if they were written here, whether the app is started with runApp()
+# or sourced.
+# -------------------------------------------------------------
+{
+  for (CONT_001 in list.files(file.path(app_dir, "03_Functions"),
+                              pattern = "\\.R$", full.names = TRUE)) {
+    # source() is called to define each helper in this environment.
+    source(CONT_001, local = TRUE)
   }
-  df
-}
-
-read_use_patterns_file <- function(filename) {
-  full_path <- file.path(config_path, filename)
-  raw_lines <- readLines(full_path, warn = FALSE)
-  raw_lines <- raw_lines[
-    !grepl("^\\s*#", raw_lines) & nzchar(trimws(raw_lines))
-  ]
-
-  type_header_idx <- which(grepl("^\\s*TYPE\\s*,",
-                                 raw_lines,
-                                 ignore.case = TRUE))[1]
-  month_header_idx <- which(grepl("^\\s*MONTH\\s*,",
-                                  raw_lines,
-                                  ignore.case = TRUE))[1]
-
-  if (is.na(type_header_idx) || is.na(month_header_idx)) {
-    stop("04_Use_Patterns.csv must contain TYPE and MONTH table headers")
-  }
-
-  type_lines  <- raw_lines[type_header_idx:(month_header_idx - 1)]
-  month_lines <- raw_lines[month_header_idx:length(raw_lines)]
-
-  day_types <- read.csv(
-    text             = paste(type_lines, collapse = "\n"),
-    stringsAsFactors = FALSE,
-    strip.white      = TRUE
-  )
-  month_profiles <- read.csv(
-    text             = paste(month_lines, collapse = "\n"),
-    stringsAsFactors = FALSE,
-    strip.white      = TRUE
-  )
-
-  if (nrow(day_types) > 0 &&
-      tolower(trimws(as.character(day_types$TYPE[1]))) == "text") {
-    day_types <- day_types[-1, , drop = FALSE]
-  }
-  if (nrow(month_profiles) > 0 &&
-      tolower(trimws(as.character(month_profiles$MONTH[1]))) == "text") {
-    month_profiles <- month_profiles[-1, , drop = FALSE]
-  }
-
-  list(day_types = day_types, month_profiles = month_profiles)
+  rm(CONT_001)
 }
 
 # -------------------------------------------------------------
-# 6. Safe loaders: read a file, validate what's there, keep whatever
-#    is valid, flag duplicated parameters, and replace whatever is
-#    missing/invalid with the matching Default_ file entry
-#    (collecting a human-readable message for every substitution).
-#    If the Default_ file itself cannot be read, no built-in R
-#    fallback is used: the raw file contents are loaded as-is and a
-#    loud warning explains that no reconciliation was possible.
+# 3.1. Options of the closed-list parameters
 # -------------------------------------------------------------
-load_default_param_list <- function(default_filename) {
-  df <- tryCatch(suppressWarnings(read_param_file(default_filename)), error = function(e) NULL)
-  if (is.null(df) || !all(c("parameter", "value") %in% names(df)) || nrow(df) == 0) {
-    return(NULL)
-  }
-  setNames(trimws(as.character(df$value)), trimws(as.character(df$parameter)))
-}
-
-load_param_file_safe <- function(filename, file_label, default_filename, validation_config) {
-  messages <- character(0)
-  df <- tryCatch(suppressWarnings(read_param_file(filename)), error = function(e) NULL)
-  file_ok <- !is.null(df) && all(c("parameter", "value") %in% names(df))
-
-  if (!file_ok) {
-    messages <- c(messages, sprintf(
-      "Could not read '%s' (missing file or invalid format).",
-      filename
-    ))
-    df <- data.frame(parameter = character(0), value = character(0),
-                     stringsAsFactors = FALSE)
-  }
-
-  # ---- Duplicate parameter detection: keep the first occurrence ----
-  duplicated_params <- character(0)
-  if (nrow(df) > 0) {
-    param_col <- trimws(as.character(df$parameter))
-    dup_names <- unique(param_col[duplicated(param_col)])
-    for (pname in dup_names) {
-      duplicated_params <- c(duplicated_params, pname)
-      first_val <- trimws(as.character(df$value[param_col == pname]))[1]
-      messages <- c(messages, sprintf(
-        "%s: parameter '%s' is duplicated in the file. Using its first value ('%s').",
-        filename, pname, first_val
-      ))
-    }
-  }
-
-  defaults <- load_default_param_list(default_filename)
-
-  if (is.null(defaults)) {
-    messages <- c(messages, sprintf(
-      "Default values file '%s' could not be read, so missing or invalid values in '%s' cannot be reconciled. Loading the file contents as-is.",
-      default_filename, filename
-    ))
-    return(list(df = df, defaulted = character(0), duplicated = duplicated_params,
-                messages = messages))
-  }
-
-  param_names   <- names(defaults)
-  final_values  <- character(length(param_names))
-  defaulted     <- character(0)
-
-  for (CONT_201 in seq_along(param_names)) {
-    pname    <- param_names[CONT_201]
-    existing <- df$value[trimws(as.character(df$parameter)) == pname]
-    use_default <- TRUE
-
-    if (length(existing) >= 1) {
-      candidate <- trimws(as.character(existing[1]))
-      if (check_param_valid(candidate, file_label, pname, validation_config)) {
-        final_values[CONT_201] <- candidate
-        use_default <- FALSE
-      }
-    }
-
-    if (use_default) {
-      final_values[CONT_201] <- defaults[[pname]]
-      defaulted <- c(defaulted, pname)
-      if (length(existing) == 0) {
-        messages <- c(messages, sprintf(
-          "%s: parameter '%s' is missing. Using its default value (%s).",
-          filename, pname, defaults[[pname]]
-        ))
-      } else {
-        messages <- c(messages, sprintf(
-          "%s: parameter '%s' has an invalid value ('%s'). Using its default value (%s).",
-          filename, pname, existing[1], defaults[[pname]]
-        ))
-      }
-    }
-  }
-
-  list(
-    df = data.frame(parameter = param_names, value = final_values,
-                    stringsAsFactors = FALSE),
-    defaulted = defaulted,
-    duplicated = duplicated_params,
-    messages  = messages
-  )
-}
-
-load_modes_file_safe <- function(filename, default_filename) {
-  messages <- character(0)
-  df <- tryCatch(suppressWarnings(read_table_file(filename)), error = function(e) NULL)
-
-  defaults_df <- tryCatch(suppressWarnings(read_table_file(default_filename)), error = function(e) NULL)
-  defaults_ok <- !is.null(defaults_df) &&
-    all(c("mode", "heating", "cooling") %in% names(defaults_df)) &&
-    nrow(defaults_df) > 0
-  if (!defaults_ok) {
-    messages <- c(messages, sprintf(
-      "Default modes file '%s' could not be read; no defaults are available for '%s'.",
-      default_filename, filename
-    ))
-  }
-
-  file_ok <- !is.null(df) && all(c("mode", "heating", "cooling") %in% names(df)) && nrow(df) > 0
-  if (!file_ok) {
-    messages <- c(messages, sprintf(
-      "Could not read '%s' (missing, empty file, or invalid columns).%s",
-      filename,
-      if (defaults_ok) " Loading the default modes instead." else ""
-    ))
-    if (defaults_ok) {
-      return(list(df = defaults_df, defaulted_rows = seq_len(nrow(defaults_df)),
-                  messages = messages))
-    }
-    return(list(
-      df = data.frame(mode = character(0), heating = character(0),
-                      cooling = character(0), stringsAsFactors = FALSE),
-      defaulted_rows = integer(0), messages = messages
-    ))
-  }
-
-  if (!defaults_ok) {
-    return(list(df = df, defaulted_rows = integer(0), messages = messages))
-  }
-
-  n_rows <- max(nrow(df), nrow(defaults_df))
-  result <- data.frame(
-    mode = character(n_rows), heating = character(n_rows),
-    cooling = character(n_rows), stringsAsFactors = FALSE
-  )
-  defaulted_rows <- integer(0)
-
-  for (CONT_202 in seq_len(n_rows)) {
-    has_loaded  <- CONT_202 <= nrow(df)
-    has_default <- CONT_202 <= nrow(defaults_df)
-
-    if (has_loaded && modes_row_valid(df$mode[CONT_202], df$heating[CONT_202],
-                                       df$cooling[CONT_202])) {
-      result$mode[CONT_202]    <- as.character(df$mode[CONT_202])
-      result$heating[CONT_202] <- as.character(df$heating[CONT_202])
-      result$cooling[CONT_202] <- as.character(df$cooling[CONT_202])
-    } else if (has_default) {
-      result$mode[CONT_202]    <- as.character(defaults_df$mode[CONT_202])
-      result$heating[CONT_202] <- as.character(defaults_df$heating[CONT_202])
-      result$cooling[CONT_202] <- as.character(defaults_df$cooling[CONT_202])
-      defaulted_rows <- c(defaulted_rows, CONT_202)
-      messages <- c(messages, sprintf(
-        "%s: row %d is missing or invalid. Using its default mode (heating=%s, cooling=%s).",
-        filename, CONT_202, defaults_df$heating[CONT_202], defaults_df$cooling[CONT_202]
-      ))
-    } else {
-      result$mode[CONT_202]    <- as.character(CONT_202)
-      result$heating[CONT_202] <- "21"
-      result$cooling[CONT_202] <- "25"
-      defaulted_rows <- c(defaulted_rows, CONT_202)
-      messages <- c(messages, sprintf(
-        "%s: row %d is invalid. Using a generic mode instead (heating=21, cooling=25).",
-        filename, CONT_202
-      ))
-    }
-  }
-
-  list(df = result, defaulted_rows = defaulted_rows, messages = messages)
-}
-
-load_market_table_file_safe <- function(filename, default_filename, fallback_aim) {
-  messages <- character(0)
-  req_cols <- c("Market", "closure", "begin", "end", "end_optimization", "aim")
-  df <- tryCatch(suppressWarnings(read_table_file(filename)), error = function(e) NULL)
-
-  defaults_df <- tryCatch(suppressWarnings(read_table_file(default_filename)), error = function(e) NULL)
-  defaults_ok <- !is.null(defaults_df) && all(req_cols %in% names(defaults_df)) &&
-    nrow(defaults_df) > 0
-  if (!defaults_ok) {
-    messages <- c(messages, sprintf(
-      "Default markets file '%s' could not be read; no defaults are available for '%s'.",
-      default_filename, filename
-    ))
-  }
-
-  file_ok <- !is.null(df) && all(req_cols %in% names(df)) && nrow(df) > 0
-  if (!file_ok) {
-    messages <- c(messages, sprintf(
-      "Could not read '%s' (missing, empty file, or invalid columns).%s",
-      filename,
-      if (defaults_ok) " Loading the default markets instead." else ""
-    ))
-    if (defaults_ok) {
-      return(list(df = defaults_df, defaulted_rows = seq_len(nrow(defaults_df)),
-                  messages = messages))
-    }
-    return(list(
-      df = data.frame(Market = character(0), closure = character(0),
-                      begin = character(0), end = character(0),
-                      end_optimization = character(0), aim = character(0),
-                      stringsAsFactors = FALSE),
-      defaulted_rows = integer(0), messages = messages
-    ))
-  }
-
-  if (!defaults_ok) {
-    return(list(df = df, defaulted_rows = integer(0), messages = messages))
-  }
-
-  df$Market <- trimws(as.character(df$Market))
-
-  result_rows        <- list()
-  defaulted_markets   <- character(0)
-
-  for (CONT_203 in seq_len(nrow(df))) {
-    market_name <- df$Market[CONT_203]
-    if (market_table_row_valid(df$closure[CONT_203], df$begin[CONT_203],
-                               df$end[CONT_203], df$end_optimization[CONT_203],
-                               df$aim[CONT_203])) {
-      result_rows[[market_name]] <- df[CONT_203, req_cols]
-    } else {
-      default_match <- defaults_df[defaults_df$Market == market_name, ]
-      if (nrow(default_match) == 1) {
-        result_rows[[market_name]] <- default_match
-        messages <- c(messages, sprintf(
-          "%s: the row for market '%s' is invalid. Using its default value.",
-          filename, market_name
-        ))
-      } else {
-        result_rows[[market_name]] <- data.frame(
-          Market = market_name, closure = 1, begin = 0, end = 24,
-          end_optimization = 6, aim = fallback_aim, stringsAsFactors = FALSE
-        )
-        messages <- c(messages, sprintf(
-          "%s: the row for market '%s' is invalid and has no known default. Using a generic configuration instead.",
-          filename, market_name
-        ))
-      }
-      defaulted_markets <- c(defaulted_markets, market_name)
-    }
-  }
-
-  missing_markets <- setdiff(defaults_df$Market, names(result_rows))
-  for (market_name in missing_markets) {
-    result_rows[[market_name]] <- defaults_df[defaults_df$Market == market_name, ]
-    defaulted_markets <- c(defaulted_markets, market_name)
-    messages <- c(messages, sprintf(
-      "%s: market '%s' is missing. Adding it with its default configuration.",
-      filename, market_name
-    ))
-  }
-
-  result_df <- do.call(rbind, result_rows)
-  rownames(result_df) <- NULL
-  defaulted_rows <- which(result_df$Market %in% defaulted_markets)
-
-  list(df = result_df, defaulted_rows = defaulted_rows, messages = messages)
-}
-
-load_occupancy_file_safe <- function(filename, default_filename) {
-  messages     <- character(0)
-  hour_cols    <- paste0("H", sprintf("%02d", 1:24))
-  weekday_cols <- paste0("D", sprintf("%02d", 1:7))
-
-  default_dfs <- tryCatch(suppressWarnings(read_use_patterns_file(default_filename)), error = function(e) NULL)
-  defaults_ok <- !is.null(default_dfs) && !is.null(default_dfs$day_types) &&
-    !is.null(default_dfs$month_profiles) &&
-    all(c("TYPE", hour_cols) %in% names(default_dfs$day_types)) &&
-    all(c("MONTH", weekday_cols) %in% names(default_dfs$month_profiles))
-  if (!defaults_ok) {
-    messages <- c(messages, sprintf(
-      "Default occupancy file '%s' could not be read; no defaults are available for '%s'.",
-      default_filename, filename
-    ))
-  }
-
-  dfs <- tryCatch(suppressWarnings(read_use_patterns_file(filename)), error = function(e) NULL)
-  file_ok <- !is.null(dfs) && !is.null(dfs$day_types) && !is.null(dfs$month_profiles) &&
-    all(c("TYPE", hour_cols) %in% names(dfs$day_types)) &&
-    all(c("MONTH", weekday_cols) %in% names(dfs$month_profiles))
-
-  if (!file_ok) {
-    messages <- c(messages, sprintf(
-      "Could not read '%s' (missing file or invalid format).%s",
-      filename,
-      if (defaults_ok) " Loading the default occupancy profiles instead." else ""
-    ))
-    if (defaults_ok) {
-      return(list(
-        day_types = default_dfs$day_types,
-        month_profiles = default_dfs$month_profiles,
-        defaulted_type_rows = seq_len(nrow(default_dfs$day_types)),
-        defaulted_month_rows = seq_len(nrow(default_dfs$month_profiles)),
-        messages = messages
-      ))
-    }
-    return(list(
-      day_types = data.frame(TYPE = character(0), stringsAsFactors = FALSE),
-      month_profiles = data.frame(MONTH = character(0), stringsAsFactors = FALSE),
-      defaulted_type_rows = integer(0),
-      defaulted_month_rows = integer(0),
-      messages = messages
-    ))
-  }
-
-  if (!defaults_ok) {
-    return(list(
-      day_types = dfs$day_types,
-      month_profiles = dfs$month_profiles,
-      defaulted_type_rows = integer(0),
-      defaulted_month_rows = integer(0),
-      messages = messages
-    ))
-  }
-
-  default_day_types      <- default_dfs$day_types
-  default_month_profiles <- default_dfs$month_profiles
-
-  # ---- TYPE table ----
-  day_df <- dfs$day_types
-  day_df$TYPE <- trimws(as.character(day_df$TYPE))
-
-  type_rows       <- list()
-  defaulted_types <- character(0)
-  for (CONT_204 in seq_len(nrow(day_df))) {
-    type_name <- day_df$TYPE[CONT_204]
-    if (day_type_row_valid(day_df[CONT_204, hour_cols])) {
-      type_rows[[type_name]] <- day_df[CONT_204, c("TYPE", hour_cols)]
-    } else {
-      default_match <- default_day_types[default_day_types$TYPE == type_name, ]
-      if (nrow(default_match) == 1) {
-        type_rows[[type_name]] <- default_match
-      } else {
-        type_rows[[type_name]] <- data.frame(
-          TYPE = type_name,
-          as.list(setNames(rep("0", 24), hour_cols)),
-          stringsAsFactors = FALSE
-        )
-      }
-      defaulted_types <- c(defaulted_types, type_name)
-      messages <- c(messages, sprintf(
-        "%s: hourly profile '%s' is invalid (values other than 0/1). Using its default value.",
-        filename, type_name
-      ))
-    }
-  }
-  missing_types <- setdiff(default_day_types$TYPE, names(type_rows))
-  for (type_name in missing_types) {
-    type_rows[[type_name]] <- default_day_types[default_day_types$TYPE == type_name, ]
-    defaulted_types <- c(defaulted_types, type_name)
-    messages <- c(messages, sprintf(
-      "%s: hourly profile '%s' is missing. Adding it with its default value.",
-      filename, type_name
-    ))
-  }
-  day_types_result <- do.call(rbind, type_rows)
-  rownames(day_types_result) <- NULL
-  defaulted_type_rows <- which(day_types_result$TYPE %in% defaulted_types)
-
-  # ---- MONTH table (validated against the just-resolved TYPE set) ----
-  month_df <- dfs$month_profiles
-  month_df$MONTH <- trimws(as.character(month_df$MONTH))
-  valid_types <- day_types_result$TYPE
-
-  month_rows       <- list()
-  defaulted_months <- character(0)
-  for (CONT_205 in seq_len(nrow(month_df))) {
-    month_name <- month_df$MONTH[CONT_205]
-    refs <- trimws(as.character(unlist(month_df[CONT_205, weekday_cols])))
-    if (all(refs %in% valid_types)) {
-      month_rows[[month_name]] <- month_df[CONT_205, c("MONTH", weekday_cols)]
-    } else {
-      default_match <- default_month_profiles[default_month_profiles$MONTH == month_name, ]
-      if (nrow(default_match) == 1) {
-        month_rows[[month_name]] <- default_match
-      } else {
-        month_rows[[month_name]] <- data.frame(
-          MONTH = month_name,
-          as.list(setNames(rep(valid_types[1], 7), weekday_cols)),
-          stringsAsFactors = FALSE
-        )
-      }
-      defaulted_months <- c(defaulted_months, month_name)
-      messages <- c(messages, sprintf(
-        "%s: monthly mapping '%s' references a nonexistent hourly profile. Using its default value.",
-        filename, month_name
-      ))
-    }
-  }
-  missing_months <- setdiff(default_month_profiles$MONTH, names(month_rows))
-  for (month_name in missing_months) {
-    month_rows[[month_name]] <- default_month_profiles[default_month_profiles$MONTH == month_name, ]
-    defaulted_months <- c(defaulted_months, month_name)
-    messages <- c(messages, sprintf(
-      "%s: month '%s' is missing. Adding it with its default value.",
-      filename, month_name
-    ))
-  }
-  month_profiles_result <- do.call(rbind, month_rows)
-  rownames(month_profiles_result) <- NULL
-  defaulted_month_rows <- which(month_profiles_result$MONTH %in% defaulted_months)
-
-  list(
-    day_types = day_types_result,
-    month_profiles = month_profiles_result,
-    defaulted_type_rows = defaulted_type_rows,
-    defaulted_month_rows = defaulted_month_rows,
-    messages = messages
-  )
-}
-
+# validation_options() is called to take the allowed aims of a
+# market, and the 0/1 flags of 16_Debug_and_config.csv, from
+# Parameter_config.csv, the one place they are declared. The market
+# tables have no rule of their own for their aim column, so they
+# check it against the aims of 03_Market_config.csv.
 # -------------------------------------------------------------
-# 7. Writers (unchanged: always write the current, already-validated
-#    reactive state).
-# -------------------------------------------------------------
-write_use_patterns_file <- function(
-    filename,
-    day_types_df,
-    month_profiles_df
-) {
-  con <- file(file.path(config_path, filename), open = "wt")
-  on.exit(close(con), add = TRUE)
-
-  writeLines(
-    c(
-      "# Occupancy use patterns configuration file",
-      "# -------------------------------------------------------------",
-      "# Day type profiles by hour"
-    ),
-    con
-  )
-
-  write.csv(
-    rbind(
-      setNames(
-        as.data.frame(
-          as.list(c("text", rep("0/1", max(0, ncol(day_types_df) - 1)))),
-          stringsAsFactors = FALSE
-        ),
-        names(day_types_df)
-      ),
-      day_types_df
-    ),
-    con,
-    row.names = FALSE,
-    quote = FALSE
-  )
-
-  writeLines(
-    c(
-      "",
-      "# -------------------------------------------------------------",
-      "# Monthly mapping by weekday (D01 = Monday, D07 = Sunday)"
-    ),
-    con
-  )
-
-  write.csv(
-    rbind(
-      setNames(
-        as.data.frame(
-          as.list(c("text", rep("profile",
-                                 max(0, ncol(month_profiles_df) - 1)))),
-          stringsAsFactors = FALSE
-        ),
-        names(month_profiles_df)
-      ),
-      month_profiles_df
-    ),
-    con,
-    row.names = FALSE,
-    quote = FALSE
+{
+  market_aim_options <- validation_options(validation_config, "03_Market_config.csv",
+                                           "optimization_aim_scheduling")
+  debug_flag_options <- lapply(
+    setNames(nm = c("verbose", "parallel", "Price_emulation")),
+    function(name) validation_options(validation_config, "16_Debug_and_config.csv", name)
   )
 }
 
-write_param_file <- function(filename, header, df) {
-  con <- file(file.path(config_path, filename), open = "wt")
-  on.exit(close(con), add = TRUE)
-
-  writeLines(header, con)
-  write.csv(df, con, row.names = FALSE, quote = FALSE)
-}
-
-write_table_file <- function(filename, header, df) {
-  con <- file(file.path(config_path, filename), open = "wt")
-  on.exit(close(con), add = TRUE)
-
-  writeLines(header, con)
-  write.csv(df, con, row.names = FALSE, quote = FALSE)
-}
-
-get_param_value <- function(df, param) {
-  value <- df$value[df$parameter == param]
-  if (length(value) == 0) {
-    return("")
-  }
-  as.character(value[1])
-}
-
-update_df_from_inputs <- function(df, prefix, input) {
-  for (CONT_001 in seq_len(nrow(df))) {
-    param_name <- as.character(df$parameter[CONT_001])
-    input_id   <- paste0(prefix, param_name)
-    if (!is.null(input[[input_id]])) {
-      df$value[CONT_001] <- as.character(input[[input_id]])
-    }
-  }
-  df
-}
-
-insert_row <- function(df, index, template_row) {
-  if (nrow(df) == 0) {
-    return(template_row)
-  }
-
-  index <- max(1, min(index, nrow(df) + 1))
-
-  if (index == 1) {
-    return(rbind(template_row, df))
-  }
-
-  if (index == nrow(df) + 1) {
-    return(rbind(df, template_row))
-  }
-
-  rbind(
-    df[1:(index - 1), , drop = FALSE],
-    template_row,
-    df[index:nrow(df), , drop = FALSE]
-  )
-}
-
-add_row_controls <- function(df, prefix) {
-  if (nrow(df) == 0) {
-    df <- data.frame(stringsAsFactors = FALSE)
-  }
-
-  n_rows <- nrow(df)
-  if (n_rows > 0) {
-    df$`Add above` <- sprintf(
-      "<a href='#' onclick=\"Shiny.setInputValue('%s_add_above', %d, {priority: 'event'});\">Add above</a>",
-      prefix,
-      seq_len(n_rows)
-    )
-    df$`Add below` <- sprintf(
-      "<a href='#' onclick=\"Shiny.setInputValue('%s_add_below', %d, {priority: 'event'});\">Add below</a>",
-      prefix,
-      seq_len(n_rows)
-    )
-    df$`Delete` <- sprintf(
-      "<a href='#' onclick=\"Shiny.setInputValue('%s_delete', %d, {priority: 'event'});\">Delete</a>",
-      prefix,
-      seq_len(n_rows)
-    )
-  }
-
-  df
-}
-
-escape_html_attr <- function(value) {
-  value <- as.character(value)
-  value <- gsub("&", "&amp;", value, fixed = TRUE)
-  value <- gsub("\"", "&quot;", value, fixed = TRUE)
-  value <- gsub("<", "&lt;", value, fixed = TRUE)
-  value <- gsub(">", "&gt;", value, fixed = TRUE)
-  value
-}
-
-# Wraps an input label in red, plus a small note, whenever the
-# parameter's current value came from the built-in defaults rather
-# than from the configuration file on disk, and/or the parameter name
-# was duplicated in the file (in which case the first value found is
-# the one shown/used).
-render_label <- function(label, is_default, is_duplicate = FALSE) {
-  if (isTRUE(is_default) || isTRUE(is_duplicate)) {
-    note <- if (isTRUE(is_default) && isTRUE(is_duplicate)) {
-      " (default value; duplicated parameter)"
-    } else if (isTRUE(is_default)) {
-      " (default value)"
-    } else {
-      " (duplicated parameter, first value used)"
-    }
-    tags$span(
-      style = "color:#c0392b; font-weight:600;",
-      label,
-      tags$em(note, style = "font-weight:400; font-size:85%;")
-    )
-  } else {
-    label
-  }
-}
-
-build_input_grid <- function(input_defs, max_per_row = 4) {
-  if (length(input_defs) == 0) {
-    return(NULL)
-  }
-
-  row_groups <- split(
-    input_defs,
-    ceiling(seq_along(input_defs) / max_per_row)
-  )
-
-  tags$div(
-    lapply(
-      row_groups,
-      function(row_items) {
-        fluidRow(
-          lapply(
-            row_items,
-            function(item) {
-              column(
-                width = floor(12 / max_per_row),
-                if (!is.null(item$options)) {
-                  selectInput(
-                    inputId  = item$id,
-                    label    = render_label(item$label, item$is_default, item$is_duplicate),
-                    choices  = item$options,
-                    selected = item$value
-                  )
-                } else {
-                  textInput(
-                    inputId = item$id,
-                    label   = render_label(item$label, item$is_default, item$is_duplicate),
-                    value   = item$value
-                  )
-                }
-              )
-            }
-          )
-        )
-      }
-    )
-  )
-}
-
-build_param_editor <- function(df, prefix, max_per_row = 1, options_list = list(),
-                                defaulted = character(0), duplicated = character(0),
-                                file_key = NULL) {
-  input_defs <- lapply(
-    seq_len(nrow(df)),
-    function(CONT_002) {
-      param_name <- as.character(df$parameter[CONT_002])
-      list(
-        id           = paste0(prefix, param_name),
-        label        = if (is.null(file_key)) param_name else label_with_unit(param_name, file_key),
-        value        = as.character(df$value[CONT_002]),
-        options      = options_list[[param_name]],
-        is_default   = param_name %in% defaulted,
-        is_duplicate = param_name %in% duplicated
-      )
-    }
-  )
-
-  if (max_per_row <= 1) {
-    return(
-      tags$div(
-        lapply(
-          input_defs,
-          function(item) {
-            if (!is.null(item$options)) {
-              selectInput(
-                inputId  = item$id,
-                label    = render_label(item$label, item$is_default),
-                choices  = item$options,
-                selected = item$value
-              )
-            } else {
-              textInput(
-                inputId = item$id,
-                label   = render_label(item$label, item$is_default),
-                value   = item$value
-              )
-            }
-          }
-        )
-      )
-    )
-  }
-
-  build_input_grid(input_defs, max_per_row = max_per_row)
-}
-
-build_group_editor <- function(df, prefix, title, parameters, options_list = list(),
-                                defaulted = character(0), duplicated = character(0),
-                                file_key = NULL) {
-  input_defs <- lapply(
-    parameters,
-    function(CONT_003) {
-      list(
-        id           = paste0(prefix, CONT_003),
-        label        = if (is.null(file_key)) CONT_003 else label_with_unit(CONT_003, file_key),
-        value        = get_param_value(df, CONT_003),
-        options      = options_list[[CONT_003]],
-        is_default   = CONT_003 %in% defaulted,
-        is_duplicate = CONT_003 %in% duplicated
-      )
-    }
-  )
-
-  wellPanel(
-    h4(title),
-    build_input_grid(input_defs, max_per_row = 4)
-  )
-}
-
-build_table_cell_inputs <- function(df, prefix, defaulted_rows = integer(0),
-                                     readonly_cols = character(0)) {
-  if (nrow(df) == 0) {
-    return(add_row_controls(df, prefix))
-  }
-
-  data_cols <- names(df)
-  for (col_name in data_cols) {
-    if (col_name %in% readonly_cols) {
-      df[[col_name]] <- as.character(df[[col_name]])
-      next
-    }
-    df[[col_name]] <- mapply(
-      function(cell_value, row_idx) {
-        cell_style <- if (row_idx %in% defaulted_rows) {
-          " style=\"color:#c0392b; font-weight:600;\""
-        } else {
-          ""
-        }
-        sprintf(
-          "<input type='text' class='form-control input-sm table-cell-input' data-prefix='%s' data-row='%d' data-col='%s' value=\"%s\"%s/>",
-          prefix,
-          row_idx,
-          col_name,
-          escape_html_attr(cell_value),
-          cell_style
-        )
-      },
-      df[[col_name]],
-      seq_len(nrow(df)),
-      USE.NAMES = FALSE
-    )
-  }
-
-  add_row_controls(df, prefix)
-}
-
-apply_text_table_edit <- function(df, edit_info) {
-  if (is.null(edit_info)) {
-    return(df)
-  }
-
-  row_idx  <- as.integer(edit_info$row)
-  col_name <- as.character(edit_info$col)
-
-  if (!is.na(row_idx) &&
-      row_idx >= 1 &&
-      row_idx <= nrow(df) &&
-      col_name %in% names(df)) {
-    df[row_idx, col_name] <- as.character(edit_info$value)
-  }
-
-  df
-}
-
-flush_table_edits <- function(rv, input) {
-  rv$modes <- apply_text_table_edit(
-    rv$modes,
-    input$modes_cell_text_edit
-  )
-  rv$occupancy_type <- apply_text_table_edit(
-    rv$occupancy_type,
-    input$occupancy_type_cell_text_edit
-  )
-  rv$occupancy_month <- apply_text_table_edit(
-    rv$occupancy_month,
-    input$occupancy_month_cell_text_edit
-  )
-  rv$sched <- apply_text_table_edit(
-    rv$sched,
-    input$sched_cell_text_edit
-  )
-  rv$pilot <- apply_text_table_edit(
-    rv$pilot,
-    input$pilot_cell_text_edit
-  )
-}
-
+# The browser side of the editable tables: every change of a cell
+# input is sent to the server as <prefix>_cell_text_edit, which
+# apply_text_table_edit() applies to the reactive state.
 table_input_callback <- JS(
   "table.on('change', 'input.table-cell-input', function() {",
   "  var input = $(this);",
@@ -1245,7 +351,7 @@ table_input_callback <- JS(
 )
 
 # -------------------------------------------------------------
-# 8. Initial (safe) loading of every configuration file.
+# 4. Initial (safe) loading of every configuration file.
 # -------------------------------------------------------------
 # load_param_file_safe() is called once per flat "parameter,value"
 # configuration file, reconciling it against its Default_<file>
@@ -1253,37 +359,54 @@ table_input_callback <- JS(
 # same call pattern repeats for every tab below.
 model_load        <- load_param_file_safe(file_names$model, "11_Model_parameters.csv",
                                           default_file_for(file_names$model), validation_config)
-control_load      <- load_param_file_safe(file_names$control, "12_Control_parameters.csv",
+control_load      <- load_param_file_safe(file_names$control, "02_Control.csv",
                                           default_file_for(file_names$control), validation_config)
-optimization_load <- load_param_file_safe(file_names$optimization, "14_Optimization_parameters.csv",
+setpoints_load    <- load_param_file_safe(file_names$temperature_setpoints,
+                                          "12_Temperature_Setpoints.csv",
+                                          default_file_for(file_names$temperature_setpoints),
+                                          validation_config)
+flex_events_load  <- load_param_file_safe(file_names$flexibility_events,
+                                          "08_Flexibility_Event_Configuration.csv",
+                                          default_file_for(file_names$flexibility_events),
+                                          validation_config)
+optimization_load <- load_param_file_safe(file_names$optimization, "01_Optimization_parameters.csv",
                                           default_file_for(file_names$optimization), validation_config)
-market_load       <- load_param_file_safe(file_names$market, "15_Market_config.csv",
+market_load       <- load_param_file_safe(file_names$market, "03_Market_config.csv",
                                           default_file_for(file_names$market), validation_config)
-reward_load       <- load_param_file_safe(file_names$reward, "18_Reward_parameters.csv",
+reward_load       <- load_param_file_safe(file_names$reward, "09_Reward_parameters.csv",
                                           default_file_for(file_names$reward), validation_config)
-forecast_load     <- load_param_file_safe(file_names$forecast, "19_Forecast_parameters.csv",
+reward_corr_load  <- load_param_file_safe(file_names$reward_corrections,
+                                          "10_Reward_parameter_corrections.csv",
+                                          default_file_for(file_names$reward_corrections),
+                                          validation_config)
+forecast_load     <- load_param_file_safe(file_names$forecast, "15_Forecast_parameters.csv",
                                           default_file_for(file_names$forecast), validation_config)
-energy_price_load <- load_param_file_safe(file_names$energy_price, "21_Energy_price_parameters.csv",
+energy_price_load <- load_param_file_safe(file_names$energy_price, "06_Energy_price_parameters.csv",
                                           default_file_for(file_names$energy_price), validation_config)
 flex_generation_load <- load_param_file_safe(file_names$flex_generation,
-                                          "22_Flexibility_generation_parameters.csv",
+                                          "07_Flexibility_price_emulation_parameters.csv",
                                           default_file_for(file_names$flex_generation), validation_config)
-debug_load        <- load_param_file_safe(file_names$debug, "30_Debug_and_config.csv",
+debug_load        <- load_param_file_safe(file_names$debug, "16_Debug_and_config.csv",
                                           default_file_for(file_names$debug), validation_config)
 # The four remaining tables (modes, the two market schedules, and
 # occupancy) each have their own row-level safe loader instead of
 # load_param_file_safe(), since a row (not a single value) is the
 # reconciliation unit for these.
 modes_load        <- load_modes_file_safe(file_names$modes, default_file_for(file_names$modes))
-sched_load        <- load_market_table_file_safe(file_names$sched, default_file_for(file_names$sched), "E")
-pilot_load        <- load_market_table_file_safe(file_names$pilot, default_file_for(file_names$pilot), "O")
+sched_load        <- load_market_table_file_safe(file_names$sched, default_file_for(file_names$sched),
+                                                 gui_fallback$market_aim_scheduling)
+pilot_load        <- load_market_table_file_safe(file_names$pilot, default_file_for(file_names$pilot),
+                                                 gui_fallback$market_aim_piloting)
 occupancy_load    <- load_occupancy_file_safe(file_names$occupancy, default_file_for(file_names$occupancy))
 
 model_df           <- model_load$df
 control_df         <- control_load$df
+setpoints_df       <- setpoints_load$df
+flex_events_df     <- flex_events_load$df
 optimization_df    <- optimization_load$df
 market_df          <- market_load$df
 reward_df          <- reward_load$df
+reward_corr_df     <- reward_corr_load$df
 forecast_df        <- forecast_load$df
 energy_price_df    <- energy_price_load$df
 flex_generation_df <- flex_generation_load$df
@@ -1296,8 +419,10 @@ occupancy_month_df <- occupancy_load$month_profiles
 
 all_load_messages <- c(
   all_load_messages,
-  model_load$messages, control_load$messages, optimization_load$messages,
-  market_load$messages, reward_load$messages, forecast_load$messages,
+  model_load$messages, control_load$messages, setpoints_load$messages,
+  flex_events_load$messages, optimization_load$messages,
+  market_load$messages, reward_load$messages, reward_corr_load$messages,
+  forecast_load$messages,
   energy_price_load$messages,
   flex_generation_load$messages, debug_load$messages, modes_load$messages,
   sched_load$messages, pilot_load$messages, occupancy_load$messages
@@ -1318,9 +443,233 @@ load_warning_banner <- if (length(all_load_messages) > 0) {
 
 ui <- fluidPage(
   useShinyjs(),
+  # Fields the simulation will not read with the current
+  # Complex_Market_Config are shaded; the classes are switched by the
+  # server as the value changes.
+  tags$head(tags$style(HTML(paste(
+    ".gui-unused input, .gui-unused .selectize-input {",
+    "  background-color: #e9ecef !important; color: #868e96 !important; }",
+    ".gui-basic input.table-cell-input[data-col='Market'],",
+    ".gui-basic input.table-cell-input[data-col='begin'],",
+    ".gui-basic input.table-cell-input[data-col='aim'] {",
+    "  background-color: #e9ecef !important; color: #868e96 !important; }",
+    ".gui-note { color: #6c757d; font-style: italic; margin-bottom: 8px; }"
+  )))),
   titlePanel("MPC simulation configuration"),
   load_warning_banner,
   tabsetPanel(
+    tabPanel(
+      "Optimization",
+      uiOutput("optimization_ui"),
+      actionButton("save_optimization", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Control",
+      build_group_editor(
+        control_df,
+        "control__",
+        "Control Approach",
+        c("control_type"),
+        options_list = list(
+          control_type = validation_options(validation_config, "02_Control.csv", "control_type")
+        ),
+        defaulted = control_load$defaulted,
+        duplicated = control_load$duplicated,
+        file_key = "02_Control.csv"
+      ),
+      build_group_editor(
+        control_df,
+        "control__",
+        "Hysteresis",
+        c("Deadband"),
+        defaulted = control_load$defaulted,
+        duplicated = control_load$duplicated,
+        file_key = "02_Control.csv"
+      ),
+      build_group_editor(
+        control_df,
+        "control__",
+        "Default Setpoints",
+        c("set_point_default_heating", "set_point_default_cooling"),
+        defaulted = control_load$defaulted,
+        duplicated = control_load$duplicated,
+        file_key = "02_Control.csv"
+      ),
+      build_group_editor(
+        control_df,
+        "control__",
+        "Setpoints Beyond the Optimized Horizon",
+        c("pad_heating", "pad_cooling"),
+        defaulted = control_load$defaulted,
+        duplicated = control_load$duplicated,
+        file_key = "02_Control.csv"
+      ),
+      actionButton("save_control", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Market",
+      build_group_editor(
+        market_df,
+        "market__",
+        "Market definition",
+        c("market_resolution", "Complex_Market_Config"),
+        options_list = list(
+          Complex_Market_Config = validation_options(
+            validation_config, "03_Market_config.csv", "Complex_Market_Config"
+          )
+        ),
+        defaulted = market_load$defaulted,
+        duplicated = market_load$duplicated,
+        file_key = "03_Market_config.csv"
+      ),
+      tags$div(
+        id = "market_basic_only",
+        tags$p(
+          class = "gui-note",
+          paste("Scheduling and Piloting markets: read only when Complex_Market_Config",
+                "is no. With yes, the markets, their horizons and their aims come from",
+                "the Market Schedules tabs, and these fields are shaded.")
+        ),
+        build_group_editor(
+          market_df,
+          "market__",
+          "Scheduling Markets",
+          c("Optimization_horizon_scheduling",
+            "Implementation_horizon_scheduling",
+            "Anticipation_scheduling", "optimization_aim_scheduling"),
+          options_list = list(
+            optimization_aim_scheduling = validation_options(
+              validation_config, "03_Market_config.csv", "optimization_aim_scheduling"
+            )
+          ),
+          defaulted = market_load$defaulted,
+          duplicated = market_load$duplicated,
+          file_key = "03_Market_config.csv"
+        ),
+        build_group_editor(
+          market_df,
+          "market__",
+          "Piloting Markets",
+          c("Optimization_horizon_piloting",
+            "Implementation_horizon_piloting",
+            "Anticipation_piloting", "optimization_aim_piloting"),
+          options_list = list(
+            optimization_aim_piloting = validation_options(
+              validation_config, "03_Market_config.csv", "optimization_aim_piloting"
+            )
+          ),
+          defaulted = market_load$defaulted,
+          duplicated = market_load$duplicated,
+          file_key = "03_Market_config.csv"
+        ),
+      ),
+      build_group_editor(
+        market_df,
+        "market__",
+        "Flexibility Price Emulation",
+        c("Max_flex_periods_day", "Max_flex_com_price", "Max_flex_exec_price",
+          "Max_flex_period_duration", "Max_flex_probability_down",
+          "Max_flex_probability_up"),
+        defaulted = market_load$defaulted,
+        duplicated = market_load$duplicated,
+        file_key = "03_Market_config.csv"
+      ),
+      actionButton("save_market", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Market Schedules (Scheduling)",
+      tags$p(
+        class = "gui-note",
+        paste("With Complex_Market_Config = yes the whole table is read. With no,",
+              "only closure, end and end_optimization are read: they set how far",
+              "ahead the price and commitment matrices reach. Market, begin and aim",
+              "are then shaded.")
+      ),
+      tags$div(id = "sched_wrap", DTOutput("sched_table")),
+      actionButton("save_sched", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Market Schedules (Piloting)",
+      tags$p(
+        class = "gui-note",
+        paste("With Complex_Market_Config = yes the whole table is read. With no,",
+              "only closure, end and end_optimization are read: they set how far",
+              "ahead the price and commitment matrices reach. Market, begin and aim",
+              "are then shaded.")
+      ),
+      tags$div(id = "pilot_wrap", DTOutput("pilot_table")),
+      actionButton("save_pilot", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Full Market Emulation. Energy",
+      uiOutput("energy_price_ui"),
+      actionButton("save_energy_price", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Full Market Emulation. Flexibility Price",
+      uiOutput("flex_generation_ui"),
+      actionButton("save_flex_generation", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Full Market Emulation. Flexibility Events",
+      build_group_editor(
+        flex_events_df,
+        "flexev__",
+        "Phases of an Event",
+        c("commitment_phase_length_max", "neutral_phase_timespan",
+          "recovery_phase_timespan", "minimum_flexibility"),
+        defaulted = flex_events_load$defaulted,
+        duplicated = flex_events_load$duplicated,
+        file_key = "08_Flexibility_Event_Configuration.csv"
+      ),
+      build_group_editor(
+        flex_events_df,
+        "flexev__",
+        "Convergence of the Recovery Phase",
+        c("recovery_convergence_window", "recovery_convergence_tol_rel",
+          "recovery_convergence_tol_abs"),
+        defaulted = flex_events_load$defaulted,
+        duplicated = flex_events_load$duplicated,
+        file_key = "08_Flexibility_Event_Configuration.csv"
+      ),
+      build_group_editor(
+        flex_events_df,
+        "flexev__",
+        "System of an Upward Event",
+        c("flex_up_horizon_long", "flex_up_horizon_short",
+          "flex_up_dominance_threshold", "flex_up_max_power_heating"),
+        options_list = list(
+          flex_up_max_power_heating = validation_options(
+            validation_config, "08_Flexibility_Event_Configuration.csv",
+            "flex_up_max_power_heating"
+          )
+        ),
+        defaulted = flex_events_load$defaulted,
+        duplicated = flex_events_load$duplicated,
+        file_key = "08_Flexibility_Event_Configuration.csv"
+      ),
+      build_group_editor(
+        flex_events_df,
+        "flexev__",
+        "Feasibility of a Window and Commitment",
+        c("flex_feasibility_tolerance", "flex_feasibility_floor",
+          "flex_restatement_tol", "flexibility_commitment_margin"),
+        defaulted = flex_events_load$defaulted,
+        duplicated = flex_events_load$duplicated,
+        file_key = "08_Flexibility_Event_Configuration.csv"
+      ),
+      actionButton("save_flexibility_events", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Reward Function",
+      uiOutput("reward_ui"),
+      actionButton("save_reward", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Reward Corrections",
+      uiOutput("reward_corrections_ui"),
+      actionButton("save_reward_corrections", "save", class = "btn-primary")
+    ),
     tabPanel(
       "Model",
       build_group_editor(
@@ -1347,7 +696,8 @@ ui <- fluidPage(
         "Heat Pump",
         c("AT_hp_heat_1", "AT_hp_heat_2", "Q_hp_heat_1", "Q_hp_heat_2",
           "COP_hp_heat_1_coef1", "COP_hp_heat_1_coef2",
-          "COP_hp_heat_1_coef3", "Tsup_hp_heat", "Q_hp_cool",
+          "COP_hp_heat_1_coef3", "Tsup_hp_heat",
+          "Text_ref_hp_heat", "Tsup_ref_hp_heat", "Q_hp_cool",
           "COP_hp_cool"),
         defaulted = model_load$defaulted,
         duplicated = model_load$duplicated,
@@ -1384,6 +734,25 @@ ui <- fluidPage(
       actionButton("save_model", "save", class = "btn-primary")
     ),
     tabPanel(
+      "Temperature Setpoints",
+      build_group_editor(
+        setpoints_df,
+        "setpoints__",
+        "Acceptable Setpoint Range (setpoints control only)",
+        c("set_point_range_heating_low", "set_point_range_heating_high",
+          "set_point_range_cooling_low", "set_point_range_cooling_high"),
+        defaulted = setpoints_load$defaulted,
+        duplicated = setpoints_load$duplicated,
+        file_key = "12_Temperature_Setpoints.csv"
+      ),
+      actionButton("save_temperature_setpoints", "save", class = "btn-primary")
+    ),
+    tabPanel(
+      "Modes",
+      DTOutput("modes_table"),
+      actionButton("save_modes", "save", class = "btn-primary")
+    ),
+    tabPanel(
       "Occupancy",
       h4("Day Type Profiles [0/1 per hour]"),
       DTOutput("occupancy_type_table"),
@@ -1392,145 +761,9 @@ ui <- fluidPage(
       actionButton("save_occupancy", "save", class = "btn-primary")
     ),
     tabPanel(
-      "Control",
-      build_group_editor(
-        control_df,
-        "control__",
-        "Control Approach",
-        c("control_type"),
-        options_list = list(
-          control_type = c("modes", "setpoints")
-        ),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "12_Control_parameters.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Default Setpoints",
-        c("set_point_default_cooling", "set_point_default_heating"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "12_Control_parameters.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Acceptable Setpoint range",
-        c("set_point_range_heating_low", "set_point_range_heating_high",
-          "set_point_range_cooling_low", "set_point_range_cooling_high",
-          "Deadband"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "12_Control_parameters.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Flexibility Event Response",
-        c("flexibility_event_length_max", "flexibility_recover_timespan",
-          "thermal_stabilization_timespan", "minimum_flexibility",
-          "flexibility_splits"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "12_Control_parameters.csv"
-      ),
-      actionButton("save_control", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Modes",
-      DTOutput("modes_table"),
-      actionButton("save_modes", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Optimization",
-      uiOutput("optimization_ui"),
-      actionButton("save_optimization", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Market",
-      build_group_editor(
-        market_df,
-        "market__",
-        "Market definition",
-        c("market_resolution", "Complex_Market_Config"),
-        options_list = list(
-          Complex_Market_Config = c("yes", "no")
-        ),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "15_Market_config.csv"
-      ),
-      build_group_editor(
-        market_df,
-        "market__",
-        "Scheduling Markets",
-        c("Optimization_horizon_scheduling",
-          "Implementation_horizon_scheduling",
-          "Anticipation_scheduling", "optimization_aim_scheduling"),
-        options_list = list(
-          optimization_aim_scheduling = c("O", "E", "O+F", "E+F")
-        ),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "15_Market_config.csv"
-      ),
-      build_group_editor(
-        market_df,
-        "market__",
-        "Piloting Markets",
-        c("Optimization_horizon_piloting",
-          "Implementation_horizon_piloting",
-          "Anticipation_piloting", "optimization_aim_piloting"),
-        options_list = list(
-          optimization_aim_piloting = c("O", "E", "O+F", "E+F")
-        ),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "15_Market_config.csv"
-      ),
-      build_group_editor(
-        market_df,
-        "market__",
-        "Flexibility Price Emulation",
-        c("Max_flex_periods_day", "Max_flex_com_price", "Max_flex_exec_price",
-          "Max_flex_period_duration", "Max_flex_probability"),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "15_Market_config.csv"
-      ),
-      actionButton("save_market", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Market Schedules (Scheduling)",
-      DTOutput("sched_table"),
-      actionButton("save_sched", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Market Schedules (Piloting)",
-      DTOutput("pilot_table"),
-      actionButton("save_pilot", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Reward Function",
-      uiOutput("reward_ui"),
-      actionButton("save_reward", "save", class = "btn-primary")
-    ),
-    tabPanel(
       "Forecasting",
       uiOutput("forecast_ui"),
       actionButton("save_forecast", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Energy Price",
-      uiOutput("energy_price_ui"),
-      actionButton("save_energy_price", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Flexibility Generation",
-      uiOutput("flex_generation_ui"),
-      actionButton("save_flex_generation", "save", class = "btn-primary")
     ),
     tabPanel(
       "Configuration and Debug",
@@ -1549,12 +782,15 @@ server <- function(input, output, session) {
     occupancy_type  = occupancy_type_df,
     occupancy_month = occupancy_month_df,
     control         = control_df,
+    setpoints       = setpoints_df,
+    flex_events     = flex_events_df,
     modes           = modes_df,
     optimization    = optimization_df,
     market          = market_df,
     sched           = sched_df,
     pilot           = pilot_df,
     reward          = reward_df,
+    reward_corr     = reward_corr_df,
     forecast        = forecast_df,
     energy_price    = energy_price_df,
     flex_generation = flex_generation_df,
@@ -1562,9 +798,12 @@ server <- function(input, output, session) {
 
     model_defaulted        = model_load$defaulted,
     control_defaulted      = control_load$defaulted,
+    setpoints_defaulted    = setpoints_load$defaulted,
+    flex_events_defaulted  = flex_events_load$defaulted,
     optimization_defaulted = optimization_load$defaulted,
     market_defaulted       = market_load$defaulted,
     reward_defaulted       = reward_load$defaulted,
+    reward_corr_defaulted  = reward_corr_load$defaulted,
     forecast_defaulted     = forecast_load$defaulted,
     energy_price_defaulted = energy_price_load$defaulted,
     flex_generation_defaulted = flex_generation_load$defaulted,
@@ -1572,9 +811,12 @@ server <- function(input, output, session) {
 
     model_duplicated        = model_load$duplicated,
     control_duplicated      = control_load$duplicated,
+    setpoints_duplicated    = setpoints_load$duplicated,
+    flex_events_duplicated  = flex_events_load$duplicated,
     optimization_duplicated = optimization_load$duplicated,
     market_duplicated       = market_load$duplicated,
     reward_duplicated       = reward_load$duplicated,
+    reward_corr_duplicated  = reward_corr_load$duplicated,
     forecast_duplicated     = forecast_load$duplicated,
     energy_price_duplicated = energy_price_load$duplicated,
     flex_generation_duplicated = flex_generation_load$duplicated,
@@ -1591,7 +833,7 @@ server <- function(input, output, session) {
     build_param_editor(rv$optimization, "opt__", max_per_row = 4,
                        defaulted = rv$optimization_defaulted,
                        duplicated = rv$optimization_duplicated,
-                       file_key = "14_Optimization_parameters.csv")
+                       file_key = "01_Optimization_parameters.csv")
   })
 
   output$reward_ui <- renderUI({
@@ -1599,40 +841,53 @@ server <- function(input, output, session) {
       build_group_editor(
         rv$reward,
         "reward__",
-        "Service",
-        c("Alpha_Service_Min", "Service_T_Low", "Service_T_High",
-          "Setback_T_Low", "Setback_T_High"),
+        "Weights",
+        c("alpha_comfort", "alpha_cost"),
         defaulted = rv$reward_defaulted,
         duplicated = rv$reward_duplicated,
-        file_key = "18_Reward_parameters.csv"
+        file_key = "09_Reward_parameters.csv"
       ),
       build_group_editor(
         rv$reward,
         "reward__",
-        "Scheduling",
-        c("Service_Anticipation_Begin", "Service_Anticipation_End",
-          "Service_AT_Low_Sched_HDD", "Service_AT_High_Sched_CDD"),
+        "Comfort Band",
+        c("Service_T_Low", "Service_T_High", "Setback_T_Low", "Setback_T_High"),
         defaulted = rv$reward_defaulted,
         duplicated = rv$reward_duplicated,
-        file_key = "18_Reward_parameters.csv"
+        file_key = "09_Reward_parameters.csv"
       ),
       build_group_editor(
         rv$reward,
         "reward__",
-        "Climate Correction for Scheduling",
-        c("T_ref_Heating_Season", "HDD_period", "T_ref_Cooling_Season", "CDD_period"),
-        defaulted = rv$reward_defaulted,
-        duplicated = rv$reward_duplicated,
-        file_key = "18_Reward_parameters.csv"
-      ),
-      build_group_editor(
-        rv$reward,
-        "reward__",
-        "Correction for flex revenues",
+        "Revenue Discount",
         c("Revenue_discount_per_hour"),
         defaulted = rv$reward_defaulted,
         duplicated = rv$reward_duplicated,
-        file_key = "18_Reward_parameters.csv"
+        file_key = "09_Reward_parameters.csv"
+      )
+    )
+  })
+
+  output$reward_corrections_ui <- renderUI({
+    tagList(
+      build_group_editor(
+        rv$reward_corr,
+        "rewardcorr__",
+        "Scheduling",
+        c("Service_Anticipation_Begin", "Service_Anticipation_End",
+          "Service_AT_Low_Sched_HDD", "Service_AT_High_Sched_CDD"),
+        defaulted = rv$reward_corr_defaulted,
+        duplicated = rv$reward_corr_duplicated,
+        file_key = "10_Reward_parameter_corrections.csv"
+      ),
+      build_group_editor(
+        rv$reward_corr,
+        "rewardcorr__",
+        "Climate Correction for Scheduling",
+        c("T_ref_Heating_Season", "HDD_period", "T_ref_Cooling_Season", "CDD_period"),
+        defaulted = rv$reward_corr_defaulted,
+        duplicated = rv$reward_corr_duplicated,
+        file_key = "10_Reward_parameter_corrections.csv"
       )
     )
   })
@@ -1642,38 +897,35 @@ server <- function(input, output, session) {
       rv$forecast,
       "forecast__",
       options_list = list(
-        forecast_type = c("accurate", "inaccurate")
+        weather_forecast_type = c("accurate", "inaccurate"),
+        price_forecast_type   = c("accurate", "inaccurate")
       ),
       defaulted = rv$forecast_defaulted,
       duplicated = rv$forecast_duplicated,
-      file_key = "19_Forecast_parameters.csv"
+      file_key = "15_Forecast_parameters.csv"
     )
   })
 
   output$energy_price_ui <- renderUI({
     build_param_editor(rv$energy_price, "energyprice__", defaulted = rv$energy_price_defaulted,
                        duplicated = rv$energy_price_duplicated,
-                       file_key = "21_Energy_price_parameters.csv")
+                       file_key = "06_Energy_price_parameters.csv")
   })
 
   output$flex_generation_ui <- renderUI({
     build_param_editor(rv$flex_generation, "flexgen__", defaulted = rv$flex_generation_defaulted,
                        duplicated = rv$flex_generation_duplicated,
-                       file_key = "22_Flexibility_generation_parameters.csv")
+                       file_key = "07_Flexibility_price_emulation_parameters.csv")
   })
 
   output$debug_ui <- renderUI({
     build_param_editor(
       rv$debug,
       "debug__",
-      options_list = list(
-        verbose         = c("0", "1"),
-        parallel        = c("0", "1"),
-        Price_emulation = c("0", "1")
-      ),
+      options_list = debug_flag_options,
       defaulted = rv$debug_defaulted,
       duplicated = rv$debug_duplicated,
-      file_key = "30_Debug_and_config.csv"
+      file_key = "16_Debug_and_config.csv"
     )
   })
 
@@ -1722,6 +974,24 @@ server <- function(input, output, session) {
     )
   })
 
+  # Shade what the simulation will not read with the current
+  # Complex_Market_Config: the horizons and aims of the Market tab when
+  # it is yes, and the Market, begin and aim columns of the two
+  # schedule tables when it is no.
+  observe({
+    complex_now <- input$market__Complex_Market_Config
+    if (is.null(complex_now)) {
+      complex_now <- get_param_value(rv$market, "Complex_Market_Config")
+    }
+    complex_now <- tolower(trimws(as.character(complex_now)))
+    toggleClass(id = "market_basic_only", class = "gui-unused",
+                condition = identical(complex_now, "yes"))
+    toggleClass(id = "sched_wrap", class = "gui-basic",
+                condition = identical(complex_now, "no"))
+    toggleClass(id = "pilot_wrap", class = "gui-basic",
+                condition = identical(complex_now, "no"))
+  })
+
   output$sched_table <- renderDT({
     display_df <- build_table_cell_inputs(rv$sched, "sched",
                                           defaulted_rows = rv$sched_defaulted_rows)
@@ -1732,7 +1002,7 @@ server <- function(input, output, session) {
       editable = FALSE,
       callback = table_input_callback,
       colnames = sapply(names(display_df), label_with_unit,
-                        file_key = "16_Market_config_scheduling.csv", USE.NAMES = FALSE),
+                        file_key = "04_Market_config_scheduling.csv", USE.NAMES = FALSE),
       options  = list(dom = "t", ordering = FALSE,
                       pageLength = max(1, nrow(display_df)))
     )
@@ -1748,7 +1018,7 @@ server <- function(input, output, session) {
       editable = FALSE,
       callback = table_input_callback,
       colnames = sapply(names(display_df), label_with_unit,
-                        file_key = "17_Market_config_piloting.csv", USE.NAMES = FALSE),
+                        file_key = "05_Market_config_piloting.csv", USE.NAMES = FALSE),
       options  = list(dom = "t", ordering = FALSE,
                       pageLength = max(1, nrow(display_df)))
     )
@@ -1905,9 +1175,12 @@ server <- function(input, output, session) {
         # all sharing the same pattern (widget input -> df$value).
         rv$model        <- update_df_from_inputs(rv$model, "model__", input)
         rv$control      <- update_df_from_inputs(rv$control, "control__", input)
+        rv$setpoints    <- update_df_from_inputs(rv$setpoints, "setpoints__", input)
+        rv$flex_events  <- update_df_from_inputs(rv$flex_events, "flexev__", input)
         rv$optimization <- update_df_from_inputs(rv$optimization, "opt__", input)
         rv$market       <- update_df_from_inputs(rv$market, "market__", input)
         rv$reward       <- update_df_from_inputs(rv$reward, "reward__", input)
+        rv$reward_corr  <- update_df_from_inputs(rv$reward_corr, "rewardcorr__", input)
         rv$forecast     <- update_df_from_inputs(rv$forecast, "forecast__", input)
         rv$energy_price <- update_df_from_inputs(rv$energy_price, "energyprice__", input)
         rv$flex_generation <- update_df_from_inputs(rv$flex_generation, "flexgen__", input)
@@ -1923,17 +1196,22 @@ server <- function(input, output, session) {
         # cannot leave the configuration half-written.
         validation_errors <- c(
           validate_param_df_gui(rv$model, "11_Model_parameters.csv", validation_config),
-          validate_param_df_gui(rv$control, "12_Control_parameters.csv", validation_config),
-          validate_param_df_gui(rv$optimization, "14_Optimization_parameters.csv", validation_config),
-          validate_param_df_gui(rv$market, "15_Market_config.csv", validation_config),
-          validate_param_df_gui(rv$reward, "18_Reward_parameters.csv", validation_config),
-          validate_param_df_gui(rv$forecast, "19_Forecast_parameters.csv", validation_config),
-          validate_param_df_gui(rv$energy_price, "21_Energy_price_parameters.csv", validation_config),
-          validate_param_df_gui(rv$flex_generation, "22_Flexibility_generation_parameters.csv", validation_config),
-          validate_param_df_gui(rv$debug, "30_Debug_and_config.csv", validation_config),
+          validate_param_df_gui(rv$control, "02_Control.csv", validation_config),
+          validate_param_df_gui(rv$setpoints, "12_Temperature_Setpoints.csv", validation_config),
+          validate_param_df_gui(rv$flex_events, "08_Flexibility_Event_Configuration.csv",
+                                validation_config),
+          validate_param_df_gui(rv$optimization, "01_Optimization_parameters.csv", validation_config),
+          validate_param_df_gui(rv$market, "03_Market_config.csv", validation_config),
+          validate_param_df_gui(rv$reward, "09_Reward_parameters.csv", validation_config),
+          validate_param_df_gui(rv$reward_corr, "10_Reward_parameter_corrections.csv",
+                                validation_config),
+          validate_param_df_gui(rv$forecast, "15_Forecast_parameters.csv", validation_config),
+          validate_param_df_gui(rv$energy_price, "06_Energy_price_parameters.csv", validation_config),
+          validate_param_df_gui(rv$flex_generation, "07_Flexibility_price_emulation_parameters.csv", validation_config),
+          validate_param_df_gui(rv$debug, "16_Debug_and_config.csv", validation_config),
           validate_modes_df_gui(rv$modes),
-          validate_market_table_df_gui(rv$sched, "16_Market_config_scheduling.csv"),
-          validate_market_table_df_gui(rv$pilot, "17_Market_config_piloting.csv"),
+          validate_market_table_df_gui(rv$sched, "04_Market_config_scheduling.csv"),
+          validate_market_table_df_gui(rv$pilot, "05_Market_config_piloting.csv"),
           validate_occupancy_dfs_gui(rv$occupancy_type, rv$occupancy_month)
         )
 
@@ -1951,10 +1229,11 @@ server <- function(input, output, session) {
         rv$modes$mode <- seq_len(nrow(rv$modes))
 
         # All validation above passed, so every tab is now written to
-        # its configuration file on disk - write_param_file() for flat
-        # "parameter,value,unit" files, write_table_file() for the
-        # modes/market-schedule tables, write_use_patterns_file() for
-        # the two-block occupancy file.
+        # its configuration file on disk:
+        #   - write_param_file() for flat "parameter,value,unit" files
+        #   - write_table_file() for the modes/market-schedule tables
+        #   - write_use_patterns_file() for the two-block occupancy
+        #     file
         write_param_file(
           file_names$model,
           "# Physical and thermal parameters of the building and HVAC system",
@@ -1967,8 +1246,18 @@ server <- function(input, output, session) {
         )
         write_param_file(
           file_names$control,
-          "# HVAC control parameters",
+          "# Control parameters",
           rv$control
+        )
+        write_param_file(
+          file_names$temperature_setpoints,
+          "# Temperature setpoint parameters",
+          rv$setpoints
+        )
+        write_param_file(
+          file_names$flexibility_events,
+          "# Flexibility event configuration",
+          rv$flex_events
         )
         write_param_file(
           file_names$optimization,
@@ -2001,6 +1290,11 @@ server <- function(input, output, session) {
           rv$reward
         )
         write_param_file(
+          file_names$reward_corrections,
+          "# Reward parameter corrections",
+          rv$reward_corr
+        )
+        write_param_file(
           file_names$forecast,
           "# Weather forecast parameters",
           rv$forecast
@@ -2027,18 +1321,24 @@ server <- function(input, output, session) {
         # that it has been persisted.
         rv$model_defaulted        <- character(0)
         rv$control_defaulted      <- character(0)
+        rv$setpoints_defaulted    <- character(0)
+        rv$flex_events_defaulted  <- character(0)
         rv$optimization_defaulted <- character(0)
         rv$market_defaulted       <- character(0)
         rv$reward_defaulted       <- character(0)
+        rv$reward_corr_defaulted  <- character(0)
         rv$forecast_defaulted     <- character(0)
         rv$energy_price_defaulted <- character(0)
         rv$flex_generation_defaulted <- character(0)
         rv$debug_defaulted        <- character(0)
         rv$model_duplicated        <- character(0)
         rv$control_duplicated      <- character(0)
+        rv$setpoints_duplicated    <- character(0)
+        rv$flex_events_duplicated  <- character(0)
         rv$optimization_duplicated <- character(0)
         rv$market_duplicated       <- character(0)
         rv$reward_duplicated       <- character(0)
+        rv$reward_corr_duplicated  <- character(0)
         rv$forecast_duplicated     <- character(0)
         rv$energy_price_duplicated <- character(0)
         rv$flex_generation_duplicated <- character(0)
@@ -2068,9 +1368,10 @@ server <- function(input, output, session) {
   }
 
   save_buttons <- c(
-    "save_model", "save_occupancy", "save_control", "save_modes",
+    "save_model", "save_occupancy", "save_control", "save_temperature_setpoints",
+    "save_modes", "save_flexibility_events",
     "save_optimization", "save_market", "save_sched", "save_pilot",
-    "save_reward", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
+    "save_reward", "save_reward_corrections", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
   )
 
   for (CONT_004 in save_buttons) {

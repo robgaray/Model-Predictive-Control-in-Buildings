@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function optimizes heating and cooling setpoints over a
 # particular period using a Genetic Algorithm (GA) approach.
 # It performs the following steps:
@@ -30,14 +31,19 @@
 #                      parameters$control$set_point_range_heating
 #                      parameters$control$set_point_range_cooling
 #                      parameters$control$Deadband
-#                      parameters$optimization (population_size,
-#                        iteration_number, run_number, pcrossover, pmutation,
-#                        parallel, as returned by load_optimization_parameters())
+#                      parameters$optimization, as returned by
+#                        load_optimization_parameters():
+#                          - population_size
+#                          - iteration_number
+#                          - run_number
+#                          - pcrossover
+#                          - pmutation
+#                          - parallel
 #   simulation_control : Named list. Index/step metadata (passed through to
 #                    the fitness function for interface consistency).
 #   marginal_context : Named list or NULL. Passed through to the fitness
 #                    function and, via clusterExport(), to worker processes.
-#
+# -------------------------------------------------------------
 # Outputs
 #   set_point_optimized : Data frame with setpoint columns and hysteresis
 #                         deadbands for the optimal heating and cooling
@@ -58,10 +64,12 @@
 # Called by optimize_control_step.R when control_type is "setpoints".
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
-#   - Parallelization uses all available logical cores minus one. The cluster
+#   - Parallelization uses parallel_workers worker processes, or all
+#     logical cores but one when it is 0. The cluster
 #     is stopped and sequential execution restored after the GA run.
-#   - On Windows (PSOCK clusters), required functions and variables are
-#     explicitly exported to worker processes via clusterExport().
+#   - Worker processes (PSOCK clusters) do not inherit the global
+#     environment: every function it holds is exported to them, and the
+#     data of this optimization by name, via clusterExport().
 #   - The GA uses real-valued encoding: 2 * horizon real genes, where the
 #     first 'horizon' genes are heating setpoints and the next 'horizon'
 #     genes are cooling setpoints.
@@ -73,26 +81,16 @@
 # -------------------------------------------------------------
 # functions/scripts called
 #   fitness_funct_optimize_setpoint() - GA fitness function
-#   convert_setpoints()               - converts raw setpoints to data frame
-#                                       with hysteresis deadbands
-#   evaluate_control()                - building simulation and reward
-#                                       (called inside fitness function)
-#   period_calculation()              - core building physics simulation
-#                                       (called inside evaluate_control)
-#   flex_evaluation()                 - flexibility event simulation
-#                                       (called inside evaluate_control)
-#   reward_function()                 - reward calculation
-#                                       (called inside evaluate_control)
-#   compute_marginal_energy_cost()    - marginal cash flow, base-energy term
-#                                       (called inside reward_function,
-#                                       when marginal_context is provided)
-#   compute_marginal_distribution_cost() - marginal distribution cost
-#                                       (called inside reward_function,
-#                                       when marginal_context is provided)
-#   compute_marginal_flex_revenue()   - marginal cash flow, explicit
-#                                       flexibility term (called inside
-#                                       reward_function, flexibility/
-#                                       operationflex modes only)
+#   convert_setpoints()               - converts raw setpoints to a data
+#                                       frame with hysteresis deadbands
+#
+# Handed to the worker processes, not called here
+#   The GA evaluates its candidates in worker processes, which receive
+#   every function of the global environment through clusterExport:
+#   evaluate_control(), period_calculation(), reward_function() and
+#   everything they reach run there, underneath this function, without
+#   being called by its body. They are listed apart for that reason:
+#   the section above is what the body invokes.
 # -------------------------------------------------------------
 optimize_setpoints <- function(period_chunk,
                                timestamps,
@@ -120,27 +118,48 @@ optimize_setpoints <- function(period_chunk,
   # Parallelization initialization
   {
     if (parameters$debug_and_config$parallel == 1) {
-      n_cores <- parallel::detectCores(logical = TRUE) - 1  # leave 1 core free
+      n_cores <- parameters$debug_and_config$parallel_workers
+      if (is.null(n_cores) || n_cores == 0) {
+        n_cores <- max(1, parallel::detectCores(logical = TRUE) - 1)  # leave 1 core free
+      }
       cl <- makeCluster(n_cores)                             # works on Windows and Linux
       registerDoParallel(cl)                                 # register cluster for foreach
-      
-      # Important for Windows (PSOCK clusters) because child processes don't inherit the global environment
+
+      # clusterSetRNGStream is called to give every worker process a
+      # reproducible random number stream derived from the run's seed.
+      # set.seed() in Main.R only affects the main process, so without
+      # this call the GA's random operators would differ between runs
+      # even with the seed fixed. The seed is only applied when it is
+      # non-zero, mirroring Main.R's "0 means do not fix" convention.
+      # The number of workers is parallel_workers, or all logical cores
+      # but one when it is 0. The result does not depend on it.
+      if (!is.null(parameters$debug_and_config$random_seed) &&
+          parameters$debug_and_config$random_seed != 0) {
+        parallel::clusterSetRNGStream(cl, iseed = parameters$debug_and_config$random_seed)
+      }
+
+
+      # Every function the simulation has loaded lives in the global
+      # environment, and a worker process starts with none of them. All
+      # of them are exported, rather than a list kept by hand: a hand-kept
+      # list silently misses the next function added, and the run then
+      # stops inside a worker. The C++ entry points travel too, but are
+      # replaced below when the module is compiled on each worker.
+      project_functions <- Filter(
+        function(name) is.function(get(name, envir = globalenv())),
+        ls(globalenv())
+      )
+      clusterExport(
+        cl,
+        varlist = project_functions,
+        envir   = globalenv()
+      )
+      rm(project_functions)
+
+      # The data of this optimization, from this function's environment
       clusterExport(
         cl,
         varlist = c(
-          "fitness_funct_optimize_setpoint",
-          "evaluate_control",
-          "convert_setpoints",
-          "period_calculation",
-          "flex_evaluation",
-          "reward_function",
-          "compute_marginal_energy_cost",
-          "compute_marginal_distribution_cost",
-          "compute_marginal_flex_revenue",
-          "calc_differential_cost",
-          "split_market_operation",
-          "value_flex_operation",
-          "initialize_plan_flex_columns",
           "period_chunk",
           "parameters2",
           "horizon",
@@ -214,7 +233,9 @@ optimize_setpoints <- function(period_chunk,
       setpoints_heating = set_point_optimized[1:horizon],
       setpoints_cooling = set_point_optimized[(horizon + 1):(2 * horizon)],
       Deadband          = parameters$control$Deadband,
-      target_periods    = timestamps$target_periods
+      target_periods    = timestamps$target_periods,
+      pad_heating       = parameters$control$pad_heating,
+      pad_cooling       = parameters$control$pad_cooling
     )
   }
   

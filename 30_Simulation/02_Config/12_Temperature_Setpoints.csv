@@ -1,0 +1,14 @@
+# Temperature setpoint parameters
+# -------------------------------------------------------------
+# Used only when control_type is setpoints: the range the optimizer
+# may choose each heating and cooling setpoint from.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Heating setpoint range
+set_point_range_heating_low,20,degC
+set_point_range_heating_high,22,degC
+#
+# Cooling setpoint range
+set_point_range_cooling_low,24,degC
+set_point_range_cooling_high,26,degC

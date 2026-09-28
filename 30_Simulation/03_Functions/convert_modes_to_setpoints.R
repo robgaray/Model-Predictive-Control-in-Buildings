@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # HVAC modes are used to define heating and cooling setpoints.
 # This function performs a conversion from modes to setpoints.
 # When more than one mode is active, the one with the highest value
@@ -30,9 +31,13 @@
 #                       index compatibility.
 #   pad_mode          : Integer scalar. Padding mode index for periods beyond
 #                       the input length. Default: 0.
-#   pad_heating       : Numeric scalar. Padding heating setpoint. Default: 0.
-#   pad_cooling       : Numeric scalar. Padding cooling setpoint. Default: 50.
-#
+#   pad_heating       : Numeric scalar. Padding heating setpoint. Has no
+#                       default: the caller passes
+#                       parameters$control$pad_heating.
+#   pad_cooling       : Numeric scalar. Padding cooling setpoint. Has no
+#                       default: the caller passes
+#                       parameters$control$pad_cooling.
+# -------------------------------------------------------------
 # Outputs
 #   Data frame (df) with columns:
 #     period        – POSIXct. Market period timestamps.
@@ -78,8 +83,8 @@ convert_modes_to_setpoints <- function(setpoint_modes_df,
                                        Deadband,
                                        target_periods = NULL,
                                        pad_mode = 0,
-                                       pad_heating = 0,
-                                       pad_cooling = 50
+                                       pad_heating,
+                                       pad_cooling
                                        ) {
   
   # Validate required columns and values before merging

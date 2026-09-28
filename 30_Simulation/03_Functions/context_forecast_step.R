@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function extracts or generates a fake forecast context for a
 # given optimization horizon.
 #
@@ -31,11 +32,11 @@
 #                      the columns 'time', 'Text', and 'SolarR'.
 #   parameters       : List. Model/forecast parameters. Must contain a sub-list
 #                      'forecast_parameters' with fields:
-#                        forecast_type           (default "accurate"): Character.
+#                        weather_forecast_type           (default "accurate"): Character.
 #                                                Either "accurate" or "inaccurate".
 #                                                Extracted internally.
-#                        forecast_n_days_back    (default 5)
-#                        forecast_weight_history (default 0.2)
+#                        weather_forecast_n_days_back    (default 5)
+#                        weather_forecast_weight_history (default 0.2)
 #                        Also requires:
 #                        debug_and_config_parameters$verbose: Logical. Read
 #                                                             into a local
@@ -63,13 +64,13 @@
 # result <- context_forecast_step(simulation_control, time_sec, Main_df, parameters)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R in the MPC simulation loop (step 1: CONTEXT).
+# Called by 14_simulation.R in the MPC simulation loop (step 1: CONTEXT).
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
-#   - If forecast_type == "inaccurate" and imperfect_forecast() returns no
+#   - If weather_forecast_type == "inaccurate" and imperfect_forecast() returns no
 #     matching timestamps, the corresponding forecast column retains the
 #     ground-truth value (fallback to accurate forecast).
-#   - Parameters forecast_n_days_back and forecast_weight_history default to
+#   - Parameters weather_forecast_n_days_back and weather_forecast_weight_history default to
 #     5 and 0.2 respectively when not present in parameters$forecast.
 #   - If all predicted values are NA (e.g., at the very start of the series
 #     where no historical days exist), the original ground-truth values are
@@ -77,7 +78,7 @@
 # -------------------------------------------------------------
 # functions/scripts called
 #   imperfect_forecast() - generates blended historical/actual weather forecasts
-#                          (called only when forecast_type == "inaccurate")
+#                          (called only when weather_forecast_type == "inaccurate")
 # -------------------------------------------------------------
 context_forecast_step <- function(simulation_control,
                                   time_sec,
@@ -87,7 +88,7 @@ context_forecast_step <- function(simulation_control,
   i_end_horizon <- simulation_control$indexes_global$i_end_horizon
 
   # Extract parameters from the parameters object
-  forecast_type <- parameters$forecast$forecast_type
+  weather_forecast_type <- parameters$forecast$weather_forecast_type
   verbose       <- parameters$debug_and_config$verbose
   
   # Reduced dataframe of horizon - explicitly create data frame with 3 columns
@@ -98,9 +99,9 @@ context_forecast_step <- function(simulation_control,
   )
   
   # Inaccurate predictions (if applicable)
-  if (forecast_type == "inaccurate") {
-    n_days_back             <- if (!is.null(parameters$forecast$forecast_n_days_back)) parameters$forecast$forecast_n_days_back else 5
-    forecast_weight_history <- if (!is.null(parameters$forecast$forecast_weight_history)) parameters$forecast$forecast_weight_history else 0.2
+  if (weather_forecast_type == "inaccurate") {
+    n_days_back             <- if (!is.null(parameters$forecast$weather_forecast_n_days_back)) parameters$forecast$weather_forecast_n_days_back else 5
+    weather_forecast_weight_history <- if (!is.null(parameters$forecast$weather_forecast_weight_history)) parameters$forecast$weather_forecast_weight_history else 0.2
     
     # imperfect_forecast is called to blend the ground-truth external
     # temperature with a historical average, so the returned forecast
@@ -111,7 +112,7 @@ context_forecast_step <- function(simulation_control,
       i0 = i0,
       i_end_horizon = i_end_horizon,
       n_days_back = n_days_back,
-      forecast_weight_history = forecast_weight_history,
+      weather_forecast_weight_history = weather_forecast_weight_history,
       time_col = "time"
     )
 
@@ -123,10 +124,10 @@ context_forecast_step <- function(simulation_control,
       i0 = i0,
       i_end_horizon = i_end_horizon,
       n_days_back = n_days_back,
-      forecast_weight_history = forecast_weight_history,
+      weather_forecast_weight_history = weather_forecast_weight_history,
       time_col = "time"
     )
-    rm(n_days_back, forecast_weight_history)
+    rm(n_days_back, weather_forecast_weight_history)
     
     idx_air_temperature <- match(forecast_df$time, pred_air_temperature$time)
     idx_solar_radiation <- match(forecast_df$time, pred_solar_radiation$time)

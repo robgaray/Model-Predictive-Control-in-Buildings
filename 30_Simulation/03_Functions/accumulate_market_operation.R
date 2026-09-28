@@ -17,7 +17,7 @@
 #     which accumulates the operation's quantities and its cash flow.
 #   - on one row of economic_analysis$slot: the slot itself, which accumulates
 #     the operation's costs, revenues and the working quantities that
-#     economic_analysis_finalize.R later turns into fractions.
+#     15_economic_analysis_finalize.R later turns into fractions.
 # -------------------------------------------------------------
 # Sign convention
 # Cash_flow is signed as an inflow: selling energy (either a new sale
@@ -49,7 +49,7 @@
 # -------------------------------------------------------------
 # Inputs
 # economic_analysis : Named list. The accumulators, as built by
-#                 economic_analysis_setup.R.
+#                 13_economic_analysis_setup.R.
 # operation     : Named list. One split_market_operation() result, with
 #                 scalar components (one target slot at a time).
 # dest_row      : Integer. Row of economic_analysis$market that reports this

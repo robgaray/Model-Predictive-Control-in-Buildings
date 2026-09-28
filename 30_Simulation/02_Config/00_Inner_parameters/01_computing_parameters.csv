@@ -1,0 +1,27 @@
+# Computing parameters of the simulation engine
+# -------------------------------------------------------------
+# Numerical constants that define how the simulation itself is
+# computed: the resolution of its master time grid, the numerical
+# tolerances it applies, and the time margins of its internal
+# algorithms. They are not properties of the building, of the
+# market, or of the control strategy.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Time grid
+main_resolution_sec,300,s
+#
+# Numerical tolerances
+flex_energy_tol,1e-9,kWh
+#
+# Flexibility event generation
+flexibility_event_margin_sec,10800,s
+#
+# Lead edges of the energy price bands
+# The variation of the energy price depends on how far ahead it is
+# quoted: day ahead at or beyond the first edge, the 5 h band at or
+# beyond the second, the 1-5 h band strictly beyond the third, and
+# the below 1 h band otherwise.
+price_lead_day_ahead_h,24,h
+price_lead_5h_h,5,h
+price_lead_1h_h,1,h

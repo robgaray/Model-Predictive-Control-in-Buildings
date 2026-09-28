@@ -1,0 +1,11 @@
+# Default values for 16_Debug_and_config.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 16_Debug_and_config.csv.
+# Debug and configuration parameters
+parameter,value,unit
+month_subset,1,-
+period_subset,2000,-
+verbose,1,-
+parallel,1,-
+parallel_workers,0,-
+Price_emulation,1,-
+random_seed,1,-(seed)

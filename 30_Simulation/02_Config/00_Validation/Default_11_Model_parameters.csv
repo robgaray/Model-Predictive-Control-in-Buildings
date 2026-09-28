@@ -17,8 +17,10 @@ Q_hp_heat_1,3,kW
 Q_hp_heat_2,9,kW
 COP_hp_heat_1_coef1,2.6,-
 COP_hp_heat_1_coef2,0.0465,1/degC
-COP_hp_heat_1_coef3,-0.0187,1/degC2
+COP_hp_heat_1_coef3,-0.0187,1/degC
 Tsup_hp_heat,50,degC
+Text_ref_hp_heat,7,degC
+Tsup_ref_hp_heat,35,degC
 Q_hp_cool,3,kW
 COP_hp_cool,2.5,-
 RENvent01,0.5,h-1

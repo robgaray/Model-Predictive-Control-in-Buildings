@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function performs the initialization steps required before
 # running the MPC simulation. It carries out two tasks:
 #   1. Loads all required R packages listed in a plain-text library
@@ -21,7 +22,7 @@
 #   lib_path        : Character or NULL. Optional path to a custom R library
 #                     location passed to library() as 'lib.loc'. If NULL
 #                     (default), the default library paths are used.
-#
+# -------------------------------------------------------------
 # Outputs
 #   None (called for side effects). Prints "libraries loaded" and
 #   "functions loaded" to the console upon completion.
@@ -35,7 +36,7 @@
 # initialization(library_file, functions_path, lib_path = "/path/to/libs")
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by 30_Simulation/04_Scripts/initialization.R. (A reference to
+# Called by 30_Simulation/04_Scripts/01_initialization.R. (A reference to
 # a 31_SCC_Simulation/initialization_SCC.R caller was documented here
 # previously, but that script does not exist in this repository - see
 # 90_Structure/execution_flow.md.)

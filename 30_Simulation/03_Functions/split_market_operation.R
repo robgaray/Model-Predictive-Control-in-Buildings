@@ -50,8 +50,10 @@
 # Outputs
 # Named list of eight numeric vectors, all >= 0 and all the same length
 # as the inputs:
-#   qty_buy_new,   qty_buy_back,   qty_sell_new,   qty_sell_back
-#   val_buy_new,   val_buy_back,   val_sell_new,   val_sell_back
+#   - qty_buy_new, val_buy_new: new purchase, quantity and value
+#   - qty_buy_back, val_buy_back: buy back of an earlier sale
+#   - qty_sell_new, val_sell_new: new sale
+#   - qty_sell_back, val_sell_back: resale of an earlier purchase
 # -------------------------------------------------------------
 # Code outline
 # 1. Loop over slots, mirroring calc_differential_cost()'s six
@@ -65,10 +67,10 @@
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by calc_differential_cost() (which aggregates its eight
-# outputs into a single net cash flow), by economic_analysis_finalize.R (the
+# outputs into a single net cash flow), by 15_economic_analysis_finalize.R (the
 # Execution-phase deviation), and by integrate_market_process.R, which
 # accumulates the elementary quantities and values into the economic_analysis
-# accumulators (see economic_analysis_setup.R) and into the "_market" lump-sum
+# accumulators (see 13_economic_analysis_setup.R) and into the "_market" lump-sum
 # Main_df columns.
 # -------------------------------------------------------------
 # functions/scripts called

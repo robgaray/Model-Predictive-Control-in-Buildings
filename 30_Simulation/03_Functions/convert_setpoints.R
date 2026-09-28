@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function converts high-level setpoints to low-level setpoints
 # with hysteresis deadbands. Length correction is also performed.
 # -------------------------------------------------------------
@@ -19,11 +20,13 @@
 #                       but needed for index compatibility.
 #   pad_heating       : Numeric scalar. Padding value applied to heating
 #                       setpoints for periods beyond the input length.
-#                       Default: 0.
+#                       Has no default: the caller passes
+#                       parameters$control$pad_heating.
 #   pad_cooling       : Numeric scalar. Padding value applied to cooling
 #                       setpoints for periods beyond the input length.
-#                       Default: 50.
-#
+#                       Has no default: the caller passes
+#                       parameters$control$pad_cooling.
+# -------------------------------------------------------------
 # Outputs
 #   Data frame (df) with columns:
 #     period        – POSIXct. Market period timestamps.
@@ -63,8 +66,8 @@ convert_setpoints <- function(setpoints_heating,
                               setpoints_cooling,
                               Deadband = 1,
                               target_periods = NULL,
-                              pad_heating = 0,
-                              pad_cooling = 50
+                              pad_heating,
+                              pad_cooling
                               ) {
   
   # Adapt for length of output data frame

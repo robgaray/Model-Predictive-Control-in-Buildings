@@ -4,41 +4,59 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Replaces the previous "Main_df <- readRDS(paths$main_file)" step.
-# Loads the 2 real input dataframes (Meteo_df, Energy_Prices_df) and
-# generates the 3 synthetic dataframes (System_df, Flexibility_actions_df,
-# Meteo_transformations_df) on a common 5' master grid, then assembles
-# them into a single Main_df - exactly the interface the rest of the
+# Loads the 2 real input dataframes:
+#   - Meteo_df
+#   - Energy_Prices_df
+# and generates the 3 synthetic dataframes:
+#   - System_df
+#   - Flexibility_actions_df
+#   - Meteo_transformations_df
+# on a common master grid, then assembles them into a single
+# Main_df - exactly the interface the rest of the
 # codebase expects. See
 # 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md for the
 # full rationale (Partes A-G).
 # -------------------------------------------------------------
 # Inputs
-#   paths : List. Must contain meteo_file, meteo_validation_file,
-#           energy_prices_file, energy_prices_validation_file,
-#           system_variables_file (set by initialization.R).
+#   paths      : List, set by 01_initialization.R. Must contain:
+#                  - meteo_file
+#                  - meteo_validation_file
+#                  - energy_prices_file
+#                  - energy_prices_validation_file
+#                  - system_variables_file
+#   parameters : List. Must contain parameters$computing, already
+#                loaded by load_01_computing_parameters.R, whose
+#                main_resolution_sec defines the master grid built
+#                here.
 # -------------------------------------------------------------
 # Outputs
-#   Main_df : Data frame. time (POSIXct, 5' grid) + Meteo_df's columns
-#             (interpolated) + Energy_Prices_df's columns (step-held) +
-#             System_df + Flexibility_actions_df + Meteo_transformations_df
-#             (all generated directly on the 5' grid).
+#   Main_df : Data frame on the master grid, with the columns of:
+#               - time (POSIXct, master grid)
+#               - Meteo_df (interpolated)
+#               - Energy_Prices_df (step-held)
+#               - System_df
+#               - Flexibility_actions_df
+#               - Meteo_transformations_df
+#             The last three are generated directly on the master grid.
 # -------------------------------------------------------------
 # Code outline
 # 1. Load and validate Meteo_df, Energy_Prices_df
 # 2. Determine the common time range (start strict, end trimmed with
-#    warning) and build the 5' master grid
+#    warning) and build the master grid
 # 3. Interpolate Meteo_df onto the master grid
 # 4. Step-hold Energy_Prices_df onto the master grid
 # 5. Generate System_df, Flexibility_actions_df, Meteo_transformations_df
 # 6. Assemble Main_df
 # -------------------------------------------------------------
-# Usage
+# Usage instructions
 # source(file.path("30_Simulation", "04_Scripts", "assemble_main_df.R"))
 # -------------------------------------------------------------
-# Where this script is used
-# Sourced by load_all_parameters.R, replacing the previous
+# Where this function/script is used
+# Sourced by 02_load_all_parameters.R, replacing the previous
 # "Main_df <- readRDS(paths$main_file)" step.
+# Sourced by 02_load_all_parameters.R.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - If Meteo_df$time and Energy_Prices_df$time do not start at
@@ -53,8 +71,18 @@
 #   generate_system_df(), generate_flexibility_actions_df(),
 #   generate_meteo_transformations_df() (03_Functions)
 # -------------------------------------------------------------
+# Usage instructions
+#   Not called: sourced by 02_load_all_parameters.R, once the
+#   configuration is loaded and before Main_df is validated.
+# -------------------------------------------------------------
 
-main_resolution_sec <- 300
+# The resolution of the master grid is the engine's own
+# main_resolution_sec, read from 01_computing_parameters.csv into
+# parameters$computing by load_01_computing_parameters.R. It is the
+# single definition of the simulation's time step: validate_time_grid()
+# and load_03_market_config.R check the input series and the market
+# slot against this same value.
+main_resolution_sec <- parameters$computing$main_resolution_sec
 
 # -----------------------------------------------------------
 # 1. Load and validate the 2 real input dataframes

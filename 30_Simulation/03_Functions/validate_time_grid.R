@@ -4,9 +4,11 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Validates that a 'time' vector is a well-formed, equispaced POSIXct
 # series whose own step is compatible with Main_df's target resolution
-# (main_resolution_sec, 300s/5' today). The step itself is NOT assumed
+# (main_resolution_sec, as configured in 01_computing_parameters.csv).
+# The step itself is NOT assumed
 # to be any particular value (e.g. 1h or 15') - that is only the
 # resolution of the current dataset, not a requirement; any equispaced
 # step that is a multiple of main_resolution_sec is accepted (see
@@ -17,7 +19,10 @@
 #   file_name          : Character. Name of the file this series comes
 #                        from, used in error messages.
 #   main_resolution_sec : Numeric. Target resolution of Main_df, in
-#                        seconds (300 today).
+#                        seconds. Has no default: the caller passes
+#                        parameters$computing$main_resolution_sec, so
+#                        this function never holds a second definition
+#                        of the simulation's time step.
 # -------------------------------------------------------------
 # Outputs
 #   Numeric scalar. The detected step (seconds) of this series.
@@ -32,6 +37,15 @@
 #   - If the series origin (time[1]) does not fall on the
 #     main_resolution_sec grid, stop().
 # -------------------------------------------------------------
+# Code outline
+# 1. Check the column is POSIXct and has at least two rows.
+# 2. Check the step is the same everywhere, naming the first row
+#    where it is not.
+# 3. Check that step is the master resolution.
+# -------------------------------------------------------------
+# Usage instructions
+#   validate_time_grid(df$time, "Meteo_df.csv", main_resolution_sec)
+# -------------------------------------------------------------
 # Where this function/script is used
 # Called by load_meteo_df.R and load_energy_prices_df.R.
 # -------------------------------------------------------------
@@ -39,7 +53,7 @@
 #   (none)
 # -------------------------------------------------------------
 
-validate_time_grid <- function(time, file_name, main_resolution_sec = 300) {
+validate_time_grid <- function(time, file_name, main_resolution_sec) {
 
   if (!inherits(time, "POSIXct")) {
     stop(file_name, ": 'time' must be POSIXct")

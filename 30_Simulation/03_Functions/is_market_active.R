@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Determines whether a market configuration value represents an
 # active market.
 # -------------------------------------------------------------
@@ -16,10 +17,17 @@
 # Usage instructions
 # is_market_active(market_name_raw)
 # -------------------------------------------------------------
+# Code outline
+# 1. Trim the name and decide: anything that is not empty, not NA
+#    and not "0" marks an active market.
+# -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R (to guard calls to run_market_process()) and
+# Called by 14_simulation.R (to guard calls to run_market_process()) and
 # by generate_flexibility_events.R (to enumerate active market
-# events).
+# events). Handed to an apply, rather than called directly, by
+# 13_economic_analysis_setup.R, 11_full_market_information_setup.R,
+# 12_market_commitments_setup.R and resolve_marginal_context(), which
+# flag one row of Main_df at a time with it.
 # -------------------------------------------------------------
 # functions/scripts called
 # (none)

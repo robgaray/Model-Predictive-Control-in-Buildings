@@ -4,9 +4,10 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function structures the already-parsed optimization
 # hyperparameters for the GA (as read and validated by
-# read_and_validate_parameter_csv() from 14_Optimization_parameters.csv)
+# read_and_validate_parameter_csv() from 01_Optimization_parameters.csv)
 # into a validated named list, clamping out-of-range values.
 # -------------------------------------------------------------
 # Inputs
@@ -14,14 +15,23 @@
 #          parameters, as returned by read_and_validate_parameter_csv().
 # -------------------------------------------------------------
 # Outputs
-# Named list with population_size, iteration_number, run_number,
-# pcrossover, pmutation.
+# Named list with the elements:
+#   - population_size
+#   - iteration_number
+#   - run_number
+#   - pcrossover
+#   - pmutation
 # -------------------------------------------------------------
 # Usage instructions
 # params <- load_optimization_parameters(raw_values)
 # -------------------------------------------------------------
+# Code outline
+# 1. Separate the text parameters from the numeric ones.
+# 2. Coerce the numeric ones and name each of them.
+# 3. Return them as the optimization sub-list.
+# -------------------------------------------------------------
 # Where this function/script is used
-# Called by load_14_optimization_parameters.R.
+# Called by load_01_optimization_parameters.R.
 # -------------------------------------------------------------
 # functions/scripts called
 # (none)

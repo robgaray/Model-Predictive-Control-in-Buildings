@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Validates a named list of parameter values against the rules
 # defined in Parameter_config.csv for a given file name.
 # For each matching rule the function checks:
@@ -23,6 +24,31 @@
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
+# -------------------------------------------------------------
+# Inputs
+#   values : the named list of values read from a configuration
+#     file.
+#   file_name : the name the validation table files its rules
+#     under, e.g. "02_Control.csv".
+#   validation_config : Parameter_config.csv, already read.
+# -------------------------------------------------------------
+# Outputs
+#   TRUE, invisibly, when every rule passes. Otherwise it stops,
+#     naming:
+#       - the parameter
+#       - the rule it broke
+#       - its value
+# -------------------------------------------------------------
+# Code outline
+# 1. Keep the rules filed under this file name, and return at once
+#    when there are none.
+# 2. Check each rule against its one value: the type, the range
+#    and, for an options rule, the allowed set.
+# 3. Stop on the first breach, or warn, as the rule's output says.
+# -------------------------------------------------------------
+# Usage instructions
+#   validate_parameter_config(values, "02_Control.csv",
+#                             validation_config)
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by read_and_validate_parameter_csv().

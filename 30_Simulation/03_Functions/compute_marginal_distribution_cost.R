@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Values a candidate energy schedule (from a single GA candidate's
 # period_calculation() output) at its marginal (differential)
 # distribution-cost impact relative to a fixed baseline, per target
@@ -46,6 +47,11 @@
 #                       Numeric vector, same length/order as market_utc.
 #                       Current-market Elec_unit_cost_distribution rate
 #                       per target interval.
+# discount_by_market  : Numeric vector, same length/order as market_utc.
+#                       Revenue discount factor of each target interval,
+#                       as returned by revenue_discount_factor(). It has
+#                       no effect on this term, whose every non-zero
+#                       entry is an expense - see the call site.
 # -------------------------------------------------------------
 # Outputs
 # Numeric scalar. Total marginal distribution cost (negative = added
@@ -55,7 +61,7 @@
 # -------------------------------------------------------------
 # Code outline
 # 1. Aggregate the candidate's energy per target market interval
-# 2. Distribution cost per interval and total
+# 2. Distribution cost per interval, discounted, and total
 # -------------------------------------------------------------
 # Usage instructions
 # cost <- compute_marginal_distribution_cost(E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, distribution_rate_by_market)
@@ -64,14 +70,18 @@
 # Called by reward_function.R for the base-energy term only.
 # -------------------------------------------------------------
 # functions/scripts called
-# (none)
+# market_slot_index() - which target slot each timestep belongs to
+# aggregate_by_market_slot() - adds the candidate up on that index
+# apply_revenue_discount() - discounts each slot's cost to the
+#   instant the decision is taken
 # -------------------------------------------------------------
 
 compute_marginal_distribution_cost <- function(E_candidate,
                                                MarketUTC_candidate,
                                                market_utc,
                                                E_orig_by_market,
-                                               distribution_rate_by_market) {
+                                               distribution_rate_by_market,
+                                               discount_by_market) {
 
   # 1. Aggregate the candidate's energy per target market interval
   # -------------------------------------------------------------
@@ -79,19 +89,31 @@ compute_marginal_distribution_cost <- function(E_candidate,
   # runs once per GA candidate.
   # -------------------------------------------------------------
   {
-    E_new_by_market <- vapply(
-      market_utc,
-      function(mkt) sum(E_candidate[MarketUTC_candidate == mkt]),
-      numeric(1)
+    # market_slot_index is called to say which target slot each timestep
+    # of the candidate belongs to, and aggregate_by_market_slot to add
+    # the candidate up on that index. Together they replace a walk that
+    # masked the candidate once per slot, comparing two POSIXct vectors
+    # on every step; the totals are the same bit for bit, and the
+    # ordering of the sums is what guarantees it.
+    E_new_by_market <- aggregate_by_market_slot(
+      values     = E_candidate,
+      slot_index = market_slot_index(MarketUTC_candidate, market_utc)
     )
   }
 
-  # 2. Distribution cost per interval and total
+  # 2. Distribution cost per interval, discounted, and total
   # -------------------------------------------------------------
   {
     cost_by_market <- -distribution_rate_by_market *
       (abs(E_new_by_market) - abs(E_orig_by_market))
-    total_cost <- sum(cost_by_market)
+    # apply_revenue_discount() is called for consistency with the rest
+    # of the economic terms rather than for effect: this term is an
+    # expense in every interval where it is not zero (moving energy in
+    # either direction adds distribution cost), so no entry is ever
+    # positive and the factors leave it untouched. Applying it here
+    # means a later change of sign convention in this term would be
+    # weighted by the same rule without anyone having to remember it.
+    total_cost <- sum(apply_revenue_discount(cost_by_market, discount_by_market))
     rm(cost_by_market)
   }
 

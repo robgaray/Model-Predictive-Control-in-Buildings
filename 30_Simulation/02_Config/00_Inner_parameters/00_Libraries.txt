@@ -1,0 +1,29 @@
+# Required R libraries for MPC simulation
+# -------------------------------------------------------------
+# Only what the code actually calls. Each entry below is here because
+# a function of that package is invoked by name somewhere:
+#   cli         - not called directly. It is listed first so that it is
+#                 installed and loaded before readr and dplyr, which
+#                 need cli >= 3.6.1, overriding the system version
+#                 pre-loaded by the R module on SCC environments.
+#   readr       - write_rds(), in 16_data_outputs.R
+#   dplyr       - tibble(), which it re-exports, in imperfect_forecast.R
+#   GA          - ga(), the genetic algorithm of the optimizer
+#   doParallel  - registerDoParallel(), when the optimizer runs parallel
+#   data.table  - setDT(), set() and month()
+#   Rcpp        - sourceCpp(), to build the simulation core
+#
+# ggplot2, zoo, tidyr and lubridate were removed: nothing in the
+# repository calls anything of theirs. ggplot2 also contradicts the
+# graph criteria, which ask for base graphics alone. lubridate was the
+# one that made every comparison of two POSIXct vectors go through the
+# S4 dispatch of is.Date, and month(), the only name that looked like
+# its own, already resolved to data.table's, which is loaded after it.
+# -------------------------------------------------------------
+cli
+readr
+dplyr
+GA
+doParallel
+data.table
+Rcpp

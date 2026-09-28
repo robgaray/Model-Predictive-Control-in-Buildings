@@ -113,21 +113,41 @@ Although still in early stages of research, it seems that Mode-based optimizatio
 
 # 6. Policy
 
-A policy that incorporates heating costs and comfort is used.
+A policy that incorporates heating costs and comfort is used. The reward it produces is dimensionless, and it is built from two terms that are each brought to a pure number by their own weight.
 
-- Comfort: System temperature is compared with reference temperatures during the occupancy periods. If the building is outside comfort bounds, a high penalty is given (the negative of the `Alpha_confort` parameter, now set to 50). Reference temperatures are defined separately for Scheduling and Piloting periods.
+- Comfort: System temperature is compared with reference temperatures during the occupancy periods. If the building is outside comfort bounds, a penalty is given for every hour spent that way, weighted by the `alpha_comfort` [1/h] parameter. Reference temperatures are defined separately for Scheduling and Piloting periods.
 
-- Energy (and flexibility): The cost of Energy is aimed to be minimized. Accordingly, the cost of heating is considered as a negative reward.
+- Energy (and flexibility): The cost of Energy is aimed to be minimized. Accordingly, the cost of heating is considered as a negative reward. Every economic term is weighted by the `alpha_cost` [1/€] parameter. Shall there be a revenue, (i.e. by selling energy to the grid, or trading flexibility), this is incorporated in the same way with a possitive value.
 
 Then both terms are added.
 
-It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort.
+## Trade offs
+
+What governs the behaviour of the optimizer is the ratio between the two weights, not either of them on its own.
+
+It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort. Additionally, `alpha_comfort` is typically one order of magnitude above `alpha_cost`to enhance this behavior.
+
+## Revenue discount
+
+A decision should be cautious about money it expects to earn far into the future. Every economic term is valued market interval by market interval, and where an interval turns out to pay the building rather than cost it, that income is multiplied by
+
+`discount = (1 - Revenue_discount_per_hour/100) ^ n`
+
+with `n` the number of hours from the instant the market is optimized to that interval. `Revenue_discount_per_hour` is in %, between 0 and 100. As an example, with a discount rate of 0.25, so an income twelve hours ahead is worth about 97% of its face value and one a day ahead about 94%. Setting it to 0 switches the discount off.
+
+Expense is never discounted, and neither is the comfort term. The asymmetry is deliberate: discounting a cost would make distant operation look cheaper than it is and would invite the optimizer to push spending towards the end of the horizon, which is the opposite of prudence.
+
+The discount belongs to the decision and stops there. It changes which candidate the optimizer picks, never the volume or the price at which the winning candidate is then settled, so no commitment carries it into the accounts.
+
+## Reward definition in the context of flexibilized behavior
 
 For the cases where the optimization aim is flexibility, a more complex reward formula definition is used:
 
-- Comfort is assessed both for the case with baseline operation and for the extreme case where all the flexibility is activated.
+- Comfort is assessed for the three itineraries: baseline operation, the extreme case where all the downward flexibility is activated, and the extreme case where all the upward flexibility is activated.
 
-- The revenues for flexibility commitments are incorporated. With regards to the activation of flexibility, this is considered, but weighted for the likelihood of activation.
+- The revenues for flexibility commitments are incorporated, and they are split in two. The commitment itself is paid for whether or not the service is ever called, so it is valued at the commitment price alone. The activation is conditional, so it is valued at the execution price weighted by the likelihood of activation, and it also carries the energy the building would have to move while returning to its planned state.
+
+- Both directions of the service are searched for: reducing the load (downward flexibility) and increasing it (upward flexibility). Once a flexibility event is over, the system that did not provide the service may hold or reduce its power, but never increase it, which is an interpretation of the legal regulation of HVAC systems.
 
 More information on this is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
@@ -155,6 +175,16 @@ The following picture shows the structure of Day Ahead (DA), Intra Day (ID) and 
 
 Source: [OMIE, Mercado de Electricidad (2026/06/13)](https://www.omie.es/es/mercado-de-electricidad)
 
+Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code in `main.R`:
+
+6. Initialise market columns in Main_df
+
+7. Flexibility generation (conditional)
+
+8. Energy/flexibility price signals (buy/sell derivation)
+   
+   
+
 [back to top](#model-predictive-control-for-buildings)
 
 # 8. Decision making processes and optimization aims
@@ -177,7 +207,7 @@ In these cases the following optimization aims are considered:
 
 In all cases, the [policy](#6-policy) weights economic costs/revenues and comfort levels.
 
-Considering that scheduling and piloting processes have different aims, heating and cooling thresholds are established separately for each of them. Typicall (but not strictly required), Scheduling constraints are heavier than Piloting. Allowing for greater adaptarion in the short term. These are established in `30_Simulation/02_Config/18_Reward_parameters.csv`
+Considering that scheduling and piloting processes have different aims, heating and cooling thresholds are established separately for each of them. Typicall (but not strictly required), Scheduling constraints are heavier than Piloting. Allowing for greater adaptarion in the short term. These are established in `30_Simulation/02_Config/09_Reward_parameters.csv`
 
 More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
@@ -241,17 +271,41 @@ This is illustrated in the figure below.
 
 <img src="99_Readme/optimizer_horizons.jpg" width="800" />
 
+As a result of this process:
+
+- The optimizer considers the optimal result of the confort levels, energy flows flexibility commitments and expected economic flows over the **Optimization Horizon**.
+
+- The energy flows and flexibilty commitments are fixed, also in economic terms for the **Control horizon**
+
 [back to top](#model-predictive-control-for-buildings)
 
 # 12. Flexibility events
 
-Flexibility events are defined synthetically, so that the simulation can show the result of a response to a flexibility price incentive. More details on how the flexibility price signals are generated is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
+When operating in flexibility mode, the building receives incentives to flexibilize its behavior. It is allowed to commit upwards and downwards flexibility. Thus, three linked paths are assessed together:
+
+- Standard path (no flexibility)
+
+- Modification for upward path
+
+- Modification for downward path
+
+Flexibility commitments are defined through an event-like approach, with threee phases:
+
+- Fexibility. Initially, the building modifies its behavior
+
+- Neutral. Once the commited flexibility is executed, some time is provided where loads equal the standard path. This time is defined to allow for trading in continuous-intra-day markets for the recovery phase.
+
+- Recovery. Here, a recovery path is defined (through the above-mentioned trading) to recover the standard path.
+
+More details on how the flexibility price signals are generated is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
 [back to top](#model-predictive-control-for-buildings)
 
 # 13. Parametrization and Graphic User Interface
 
 This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `30_Simulation/02_Config/`, or through the Graphic User Interface provided in `20_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify all configuration files without manual CSV editing.
+
+The files of `30_Simulation/02_Config/00_Inner_parameters/` are the inner parameters of the code rather than of a study: the libraries it loads, its computing parameters, the columns `Main_df` must hold, the physical properties of air and the paths of every configuration file.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -289,6 +343,12 @@ Main.R is the main script, allowing to execute the simulation.
 
 This code is developed in R 4.5.0.
 
+## Code structure
+
+The simulation is built out of one entry point, `Main.R`, a set of scripts that it sources in order, and a set of functions that those scripts call. `Main.R` sources fifteen scripts, one after another: first the initialization and the parameters, then the market timeline, the prices and the occupancy profiles, then the commitments and the reference temperatures, then the simulation loop itself, and finally the economic analysis and the output files.
+
+Every piece of code the simulation reaches has its own page, with what it does, what calls it, what it calls in order of appearance, what it receives, what it sends out, and a block diagram. The whole map, and how to read it, is in [Code structure](99_Readme/Code_Structure.md).
+
 This repository is currently under development, with a rapid evolution in features, and associated changes in code structure, and data formats. Regretfully, this is not properly documented. Sorry.
 
 The user should expect a **very long execution time**. Depending on the hyperparameter selection for the GA function, execution time is somewhere in between 1h and several days.
@@ -299,7 +359,19 @@ Hyperparameter tuning for the GA function is unfeasible on a personal computer. 
 
 # 17. Changes and version control
 
-The current version of this work is Version v4. It has the previous changes from previous versions:
+The current version of this work is Version v5. It has the following changes from previous versions:
+
+### Overall
+
+- Relevant code re-structurations. The code is far from being stable and bugs are solved on the run (sorry for this).
+
+### V5
+
+- Integration of both upward and downward flexibility
+
+- Explicit blocking of physically unfeasible paths from the optimization (i.e. negative energy flows in assets not producing electric energy)
+
+- Estimation of energy prices in the optimization horizon (not known in real-life) based on past market prices.
 
 ### V4
 
@@ -335,7 +407,17 @@ See [Discontinued items](#19-discontinued-items) below for functionality that us
 
 # 18. Known Issues
 
-No known issues at present.
+## Calibration of the price forecast
+
+Each market process optimizes over a horizon, and it trades a set of market intervals inside that horizon. For those intervals it has a published price, which is what the optimizer is entitled to know when it takes its decision. The optimizer, however, values the whole optimization horizon, which is longer, so for the stretch beyond the control horizon it needs a price it cannot know.
+
+That price is produced by `imperfect_price_forecast()`, which follows the same formulation as the weather forecast: a blend of the true value and a historical average, with the weight of the history growing along the forecast stretch. The history comes from `market_price_history()`, which looks for what the same market paid for the same time of day on previous days and falls back to the nearest earlier market that traded that hour.
+
+What is not settled is how inaccurate that forecast should be. `price_forecast_n_days_back` and `price_forecast_weight_history` set it, and their current values are a starting point, not a calibration. Two consequences follow, and both need the deep test battery to be resolved:
+
+- A simulation run on a short subset has almost no history to average, so the forecast stays close to the true price and the intended inaccuracy does not materialise. Any scenario meant to exercise the forecast has to include enough previous days.
+
+- Whether the resulting error is realistic, in the sense of being corrected by subsequent markets rather than accumulating, has not been measured.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -363,7 +445,9 @@ The following contributions are acknowledged:
 
 # 21. Future works
 
-This is V4 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
+This is V5 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
+
+- Develop a simplified optimizer to be called by external tools.
 
 - Incorporate the execution of flexibility to the simulation. Currently load profile is optimized considering flexibility commitments, but these are not executed.
 

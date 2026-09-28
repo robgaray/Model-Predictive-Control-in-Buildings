@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function processes an integer mode vector (one mode index per
 # market period) and pairs it with the corresponding timestamps to
 # create a structured data frame.
@@ -19,7 +20,7 @@
 #                    derived from length(x) and length(target_periods)).
 #   target_periods : POSIXct vector. Market period timestamps used to
 #                    index the output data frame.
-#
+# -------------------------------------------------------------
 # Outputs
 #   Data frame with two columns:
 #     period  – POSIXct. Market period timestamps (equal to target_periods).

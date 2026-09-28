@@ -4,10 +4,12 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# Reads a market configuration table (scheduling or piloting),
-# validates that it has the required columns and at least one
-# market row, drops a leading "text"/unit placeholder row if
-# present, and returns the resulting data frame.
+# Overall description
+# Reads a market configuration table (scheduling or piloting) and:
+#   - validates that it has the required columns and at least one
+#     market row
+#   - drops a leading "text"/unit placeholder row if present
+#   - returns the resulting data frame
 # -------------------------------------------------------------
 # One market per slot
 # Every row of the table describes a market that clears once a day, at
@@ -16,7 +18,7 @@
 # markets of the same role clearing at the same moment, which the rest
 # of the pipeline cannot represent: build_market_timeline() writes each
 # market's timeline onto the Main_df row of its bid time, so the second
-# one silently overwrites the first, and economic_analysis_setup.R keeps a
+# one silently overwrites the first, and 13_economic_analysis_setup.R keeps a
 # single row per (slot, market type), so their flows would be merged
 # and the identity of one of them lost. This is rejected here, at read
 # time, rather than left to surface as a wrong number later - see
@@ -25,21 +27,27 @@
 # The check is per file, so it enforces exactly "no two Scheduling
 # markets in one slot" and "no two Piloting markets in one slot"; a
 # Scheduling and a Piloting market sharing a slot is legitimate and is
-# resolved by the attribution rule in economic_analysis_setup.R.
+# resolved by the attribution rule in 13_economic_analysis_setup.R.
 # -------------------------------------------------------------
 # Inputs
 # path      : Character. Path to the market config CSV file.
 # file_name : Character. Base name of the file, used in error
-#             messages (e.g. "16_Market_config_scheduling.csv").
+#             messages (e.g. "04_Market_config_scheduling.csv").
 # market_resolution : Numeric scalar. Market slot length in minutes
 #             (parameters$market$market_resolution), used to resolve
 #             each market's bid time into a slot for the one-market-
 #             per-slot check.
 # -------------------------------------------------------------
 # Outputs
-# Data frame. The market configuration table, with columns Market,
-# closure, begin, end, end_optimization, aim (plus any others present
-# in the file), and the placeholder row (if any) removed.
+# Data frame. The market configuration table, with the placeholder row
+# (if any) removed, and these columns plus any others present in the
+# file:
+#   - Market
+#   - closure
+#   - begin
+#   - end
+#   - end_optimization
+#   - aim
 # -------------------------------------------------------------
 # Code outline
 # 1. Read the CSV file
@@ -51,11 +59,11 @@
 # 6. Validate that no two markets share a market-resolution slot
 # -------------------------------------------------------------
 # Usage instructions
-# market_config_df <- load_market_config_table(paths$market_config_scheduling_file, "16_Market_config_scheduling.csv", parameters$market$market_resolution)
+# market_config_df <- load_market_config_table(paths$market_config_scheduling_file, "04_Market_config_scheduling.csv", parameters$market$market_resolution)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by load_16_market_config_scheduling.R and
-# load_17_market_config_piloting.R.
+# Called by load_04_market_config_scheduling.R and
+# load_05_market_config_piloting.R.
 # -------------------------------------------------------------
 # functions/scripts called
 # map_optimization_aim() - validates the 'aim' column against the

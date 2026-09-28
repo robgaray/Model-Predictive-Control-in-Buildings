@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Builds the market timeline (bid time, period begin/end,
 # optimization horizon, aim) for one market role (Scheduling or
 # Piloting) and writes it into the role's Sched_*/Pilot_* columns of
@@ -14,7 +15,7 @@
 #     the role's market-config table. The optimization horizon is
 #     computed from end_optimization.
 # This is the logic shared by the Scheduling and Piloting blocks of
-# market_columns_setup.R, parametrized by role.
+# 08_market_columns_setup.R, parametrized by role.
 # -------------------------------------------------------------
 # Inputs
 # role                   : Character. Column prefix for this market
@@ -67,7 +68,7 @@
 #   Main_df = Main_df)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by market_columns_setup.R once for Scheduling and once for
+# Called by 08_market_columns_setup.R once for Scheduling and once for
 # Piloting.
 # -------------------------------------------------------------
 # functions/scripts called

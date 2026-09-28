@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Executes one market optimization process (Scheduling or Piloting)
 # over a sliced simulation period.
 # -------------------------------------------------------------
@@ -18,7 +19,7 @@
 # parameters         : List. Simulation parameters.
 # marginal_context   : Named list or NULL (default NULL). As returned
 #                      by resolve_marginal_context(), computed by
-#                      simulation.R from Main_df before this market's
+#                      14_simulation.R from Main_df before this market's
 #                      optimization. Passed through to
 #                      optimize_control_step() (for "energy"/
 #                      "flexibility" aims) and evaluate_control() (for
@@ -28,18 +29,29 @@
 # active and does not re-check it.
 # -------------------------------------------------------------
 # Outputs
-# Data frame. The updated period_chunk with plan/plan_flex columns
+# Data frame. The updated period_chunk with plan/plan_flex_down columns
 # injected over the implementation horizon.
 # -------------------------------------------------------------
 # Usage instructions
 # run_market_process(prefix, row_index, period_chunk, ...)
 # -------------------------------------------------------------
+# Code outline
+# 1. Translate the market's aim into its internal name.
+# 2. Build the forecast the decision is taken on.
+# 3. Optimize, or fly the plan straight when the aim is operation.
+# 4. Re-derive the itineraries of the accepted plan and value it.
+# -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R in scheduling and piloting blocks.
+# Called by 14_simulation.R in scheduling and piloting blocks.
 # -------------------------------------------------------------
 # functions/scripts called
-# map_optimization_aim(), implement_control_step(),
-# optimize_control_step(), evaluate_control(), period_calculation()
+#   - map_optimization_aim()
+#   - implement_control_step()
+#   - optimize_control_step()
+#   - evaluate_control()
+#   - period_calculation()
+#   - derive_flex_itineraries()
+#   - reward_function()
 # -------------------------------------------------------------
 
 run_market_process <- function(prefix,
@@ -209,6 +221,30 @@ run_market_process <- function(prefix,
                                                   parameters          = parameters,
                                                   calculation_mode    = 1,
                                                   calculation_context = "plan")
+
+        # derive_flex_itineraries is called next because recomputing the
+        # plan and leaving the two flexibility itineraries as they were
+        # produces an incoherent pair: itineraries that belong to the
+        # PREVIOUS plan, written back to Main_df beside the new one.
+        # This aim optimizes nothing, so the derivation only holds what
+        # is already committed over the plan it has just recomputed.
+        optimization_chunk <- derive_flex_itineraries(
+          period_chunk       = optimization_chunk,
+          parameters         = parameters,
+          simulation_control = simulation_control
+        )$period_chunk
+
+        # reward_function is called so that a market with this aim
+        # reports a reward like any other. It decides nothing with it -
+        # there is no search to steer - but a market that evaluates the
+        # three itineraries and says nothing about them is a market
+        # whose behaviour cannot be read afterwards.
+        optimization_chunk <- reward_function(
+          period_chunk       = optimization_chunk,
+          parameters         = parameters,
+          simulation_control = simulation_control,
+          marginal_context   = marginal_context
+        )
       } else  if (parameters$control$optimization_aim == "operationflex") {
         # evaluate_control is called directly (no GA search) to simulate
         # both the plan and the best flexibility scenario for the
@@ -226,11 +262,51 @@ run_market_process <- function(prefix,
     # 3. Injection
     {
       plan_cols      <- grep("_plan$", names(optimization_chunk), value = TRUE)
-      plan_flex_cols <- grep("_plan_flex$", names(optimization_chunk), value = TRUE)
-      inject_cols    <- unique(c(plan_cols, plan_flex_cols))
+      plan_flex_cols <- grep("(_plan_flex_down$|_plan_flex_up$)", names(optimization_chunk), value = TRUE)
+
+      # A market that trades flexibility and not energy may rewrite the
+      # two flexibility itineraries and the commitment they carry, but
+      # not the plan itself: the plan belongs to the markets that trade
+      # energy. "operationflex" re-simulates the plan on its way through
+      # evaluate_control(), with the forecast of the moment and the
+      # setpoints it was given, and that re-simulation used to be
+      # written back to Main_df - indistinguishable, from outside, from
+      # a market deciding the plan it was not allowed to touch.
+      # The committed energy is kept: it is the flexibility decision,
+      # even though its column ends in _plan.
+      inject_cols    <- if (parameters$control$optimization_aim == "operationflex") {
+        unique(c(plan_flex_cols, "Elec_flex_down_plan", "Elec_flex_up_plan"))
+      } else {
+        unique(c(plan_cols, plan_flex_cols))
+      }
       inject_cols    <- inject_cols[inject_cols %in% parameters$needed_cols]
+
+      # The phase codes are the optimizer's own labels and are not
+      # written back: they are scratch state of the search and match the
+      # pattern above only by name. Nothing outside the optimization
+      # chunk reads them.
+      inject_cols    <- setdiff(inject_cols,
+                                c("Flex_phase_down_plan", "Flex_phase_up_plan"))
       idx_inject     <- simulation_control$indexes_local$idx_ctrl - (simulation_control$indexes_local$i_begin_horizon - 1)
       period_chunk[simulation_control$indexes_local$idx_ctrl, inject_cols] <- optimization_chunk[idx_inject, inject_cols]
+
+      # The reward travels back per row, outside inject_cols, because it
+      # is not a "_plan" column and because Main_df is not where it ends
+      # up row by row: integrate_market_process() adds it up and books
+      # the total on the decision's own row, the same way it books the
+      # lump-sum cost signals. Carrying it here is what gives that
+      # function something to add up; without it the reward the optimizer
+      # maximised was computed and then discarded.
+      # It is carried over the whole OPTIMIZATION horizon, not just the
+      # market's period, because that is the window reward_function()
+      # evaluates and whose total the optimizer maximises. Summing only
+      # the period would report a different number from the one the
+      # search actually compared its candidates on.
+      # Every aim calls reward_function() now, "operation" included, so
+      # the number carried here is always the one its own evaluation
+      # produced.
+      period_chunk[simulation_control$indexes_local$idx_horizon, "Reward"] <-
+        optimization_chunk[["Reward"]]
     }
 
     rm(optimization_chunk, plan_cols, plan_flex_cols, inject_cols, idx_inject)

@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function performs the optimization of the control strategy
 # for a single MPC step. It selects either setpoint-based or
 # mode-based optimization depending on control_type, and then
@@ -18,7 +19,7 @@
 #      compute the expected building states under forecasted
 #      weather (period_calculation() internally reads
 #      Text_forec/SolarR_forec instead of Text/SolarR for the
-#      "plan"/"plan_flex" calculation contexts; period_chunk$Text/
+#      "plan"/"plan_flex_down" calculation contexts; period_chunk$Text/
 #      SolarR are not overwritten).
 # -------------------------------------------------------------
 # Inputs
@@ -48,7 +49,7 @@
 #   marginal_context          : Named list or NULL (default NULL). Passed
 #                              through to optimize_setpoints()/optimize_modes()
 #                              and to the final evaluate_control() call.
-#
+# -------------------------------------------------------------
 # Outputs
 #   A named list with two elements:
 #     set_point_actual : Data frame. Optimized setpoint schedule with histeresis
@@ -58,24 +59,42 @@
 #                        setpoints and forecasted weather, corresponding to the best
 #                        flexibility scenario found (period_chunk from
 #                        evaluate_control()). Contains all columns returned by
-#                        period_calculation() plus *_plan and *_plan_flex columns:
-#                        Ti_plan, Te_plan,
-#                        STP_heat_low_plan, STP_heat_high_plan,
-#                        STP_cool_low_plan, STP_cool_high_plan,
-#                        Act_heat_plan, Act_cool_plan, Q_heat_plan, Q_cool_plan,
-#                        Elec_heat_plan, Elec_cool_plan, Elec_total_plan;
-#                        and the following *_flex columns representing the best
+#                        period_calculation() plus these *_plan columns:
+#                          - Ti_plan
+#                          - Te_plan
+#                          - STP_heat_low_plan
+#                          - STP_heat_high_plan
+#                          - STP_cool_low_plan
+#                          - STP_cool_high_plan
+#                          - Act_heat_plan
+#                          - Act_cool_plan
+#                          - Q_heat_plan
+#                          - Q_cool_plan
+#                          - Elec_heat_plan
+#                          - Elec_cool_plan
+#                          - Elec_total_plan
+#                        and these *_flex columns, representing the best
 #                        flexibility scenario (Q=0 over the optimal window):
-#                        Ti_plan_flex, Te_plan_flex,
-#                        STP_heat_low_plan_flex, STP_heat_high_plan_flex,
-#                        STP_cool_low_plan_flex, STP_cool_high_plan_flex,
-#                        Act_heat_plan_flex, Act_cool_plan_flex,
-#                        Q_heat_plan_flex, Q_cool_plan_flex,
-#                        Elec_heat_plan_flex, Elec_cool_plan_flex,
-#                        Elec_total_plan_flex, Elec_flex_plan,
-#                        Elec_flex_revenue_plan (reward_function()'s own
-#                        internal/transient column, see that function's
-#                        header - unrelated to any persisted Main_df column).
+#                          - Ti_plan_flex_down
+#                          - Te_plan_flex_down
+#                          - STP_heat_low_plan_flex_down
+#                          - STP_heat_high_plan_flex_down
+#                          - STP_cool_low_plan_flex_down
+#                          - STP_cool_high_plan_flex_down
+#                          - Act_heat_plan_flex_down
+#                          - Act_cool_plan_flex_down
+#                          - Q_heat_plan_flex_down
+#                          - Q_cool_plan_flex_down
+#                          - Elec_heat_plan_flex_down
+#                          - Elec_cool_plan_flex_down
+#                          - Elec_total_plan_flex_down
+#                          - Elec_flex_down_plan
+#                          - Elec_flex_com_revenue_plan
+#                          - Elec_flex_exec_revenue_plan
+#                        The last two are reward_function()'s own
+#                        internal/transient columns (see that function's
+#                        header), unrelated to any persisted Main_df
+#                        column.
 # -------------------------------------------------------------
 # Code outline
 # 1. Dispatch to optimize_setpoints() or optimize_modes() according
@@ -88,7 +107,7 @@
 # result <- optimize_control_step(period_chunk, timestamps, parameters, simulation_control)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by run_market_process.R (which is itself called by simulation.R
+# Called by run_market_process.R (which is itself called by 14_simulation.R
 # in the optimization phase of the MPC loop).
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:

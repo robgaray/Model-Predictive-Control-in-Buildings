@@ -4,8 +4,13 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Maps raw market aim values to internal optimization aim labels.
-# Accepted input values (case-insensitive): O, E, O+F, E+F.
+# Accepted input values (case-insensitive):
+#   - O
+#   - E
+#   - O+F
+#   - E+F
 # Any other value produces an error.
 # -------------------------------------------------------------
 # Inputs
@@ -20,8 +25,13 @@
 # Usage instructions
 # map_optimization_aim(aim_raw, column_name, row_index)
 # -------------------------------------------------------------
+# Code outline
+# 1. Match the letter against the four aims the model accepts.
+# 2. Stop on anything else, naming the row and the column it came
+#    from, because an unknown aim cannot be defaulted.
+# -------------------------------------------------------------
 # Where this function/script is used
-# Called by run_market_process(), load_15_market_config.R,
+# Called by run_market_process(), load_03_market_config.R,
 # load_market_config_table().
 # -------------------------------------------------------------
 # functions/scripts called

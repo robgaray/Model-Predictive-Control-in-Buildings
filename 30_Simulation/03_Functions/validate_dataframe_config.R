@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Validates the columns of a data frame (e.g. Meteo_df, Energy_Prices_df)
 # against the rules defined in a Validation_<name>.csv file, following
 # the same file_name/parameter_name/type/output/options convention as
@@ -27,6 +28,29 @@
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
+# -------------------------------------------------------------
+# Inputs
+#   df : the data frame to check.
+#   file_name : the name the validation table files its rules
+#     under, e.g. "Meteo_df.csv".
+#   validation_config : the table of rules, already read.
+# -------------------------------------------------------------
+# Outputs
+#   TRUE, invisibly, when every rule passes. Otherwise it stops,
+#     naming:
+#       - the column
+#       - the rule it broke
+#       - the offending value
+# -------------------------------------------------------------
+# Code outline
+# 1. Keep the rules filed under this file name, and return at once
+#    when there are none.
+# 2. Check each rule against its whole column: the type, the range
+#    and, for an options rule, the allowed set.
+# 3. Stop on the first breach, or warn, as the rule's output says.
+# -------------------------------------------------------------
+# Usage instructions
+#   validate_dataframe_config(Meteo_df, "Meteo_df.csv", rules)
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by load_meteo_df.R and load_energy_prices_df.R.

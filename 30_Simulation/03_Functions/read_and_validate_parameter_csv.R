@@ -4,17 +4,18 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Reads a simple parameter/value CSV configuration file and
 # validates its raw values against Parameter_config.csv. This is
 # the common first step shared by every load_XX_*.R script that
 # reads a plain parameter/value file (as opposed to a multi-column
-# table such as 04_Use_Patterns.csv or the market config tables).
+# table such as 14_Use_Patterns.csv or the market config tables).
 # -------------------------------------------------------------
 # Inputs
 # path              : Character. Path to the parameter/value CSV file.
 # file_name         : Character. Base name of the config file, used to
 #                     look up its validation rules (e.g.
-#                     "18_Reward_parameters.csv").
+#                     "09_Reward_parameters.csv").
 # validation_config : Data frame. Content of Parameter_config.csv.
 # -------------------------------------------------------------
 # Outputs
@@ -27,14 +28,24 @@
 # 3. Validate the raw values against validation_config
 # -------------------------------------------------------------
 # Usage instructions
-# raw_values <- read_and_validate_parameter_csv(paths$reward_file, "18_Reward_parameters.csv", validation_config)
+# raw_values <- read_and_validate_parameter_csv(paths$reward_file, "09_Reward_parameters.csv", validation_config)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by load_03_physical_properties.R, load_11_model_parameters.R,
-# load_12_control_parameters.R, load_14_optimization_parameters.R,
-# load_15_market_config.R, load_18_reward_parameters.R,
-# load_19_forecast_parameters.R, load_21_energy_price_parameters.R,
-# load_22_flexibility_generation.R, load_30_debug_and_config.R.
+# Called by:
+#   - load_01_computing_parameters.R
+#   - load_03_physical_properties.R
+#   - load_01_optimization_parameters.R
+#   - load_02_control.R
+#   - load_03_market_config.R
+#   - load_06_energy_price_parameters.R
+#   - load_07_flexibility_price_emulation.R
+#   - load_08_flexibility_event_configuration.R
+#   - load_09_reward_parameters.R
+#   - load_10_reward_parameter_corrections.R
+#   - load_11_model_parameters.R
+#   - load_12_temperature_setpoints.R
+#   - load_15_forecast_parameters.R
+#   - load_16_debug_and_config.R
 # -------------------------------------------------------------
 # functions/scripts called
 # validate_parameter_config()

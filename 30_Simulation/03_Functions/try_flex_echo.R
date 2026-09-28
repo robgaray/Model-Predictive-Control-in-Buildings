@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Implements the Scheduling-only "echo" mechanism (advance/delay) of
 # 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md, Parte
 # B.4: given a not-yet-displaced Scheduling event whose forbidden zone
@@ -30,17 +31,29 @@
 # P_advance, P_delay     : Numeric scalars in [0,1].
 # Max_shift_hours        : Numeric scalar (hours).
 # market_resolution_sec  : Numeric scalar (seconds).
-# margin_sec             : Numeric scalar (seconds). The exclusion
+# margin_sec             : Numeric scalar (seconds). Has no default:
+#                          generate_flexibility_events() passes its own
+#                          parameters$computing$flexibility_event_margin_sec.
+#                          The exclusion
 #                          margin used to build each event's forbidden
 #                          zone (3600*3 by default, see Parte B.1).
 # -------------------------------------------------------------
 # Outputs
-# List with `accepted` (logical) and, when TRUE, `t_start_sec`,
-# `duration_sec` for the shifted event.
+# List with:
+#   - accepted: logical
+#   - t_start_sec and duration_sec of the shifted event, when accepted
+#     is TRUE
 # -------------------------------------------------------------
 # Usage instructions
 # try_flex_echo(event, horizon_begin, horizon_end, other_events,
 #   P_advance, P_delay, Max_shift_hours, market_resolution_sec)
+# -------------------------------------------------------------
+# Code outline
+# 1. Roll for an advance and for a delay, and pick a direction
+#    between them when both come up.
+# 2. Draw a shift in that direction, bounded by the maximum.
+# 3. Return the shifted event only if it still fits the horizon and
+#    keeps its margin from every other event.
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by generate_flexibility_events.R.
@@ -51,7 +64,7 @@
 
 try_flex_echo <- function(event, horizon_begin, horizon_end, other_events,
                           P_advance, P_delay, Max_shift_hours,
-                          market_resolution_sec, margin_sec = 3 * 3600) {
+                          market_resolution_sec, margin_sec) {
 
   roll_advance <- runif(1) < P_advance
   roll_delay   <- runif(1) < P_delay

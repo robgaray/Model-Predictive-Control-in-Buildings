@@ -4,19 +4,29 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Integrates the result of a single Scheduling or Piloting market
 # execution into Main_df and the market-event output matrices,
 # for the current simulation step. This is the "4. Integrate results"
-# logic shared by the Scheduling and Piloting blocks of simulation.R:
+# logic shared by the Scheduling and Piloting blocks of 14_simulation.R:
 #   4.1 Locate the market row of the current step and the target
 #       market intervals covered by this market's control horizon.
 #   4.2 Aggregate (SUM) the previous and new commitments per target
-#       interval, for base energy, energy with flexibility, and
-#       explicit flexibility.
-#   4.3 Accumulate the differential energy commitments into
-#       market_commitments (net/buy/sell, their _flex counterparts, and
-#       the explicit flexibility buy/sell matrices).
-#   4.4 Write the absolute *_plan/*_plan_flex columns into Main_df.
+#       interval, for:
+#         - base energy
+#         - energy with flexibility
+#         - explicit flexibility
+#   4.3 Accumulate the differential energy commitments into these
+#       market_commitments matrices:
+#         - net/buy/sell
+#         - their _flex counterparts
+#         - the explicit flexibility buy/sell matrices
+#   4.4 Write the absolute *_plan/*_plan_flex_down columns into Main_df.
+#       Only two things are committed: the energy of the _plan
+#       itinerary and the phase-1 flexibility. The energy of the
+#       Recovery Phase is contingent on the service being called, so it
+#       is valued by reward_function() to steer the decision but never
+#       settled here.
 #   4.5 Accumulate the net cash flow of the explicit-flexibility service
 #       (both down and up legs, for both Scheduling and Piloting - see
 #       finding 3 of the audit referenced below) into
@@ -25,14 +35,17 @@
 #       bought-back totals, on this decision's own row, to
 #       Main_df$Elec_flex_sell_revenue_market (income, +=) and
 #       Elec_flex_purchase_cost_market (expense, -=).
-#   4.6 Accumulate the net cash flow of the energy commitment (base
-#       energy for Scheduling, flex-adjusted energy for Piloting) into
+#   4.6 Accumulate the net cash flow of the energy commitment (the base
+#       energy track, for both market families) into
 #       market_commitments$Elec_Cost_plan_df and propagate it into
 #       Main_df$Elec_market_net_cost_h; also split the same
 #       differential into its elementary buy/rebuy/sell/resell
 #       operations (split_market_operation()) and add their totals, on
 #       this decision's own row, to Main_df$Elec_sell_revenue_market
 #       (income, +=) and Elec_purchase_cost_market (expense, -=).
+#   4.7 Book the total reward of this decision on its own row: the sum
+#       of the per-timestep rewards over the optimization horizon, which
+#       is the total the optimizer maximised.
 # See 01_Agent_Comments/20260725_Plan_Reporte_Costes_Mercados_Main_df.md
 # for the original design of these signals, and
 # 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md plus
@@ -49,16 +62,18 @@
 # market_commitments' own (sparse) row set.
 # -------------------------------------------------------------
 # Inputs
-# prefix              : Character. "Sched" or "Pilot". Selects which
-#                        energy track (base vs flex-adjusted) values
-#                        the cost of step 4.5, and whether step 4.6
-#                        (explicit flexibility cost) runs.
+# prefix              : Character. "Sched" or "Pilot". Says whether the
+#                        target slots count towards economic_analysis$slot's
+#                        "committed in Scheduling" fraction. It does not
+#                        select an energy track: both families settle the
+#                        base energy of the _plan itinerary.
 # row_index           : Integer. Current simulation row index (CONT_003).
 # results_df          : Data frame. scheduling_results or
 #                        piloting_results, as returned by
-#                        run_market_process(), with MarketUTC and the
-#                        *_plan/*_plan_flex columns for the market's
-#                        control horizon.
+#                        run_market_process(), with MarketUTC, the
+#                        *_plan/*_plan_flex_down columns for the market's
+#                        control horizon, and the per-timestep Reward of
+#                        that same window.
 # Main_df             : Data frame. The main simulation data frame.
 # simulation_control  : Named list. Must contain
 #                        indexes_global$idx_ctrl and
@@ -69,17 +84,17 @@
 #                        offsets (col_j), not as the matrices' row set.
 # full_market_information : Named list of 13 market-event price data
 #                        frames (read-only), as built by
-#                        full_market_information_setup.R.
+#                        11_full_market_information_setup.R.
 # market_commitments  : Named list of 12 market-event output data
-#                        frames, as built by market_commitments_setup.R.
+#                        frames, as built by 12_market_commitments_setup.R.
 # economic_analysis   : Named list of economic-analysis accumulators
 #                        (market, slot and the index sub-list), as built
-#                        by economic_analysis_setup.R.
+#                        by 13_economic_analysis_setup.R.
 # -------------------------------------------------------------
 # Outputs
 # Named list with:
 #   Main_df            : Data frame. Updated with the absolute *_plan/
-#                        *_plan_flex columns, the propagated
+#                        *_plan_flex_down columns, the propagated
 #                        Elec_market_net_cost_h and
 #                        Elec_flex_commitment_revenue_h columns, and the
 #                        "_market" lump-sum columns on row_index -
@@ -87,7 +102,8 @@
 #                        and Elec_flex_purchase_cost_market /
 #                        Elec_flex_sell_revenue_market, all four
 #                        regardless of prefix (income positive, expense
-#                        negative).
+#                        negative) - plus Reward, the total reward of
+#                        this decision, also on row_index.
 #   market_commitments : Named list. Updated in place with the
 #                        differential energy and cost commitments of
 #                        this market execution.
@@ -104,8 +120,9 @@
 #    (also resolves the explicit-flexibility net cash flow per interval)
 # 4. Absolute update of Main_df
 # 4b. Explicit flexibility cost/revenue (Scheduling and Piloting alike)
-# 5. Differential cost of the energy commitment (base energy for
-#    Scheduling, flex-adjusted energy for Piloting)
+# 5. Differential cost of the energy commitment (base energy track, for
+#    both market families)
+# 5b. Reward of this decision, totalled on its own row
 # -------------------------------------------------------------
 # Usage instructions
 # result             <- integrate_market_process(prefix, row_index, results_df, Main_df, simulation_control, market_time, full_market_information, market_commitments, economic_analysis)
@@ -114,7 +131,7 @@
 # economic_analysis  <- result$economic_analysis
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R once per Scheduling execution and once per
+# Called by 14_simulation.R once per Scheduling execution and once per
 # Piloting execution, in the main simulation loop.
 # -------------------------------------------------------------
 # functions/scripts called
@@ -167,10 +184,10 @@ integrate_market_process <- function(prefix,
   # and a Piloting market clear at the same timestamp, the slots the
   # Scheduling market covers are reported on the Scheduling row - no
   # matter which of the two decisions actually produced the flow - and
-  # the remaining slots on the Piloting row (see economic_analysis_setup.R).
+  # the remaining slots on the Piloting row (see 13_economic_analysis_setup.R).
   # A Scheduling market therefore always reports its own slots, and it
   # records them in economic_analysis$index$sched_claim so that the Piloting
-  # market clearing at the same row_index (simulation.R always runs the
+  # market clearing at the same row_index (14_simulation.R always runs the
   # Scheduling block first) can hand those same slots over to it. The
   # claim carries its row_index so that a stale claim from an earlier
   # simulation step is never reused.
@@ -221,35 +238,66 @@ integrate_market_process <- function(prefix,
     ))
 
     E_orig_flex_by_market    <- as.numeric(tapply(
-      Main_df$Elec_total_plan_flex[simulation_control$indexes_global$idx_ctrl],
+      Main_df$Elec_total_plan_flex_down[simulation_control$indexes_global$idx_ctrl],
       Main_df$MarketUTC[simulation_control$indexes_global$idx_ctrl], sum
     ))
     E_new_flex_by_market     <- as.numeric(tapply(
-      results_df$Elec_total_plan_flex[simulation_control$indexes_local$idx_ctrl],
+      results_df$Elec_total_plan_flex_down[simulation_control$indexes_local$idx_ctrl],
       results_df$MarketUTC[simulation_control$indexes_local$idx_ctrl], sum
     ))
 
-    E_orig_expflex_by_market <- as.numeric(tapply(
-      Main_df$Elec_flex_plan[simulation_control$indexes_global$idx_ctrl],
+    # One aggregate per leg, before and after this market's decision.
+    # The two signals are non-negative by construction, so a single
+    # aggregate would net a downward commitment against an upward one
+    # and value the difference as if it were one service.
+    E_orig_expflex_down_by_market <- as.numeric(tapply(
+      Main_df$Elec_flex_down_plan[simulation_control$indexes_global$idx_ctrl],
       Main_df$MarketUTC[simulation_control$indexes_global$idx_ctrl], sum
     ))
-    E_new_expflex_by_market  <- as.numeric(tapply(
-      results_df$Elec_flex_plan[simulation_control$indexes_local$idx_ctrl],
+    E_new_expflex_down_by_market  <- as.numeric(tapply(
+      results_df$Elec_flex_down_plan[simulation_control$indexes_local$idx_ctrl],
       results_df$MarketUTC[simulation_control$indexes_local$idx_ctrl], sum
     ))
+
+    E_orig_expflex_up_by_market <- as.numeric(tapply(
+      Main_df$Elec_flex_up_plan[simulation_control$indexes_global$idx_ctrl],
+      Main_df$MarketUTC[simulation_control$indexes_global$idx_ctrl], sum
+    ))
+    E_new_expflex_up_by_market  <- as.numeric(tapply(
+      results_df$Elec_flex_up_plan[simulation_control$indexes_local$idx_ctrl],
+      results_df$MarketUTC[simulation_control$indexes_local$idx_ctrl], sum
+    ))
+
+    # The energy of the Recovery Phase is deliberately NOT aggregated
+    # here. A market commits two things and only two: the energy bought
+    # and sold on the _plan itinerary, and the flexibility of the
+    # Commitment Phase, the phase-1 differential between _plan and each
+    # flexibility itinerary. The rebuy the building would make while
+    # recovering is contingent on the operator calling the service, so
+    # committing it would book an operation that may never happen.
+    # Its future price does have to weigh on the decision, and it does:
+    # reward_function() values it through compute_recovery_energy_cost(),
+    # which is where a contingent cost belongs. Valuing it to choose and
+    # committing it to settle are different things, and this block only
+    # settles.
   }
 
   # 3. Accumulate the differential commitments in the output matrices
   # -------------------------------------------------------------
-  # Also resolves, per target interval, the explicit-flexibility net
-  # cash flow (flex_revenue_by_market/flex_buyback_by_market) that
+  # Also resolves, per target interval and per leg, the
+  # explicit-flexibility net cash flow (flex_revenue_down_by_market/
+  # flex_buyback_down_by_market and their up-leg counterparts) that
   # block 4b propagates into Main_df/market_commitments once Main_df's
-  # weight column (Elec_flex_plan) has its post-decision value - see
-  # block 4b's own header for why that propagation cannot happen here.
+  # weight columns (Elec_flex_down_plan and Elec_flex_up_plan) have their
+  # post-decision value - see block 4b's own header for why that
+  # propagation cannot happen here. The cash flow is kept split by leg
+  # because each leg is spread over Main_df with its own weight column.
   # -------------------------------------------------------------
   {
-    flex_revenue_by_market  <- numeric(length(idx_target_market))
-    flex_buyback_by_market  <- numeric(length(idx_target_market))
+    flex_revenue_down_by_market  <- numeric(length(idx_target_market))
+    flex_buyback_down_by_market  <- numeric(length(idx_target_market))
+    flex_revenue_up_by_market    <- numeric(length(idx_target_market))
+    flex_buyback_up_by_market    <- numeric(length(idx_target_market))
 
     for (CONT_001 in seq_along(idx_target_market)) {
       i_target <- idx_target_market[CONT_001]
@@ -259,96 +307,119 @@ integrate_market_process <- function(prefix,
       E_new   <- E_new_base_by_market[CONT_001]
       delta_E <- E_new - E_orig
 
-      market_commitments$Elec_net_plan_df[row_m, col_j] <- market_commitments$Elec_net_plan_df[row_m, col_j] + delta_E
+      market_commitments$Elec_net_plan_df[[col_j]][row_m] <- market_commitments$Elec_net_plan_df[[col_j]][row_m] + delta_E
 
       buy_orig <- max(E_orig, 0); sell_orig <- min(E_orig, 0)
       buy_new  <- max(E_new,  0); sell_new  <- min(E_new,  0)
 
-      market_commitments$Elec_buy_plan_df[row_m, col_j]  <- market_commitments$Elec_buy_plan_df[row_m, col_j]  + (buy_new  - buy_orig)
-      market_commitments$Elec_sell_plan_df[row_m, col_j] <- market_commitments$Elec_sell_plan_df[row_m, col_j] + (sell_new - sell_orig)
+      market_commitments$Elec_buy_plan_df[[col_j]][row_m]  <- market_commitments$Elec_buy_plan_df[[col_j]][row_m]  + (buy_new  - buy_orig)
+      market_commitments$Elec_sell_plan_df[[col_j]][row_m] <- market_commitments$Elec_sell_plan_df[[col_j]][row_m] + (sell_new - sell_orig)
 
       E_orig_flex  <- E_orig_flex_by_market[CONT_001]
       E_new_flex   <- E_new_flex_by_market[CONT_001]
       delta_E_flex <- E_new_flex - E_orig_flex
 
-      market_commitments$Elec_net_plan_flex_df[row_m, col_j] <- market_commitments$Elec_net_plan_flex_df[row_m, col_j] + delta_E_flex
+      market_commitments$Elec_net_plan_flex_down_df[[col_j]][row_m] <- market_commitments$Elec_net_plan_flex_down_df[[col_j]][row_m] + delta_E_flex
 
       buy_orig_flex <- max(E_orig_flex, 0); sell_orig_flex <- min(E_orig_flex, 0)
       buy_new_flex  <- max(E_new_flex,  0); sell_new_flex  <- min(E_new_flex,  0)
 
-      market_commitments$Elec_buy_plan_flex_df[row_m, col_j]  <- market_commitments$Elec_buy_plan_flex_df[row_m, col_j]  + (buy_new_flex  - buy_orig_flex)
-      market_commitments$Elec_sell_plan_flex_df[row_m, col_j] <- market_commitments$Elec_sell_plan_flex_df[row_m, col_j] + (sell_new_flex - sell_orig_flex)
+      market_commitments$Elec_buy_plan_flex_down_df[[col_j]][row_m]  <- market_commitments$Elec_buy_plan_flex_down_df[[col_j]][row_m]  + (buy_new_flex  - buy_orig_flex)
+      market_commitments$Elec_sell_plan_flex_down_df[[col_j]][row_m] <- market_commitments$Elec_sell_plan_flex_down_df[[col_j]][row_m] + (sell_new_flex - sell_orig_flex)
 
-      # Explicit flexibility, split into its down and up legs.
-      # Elec_flex_plan (= Elec_total_plan - Elec_total_plan_flex) is
-      # positive when the flexibilized load is below the baseline load,
-      # i.e. a load reduction, which is down-flexibility; a negative
-      # value would be a load increase, i.e. up-flexibility. Each leg is
-      # a volume >= 0, and the move from the previous to the new volume
-      # is either a sale (the leg grows: more service committed to the
-      # grid, income) or a buy back (the leg shrinks: part of a
-      # commitment sold in an earlier market is unwound, expense). The
-      # optimizer currently only ever offers down-flexibility, so the
-      # two up-leg matrices stay at 0 for the whole simulation - see
-      # market_commitments_setup.R. Each leg is valued at its own
-      # effective price (commitment price plus execution price weighted
-      # by the activation probability), taking the down prices for the
-      # down leg and the up prices for the up leg - see
-      # value_flex_operation()'s header for why this cannot be valued
-      # via calc_differential_cost()/split_market_operation() the way
-      # energy is.
-      flex_probab_target <- Main_df$Flex_Probab[which(Main_df$MarketUTC == market_time[i_target])[1]]
-      price_down_sell <- full_market_information$Flex_unit_cost_down_com_sell_df[row_m, col_j] +
-        full_market_information$Flex_unit_cost_down_exec_sell_df[row_m, col_j] * flex_probab_target
-      price_down_buy  <- full_market_information$Flex_unit_cost_down_com_buy_df[row_m, col_j] +
-        full_market_information$Flex_unit_cost_down_exec_buy_df[row_m, col_j]  * flex_probab_target
-      price_up_sell   <- full_market_information$Flex_unit_cost_up_com_sell_df[row_m, col_j] +
-        full_market_information$Flex_unit_cost_up_exec_sell_df[row_m, col_j]   * flex_probab_target
-      price_up_buy    <- full_market_information$Flex_unit_cost_up_com_buy_df[row_m, col_j] +
-        full_market_information$Flex_unit_cost_up_exec_buy_df[row_m, col_j]    * flex_probab_target
+      # Explicit flexibility, one leg at a time.
+      # Elec_flex_down_plan and Elec_flex_up_plan are two independent
+      # signals, each of them a volume >= 0: the first is the load the
+      # building commits to shed during its Commitment Phase, the second the
+      # load it commits to add. The move from the previous to the new
+      # volume is either a sale (the leg grows: more service committed
+      # to the grid, income) or a buy back (the leg shrinks: part of a
+      # commitment sold in an earlier market is unwound, expense).
+      # value_flex_operation() tells the two legs apart by the sign of
+      # the series it is given, so the up leg is passed negated; both
+      # series being non-negative, each call activates only its own leg
+      # and the other one comes back at zero. Netting them into a single
+      # signed series instead would silently cancel a downward
+      # commitment against an upward one in the same interval.
+      # Each leg is valued at its own effective price (commitment price
+      # plus execution price weighted by that leg's own activation
+      # probability) - see value_flex_operation()'s header for why this
+      # cannot be valued via calc_differential_cost()/
+      # split_market_operation() the way energy is.
+      # Each leg is weighted by its own activation probability, exactly as
+      # resolve_marginal_context() does when it prices the same interval
+      # for the optimizer.
+      rows_target_ts          <- which(Main_df$MarketUTC == market_time[i_target])
+      flex_probab_down_target <- Main_df$Flex_Probab_down[rows_target_ts[1]]
+      flex_probab_up_target   <- Main_df$Flex_Probab_up[rows_target_ts[1]]
+      price_down_sell <- full_market_information$Flex_unit_cost_down_com_sell_df[[col_j]][row_m] +
+        full_market_information$Flex_unit_cost_down_exec_sell_df[[col_j]][row_m] * flex_probab_down_target
+      price_down_buy  <- full_market_information$Flex_unit_cost_down_com_buy_df[[col_j]][row_m] +
+        full_market_information$Flex_unit_cost_down_exec_buy_df[[col_j]][row_m]  * flex_probab_down_target
+      price_up_sell   <- full_market_information$Flex_unit_cost_up_com_sell_df[[col_j]][row_m] +
+        full_market_information$Flex_unit_cost_up_exec_sell_df[[col_j]][row_m]   * flex_probab_up_target
+      price_up_buy    <- full_market_information$Flex_unit_cost_up_com_buy_df[[col_j]][row_m] +
+        full_market_information$Flex_unit_cost_up_exec_buy_df[[col_j]][row_m]    * flex_probab_up_target
 
-      # value_flex_operation is called to resolve this target interval's
-      # move from E_orig_expflex to E_new_expflex into its down/up sold
-      # and bought-back volumes and their net cash flow.
-      flex_op <- value_flex_operation(
-        E_orig          = E_orig_expflex_by_market[CONT_001],
-        E_new           = E_new_expflex_by_market[CONT_001],
+      # value_flex_operation is called once per leg, to resolve this
+      # target interval's move from E_orig_expflex to E_new_expflex into
+      # its sold and bought-back volumes and their net cash flow.
+      flex_op_down <- value_flex_operation(
+        E_orig          = E_orig_expflex_down_by_market[CONT_001],
+        E_new           = E_new_expflex_down_by_market[CONT_001],
+        price_down_sell = price_down_sell,
+        price_down_buy  = price_down_buy,
+        price_up_sell   = price_up_sell,
+        price_up_buy    = price_up_buy
+      )
+      flex_op_up <- value_flex_operation(
+        E_orig          = -E_orig_expflex_up_by_market[CONT_001],
+        E_new           = -E_new_expflex_up_by_market[CONT_001],
         price_down_sell = price_down_sell,
         price_down_buy  = price_down_buy,
         price_up_sell   = price_up_sell,
         price_up_buy    = price_up_buy
       )
 
-      flex_revenue_by_market[CONT_001] <-
-        flex_op$down_sold * price_down_sell + flex_op$up_sold * price_up_sell
-      flex_buyback_by_market[CONT_001] <-
-        flex_op$down_bought * price_down_buy + flex_op$up_bought * price_up_buy
+      flex_revenue_down_by_market[CONT_001] <- flex_op_down$down_sold   * price_down_sell
+      flex_buyback_down_by_market[CONT_001] <- flex_op_down$down_bought * price_down_buy
+      flex_revenue_up_by_market[CONT_001]   <- flex_op_up$up_sold       * price_up_sell
+      flex_buyback_up_by_market[CONT_001]   <- flex_op_up$up_bought     * price_up_buy
 
-      market_commitments$Elec_flex_down_sell_plan_df[row_m, col_j] <-
-        market_commitments$Elec_flex_down_sell_plan_df[row_m, col_j] + flex_op$down_sold
-      market_commitments$Elec_flex_down_buy_plan_df[row_m, col_j] <-
-        market_commitments$Elec_flex_down_buy_plan_df[row_m, col_j]  + flex_op$down_bought
-      market_commitments$Elec_flex_up_sell_plan_df[row_m, col_j] <-
-        market_commitments$Elec_flex_up_sell_plan_df[row_m, col_j]   + flex_op$up_sold
-      market_commitments$Elec_flex_up_buy_plan_df[row_m, col_j] <-
-        market_commitments$Elec_flex_up_buy_plan_df[row_m, col_j]    + flex_op$up_bought
+
+      market_commitments$Elec_flex_down_sell_plan_df[[col_j]][row_m] <-
+        market_commitments$Elec_flex_down_sell_plan_df[[col_j]][row_m] + flex_op_down$down_sold
+      market_commitments$Elec_flex_down_buy_plan_df[[col_j]][row_m] <-
+        market_commitments$Elec_flex_down_buy_plan_df[[col_j]][row_m]  + flex_op_down$down_bought
+      market_commitments$Elec_flex_up_sell_plan_df[[col_j]][row_m] <-
+        market_commitments$Elec_flex_up_sell_plan_df[[col_j]][row_m]   + flex_op_up$up_sold
+      market_commitments$Elec_flex_up_buy_plan_df[[col_j]][row_m] <-
+        market_commitments$Elec_flex_up_buy_plan_df[[col_j]][row_m]    + flex_op_up$up_bought
 
       dest_row  <- analysis_dest_row[CONT_001]
       dest_slot <- slot_pos[CONT_001]
 
-      economic_analysis$market$Flex_down_sold[dest_row]     <- economic_analysis$market$Flex_down_sold[dest_row]     + flex_op$down_sold
-      economic_analysis$market$Flex_down_rebought[dest_row] <- economic_analysis$market$Flex_down_rebought[dest_row] + flex_op$down_bought
-      economic_analysis$market$Flex_up_sold[dest_row]       <- economic_analysis$market$Flex_up_sold[dest_row]       + flex_op$up_sold
-      economic_analysis$market$Flex_up_rebought[dest_row]   <- economic_analysis$market$Flex_up_rebought[dest_row]   + flex_op$up_bought
-      economic_analysis$market$Cash_flow[dest_row]          <- economic_analysis$market$Cash_flow[dest_row]          + flex_op$revenue
-      economic_analysis$market$PL_rebuy_resale[dest_row]    <- economic_analysis$market$PL_rebuy_resale[dest_row]    - flex_buyback_by_market[CONT_001]
+      # The two legs are booked together here: the accounting tables
+      # record the market's whole flexibility position, and each of
+      # them already has its own down and up columns.
+      flex_cash_flow  <- flex_op_down$revenue + flex_op_up$revenue
+      flex_buyback_ti <- flex_buyback_down_by_market[CONT_001] +
+                         flex_buyback_up_by_market[CONT_001]
 
-      economic_analysis$slot$Flex_down_committed[dest_slot]      <- economic_analysis$slot$Flex_down_committed[dest_slot]      + flex_op$down_sold
-      economic_analysis$slot$Flex_committed[dest_slot]           <- economic_analysis$slot$Flex_committed[dest_slot]           + flex_op$down_sold + flex_op$up_sold
-      economic_analysis$slot$Qty_flex_rebought[dest_slot]        <- economic_analysis$slot$Qty_flex_rebought[dest_slot]        + flex_op$down_bought + flex_op$up_bought
-      economic_analysis$slot$Revenue_flex_commitments[dest_slot] <- economic_analysis$slot$Revenue_flex_commitments[dest_slot] + flex_op$revenue
-      economic_analysis$slot$Cash_flow[dest_slot]                <- economic_analysis$slot$Cash_flow[dest_slot]                + flex_op$revenue
-      economic_analysis$slot$Val_rebuy_resale[dest_slot]         <- economic_analysis$slot$Val_rebuy_resale[dest_slot]         + flex_buyback_by_market[CONT_001]
+      economic_analysis$market$Flex_down_sold[dest_row]     <- economic_analysis$market$Flex_down_sold[dest_row]     + flex_op_down$down_sold
+      economic_analysis$market$Flex_down_rebought[dest_row] <- economic_analysis$market$Flex_down_rebought[dest_row] + flex_op_down$down_bought
+      economic_analysis$market$Flex_up_sold[dest_row]       <- economic_analysis$market$Flex_up_sold[dest_row]       + flex_op_up$up_sold
+      economic_analysis$market$Flex_up_rebought[dest_row]   <- economic_analysis$market$Flex_up_rebought[dest_row]   + flex_op_up$up_bought
+      economic_analysis$market$Cash_flow[dest_row]          <- economic_analysis$market$Cash_flow[dest_row]          + flex_cash_flow
+      economic_analysis$market$PL_rebuy_resale[dest_row]    <- economic_analysis$market$PL_rebuy_resale[dest_row]    - flex_buyback_ti
+
+      economic_analysis$slot$Flex_down_committed[dest_slot]      <- economic_analysis$slot$Flex_down_committed[dest_slot]      + flex_op_down$down_sold
+      economic_analysis$slot$Flex_up_committed[dest_slot]        <- economic_analysis$slot$Flex_up_committed[dest_slot]        + flex_op_up$up_sold
+      economic_analysis$slot$Flex_committed[dest_slot]           <- economic_analysis$slot$Flex_committed[dest_slot]           + flex_op_down$down_sold + flex_op_up$up_sold
+      economic_analysis$slot$Qty_flex_rebought[dest_slot]        <- economic_analysis$slot$Qty_flex_rebought[dest_slot]        + flex_op_down$down_bought + flex_op_up$up_bought
+      economic_analysis$slot$Revenue_flex_commitments[dest_slot] <- economic_analysis$slot$Revenue_flex_commitments[dest_slot] + flex_cash_flow
+      economic_analysis$slot$Cash_flow[dest_slot]                <- economic_analysis$slot$Cash_flow[dest_slot]                + flex_cash_flow
+      economic_analysis$slot$Val_rebuy_resale[dest_slot]         <- economic_analysis$slot$Val_rebuy_resale[dest_slot]         + flex_buyback_ti
     }
 
     # Only variables the loop actually created are removed (intersect
@@ -361,23 +432,36 @@ integrate_market_process <- function(prefix,
         "E_orig", "E_new", "delta_E", "buy_orig", "sell_orig", "buy_new", "sell_new",
         "E_orig_flex", "E_new_flex", "delta_E_flex",
         "buy_orig_flex", "sell_orig_flex", "buy_new_flex", "sell_new_flex",
-        "flex_probab_target", "price_down_sell", "price_down_buy",
-        "price_up_sell", "price_up_buy", "flex_op",
+        "rows_target_ts", "flex_probab_down_target", "flex_probab_up_target",
+        "price_down_sell", "price_down_buy",
+        "price_up_sell", "price_up_buy", "flex_op_down", "flex_op_up",
+        "flex_cash_flow", "flex_buyback_ti",
         "dest_row", "dest_slot"),
       ls()
     ))
   }
 
-  # 4. Absolute update of Main_df (plan and plan_flex columns)
+  # 4. Absolute update of Main_df (plan and plan_flex_down columns)
   # -------------------------------------------------------------
-  # Main_df is a data.table (see simulation.R's "Data frame
+  # Main_df is a data.table (see 14_simulation.R's "Data frame
   # formatting" block), so the market's result is written straight
   # into its existing columns with data.table::set() instead of
   # rebuilding the whole object once per market. results_df is a
   # plain data frame, so it keeps ordinary data.frame indexing.
   # -------------------------------------------------------------
   {
-    inject_cols <- grep("(_plan$|_plan_flex$)", names(results_df), value = TRUE)
+    inject_cols <- grep("(_plan$|_plan_flex_down$|_plan_flex_up$)", names(results_df), value = TRUE)
+
+    # The phase codes are the optimizer's own labels: scratch state of
+    # the search, reset on every candidate by
+    # initialize_plan_flex_columns(), and they match the pattern above
+    # only because of how they are named. They are not written back.
+    # Nothing here reads them any more: the settlement commits the energy
+    # of the _plan itinerary and the phase-1 flexibility, and neither
+    # needs the label once the contingent recovery stopped being
+    # committed.
+    inject_cols <- setdiff(inject_cols,
+                           c("Flex_phase_down_plan", "Flex_phase_up_plan"))
 
     for (CONT_005 in inject_cols) {
       set(Main_df,
@@ -400,10 +484,15 @@ integrate_market_process <- function(prefix,
   # (finding 3) and 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
   # Runs after block 4 (not inside block 3, where the per-interval net
   # cash flow was resolved) because propagate_unit_value() spreads that
-  # cash flow across Main_df's rows weighted by Elec_flex_plan, which
-  # must already carry this decision's own (post-update) value for the
-  # weighting to be correct - the same ordering block 5 already relies
-  # on for the energy term below.
+  # cash flow across Main_df's rows weighted by the leg's own signal,
+  # Elec_flex_down_plan or Elec_flex_up_plan, which must already carry
+  # this decision's own (post-update) value for the weighting to be
+  # correct - the same ordering block 5 already relies on for the energy
+  # term below.
+  # One propagation per leg, because the two have different weights: the
+  # rows where the building committed to shed load are not the rows
+  # where it committed to add it, and a single propagation would spread
+  # each leg's cash flow over the other leg's rows.
   # -------------------------------------------------------------
   {
     flex_sell_revenue_total  <- 0
@@ -414,28 +503,47 @@ integrate_market_process <- function(prefix,
       col_j      <- as.character(i_target - row_m_full)
       mkt_target <- market_time[i_target]
 
-      # propagate_unit_value is called to accumulate this target
-      # interval's already-resolved explicit-flexibility net cash flow
-      # into market_commitments$Elec_flex_Cost_plan_df and to spread its
-      # unit value across Main_df$Elec_flex_commitment_revenue_h,
-      # weighted by Elec_flex_plan.
-      prop_result <- propagate_unit_value(
-        row_m      = row_m,
-        col_j      = col_j,
-        mkt_target = mkt_target,
-        delta_C    = flex_revenue_by_market[CONT_004] - flex_buyback_by_market[CONT_004],
-        cost_df    = market_commitments$Elec_flex_Cost_plan_df,
-        Main_df    = Main_df,
-        weight_col = "Elec_flex_plan",
-        target_col = "Elec_flex_commitment_revenue_h"
-      )
-      Main_df                                  <- prop_result$Main_df
-      market_commitments$Elec_flex_Cost_plan_df <- prop_result$cost_df
+      # propagate_unit_value is called once per leg, to accumulate this
+      # target interval's already-resolved explicit-flexibility net cash
+      # flow into market_commitments$Elec_flex_Cost_plan_df and to spread
+      # its unit value across Main_df$Elec_flex_commitment_revenue_h,
+      # weighted by that leg's own signal. Both legs accumulate into the
+      # same cost matrix and the same Main_df column: what the split
+      # changes is which rows each leg's cash flow lands on.
+      for (CONT_006 in c("down", "up")) {
+        if (CONT_006 == "down") {
+          delta_C_leg <- flex_revenue_down_by_market[CONT_004] -
+                         flex_buyback_down_by_market[CONT_004]
+          weight_col_leg <- "Elec_flex_down_plan"
+        } else {
+          delta_C_leg <- flex_revenue_up_by_market[CONT_004] -
+                         flex_buyback_up_by_market[CONT_004]
+          weight_col_leg <- "Elec_flex_up_plan"
+        }
 
-      flex_sell_revenue_total  <- flex_sell_revenue_total  + flex_revenue_by_market[CONT_004]
-      flex_purchase_cost_total <- flex_purchase_cost_total + flex_buyback_by_market[CONT_004]
+        prop_result <- propagate_unit_value(
+          row_m      = row_m,
+          col_j      = col_j,
+          mkt_target = mkt_target,
+          delta_C    = delta_C_leg,
+          cost_df    = market_commitments$Elec_flex_Cost_plan_df,
+          Main_df    = Main_df,
+          weight_col = weight_col_leg,
+          target_col = "Elec_flex_commitment_revenue_h"
+        )
+        Main_df                                  <- prop_result$Main_df
+        market_commitments$Elec_flex_Cost_plan_df <- prop_result$cost_df
 
-      rm(i_target, col_j, mkt_target, prop_result)
+        rm(delta_C_leg, weight_col_leg, prop_result)
+      }
+      rm(list = intersect("CONT_006", ls()))
+
+      flex_sell_revenue_total  <- flex_sell_revenue_total  +
+        flex_revenue_down_by_market[CONT_004] + flex_revenue_up_by_market[CONT_004]
+      flex_purchase_cost_total <- flex_purchase_cost_total +
+        flex_buyback_down_by_market[CONT_004] + flex_buyback_up_by_market[CONT_004]
+
+      rm(i_target, col_j, mkt_target)
     }
     rm(list = intersect("CONT_004", ls()))
 
@@ -444,11 +552,12 @@ integrate_market_process <- function(prefix,
     set(Main_df, i = row_index, j = "Elec_flex_purchase_cost_market",
         value = Main_df$Elec_flex_purchase_cost_market[row_index] - flex_purchase_cost_total)
     rm(flex_sell_revenue_total, flex_purchase_cost_total,
-       flex_revenue_by_market, flex_buyback_by_market)
+       flex_revenue_down_by_market, flex_buyback_down_by_market,
+       flex_revenue_up_by_market, flex_buyback_up_by_market)
   }
 
-  # 5. Differential cost: base energy (Scheduling) or flex-adjusted
-  #    energy (Piloting). For every target interval, in addition to the
+  # 5. Differential cost of the energy commitment, always on the base
+  #    energy track. For every target interval, in addition to the
   #    existing propagation into Main_df$Elec_market_net_cost_h (the
   #    same energy-weighted accumulation mechanism as before), the
   #    elementary buy/rebuy/sell/resell operations of the very same
@@ -458,24 +567,27 @@ integrate_market_process <- function(prefix,
   #    this decision's own row (row_index) - Elec_sell_revenue_market
   #    (income, positive) and Elec_purchase_cost_market (expense,
   #    negative) - so that a row where both a Scheduling and a Piloting
-  #    market clear accumulates both contributions. The Sched/Pilot
-  #    difference is only which energy track is priced (base vs
-  #    flex-adjusted) and whether the target slot counts towards
-  #    economic_analysis$slot's "committed in Scheduling" fraction, so those
-  #    three choices are resolved once, up front, into a single loop
-  #    body shared by both prefixes.
+  #    market clear accumulates both contributions.
+  #    The energy bought and sold is the one of the _plan itinerary, for
+  #    both market families alike. The flexibility itineraries are not
+  #    settled here: what they move is sold as the flexibility service,
+  #    in block 4b, valued on Elec_flex_down_plan/Elec_flex_up_plan.
+  #    Settling Piloting on Elec_total_plan_flex_down instead, as this
+  #    block used to, booked the building as buying the energy of an
+  #    itinerary it only flies if the operator calls the service: it
+  #    disagreed with what the building consumes (Elec_total_exec), with
+  #    what the reward values (reward_function() prices energy on
+  #    Elec_total_plan for every aim), and it paid the same reduction
+  #    twice, once as energy not bought and again as flexibility sold.
+  #    See 01_Agent_Comments/20260915_Propuesta_Correccion_Energia_Liquidada.md.
+  #    prefix therefore no longer selects an energy track; it only says
+  #    whether the target slot counts towards economic_analysis$slot's
+  #    "committed in Scheduling" fraction.
   {
-    if (prefix == "Sched") {
-      E_orig_sel     <- E_orig_base_by_market
-      E_new_sel      <- E_new_base_by_market
-      weight_col_sel <- "Elec_total_plan"
-      is_sched_sel   <- TRUE
-    } else {
-      E_orig_sel     <- E_orig_flex_by_market
-      E_new_sel      <- E_new_flex_by_market
-      weight_col_sel <- "Elec_total_plan_flex"
-      is_sched_sel   <- FALSE
-    }
+    E_orig_sel     <- E_orig_base_by_market
+    E_new_sel      <- E_new_base_by_market
+    weight_col_sel <- "Elec_total_plan"
+    is_sched_sel   <- (prefix == "Sched")
 
     purchase_cost_total <- 0
     sell_revenue_total  <- 0
@@ -485,15 +597,14 @@ integrate_market_process <- function(prefix,
       col_j      <- as.character(i_target - row_m_full)
       mkt_target <- market_time[i_target]
 
-      P_import_buy  <- full_market_information$Elec_unit_cost_import_buy_df[row_m, col_j]
-      P_import_sell <- full_market_information$Elec_unit_cost_import_sell_df[row_m, col_j]
-      P_export_buy  <- full_market_information$Elec_unit_cost_export_buy_df[row_m, col_j]
-      P_export_sell <- full_market_information$Elec_unit_cost_export_sell_df[row_m, col_j]
+      P_import_buy  <- full_market_information$Elec_unit_cost_import_buy_df[[col_j]][row_m]
+      P_import_sell <- full_market_information$Elec_unit_cost_import_sell_df[[col_j]][row_m]
+      P_export_buy  <- full_market_information$Elec_unit_cost_export_buy_df[[col_j]][row_m]
+      P_export_sell <- full_market_information$Elec_unit_cost_export_sell_df[[col_j]][row_m]
 
       # propagate_differential_cost is called to value this decision's
-      # energy commitment change (base energy for Scheduling,
-      # flex-adjusted energy for Piloting) at this target interval's
-      # prices, and to accumulate that differential into
+      # base-energy commitment change at this target interval's prices,
+      # and to accumulate that differential into
       # Main_df$Elec_market_net_cost_h weighted by weight_col_sel.
       result <- propagate_differential_cost(
         row_m         = row_m,
@@ -514,8 +625,12 @@ integrate_market_process <- function(prefix,
       market_commitments$Elec_Cost_plan_df <- result$cost_df
 
       # split_market_operation is called to break the very same
-      # energy differential into the four elementary operations (new
-      # buy, buy back, new sell, resell). Their values aggregate into
+      # energy differential into the four elementary operations:
+      #   - new buy
+      #   - buy back
+      #   - new sell
+      #   - resell
+      # Their values aggregate into
       # the cost/revenue pair used by this decision's own-row lump-sum
       # market signals below, and their quantities and values feed the
       # economic_analysis tables.
@@ -542,7 +657,7 @@ integrate_market_process <- function(prefix,
       # its flows are reported on a Scheduling row because that market
       # owns the slot.
       economic_analysis <- accumulate_market_operation(
-        analysis      = economic_analysis,
+        economic_analysis = economic_analysis,
         operation     = operation,
         dest_row      = analysis_dest_row[CONT_002],
         dest_slot     = slot_pos[CONT_002],
@@ -558,6 +673,32 @@ integrate_market_process <- function(prefix,
         value = Main_df$Elec_purchase_cost_market[row_index] - purchase_cost_total)
     set(Main_df, i = row_index, j = "Elec_sell_revenue_market",
         value = Main_df$Elec_sell_revenue_market[row_index]  + sell_revenue_total)
+
+    # 5b. Reward of this decision
+    # -------------------------------------------------------------
+    # reward_function() evaluates the reward per timestep, and what the
+    # optimizer maximises is its total over the window it decides. That
+    # total belongs to the decision, not to the hours it plans: a market
+    # clearing at hour 2 for the period that runs from hour 20 to hour 25
+    # books, on row 2, the sum of the rewards of rows 20 to 25. Spreading
+    # it over those rows instead would suggest the reward was earned
+    # there, and adding it up across markets would then count the same
+    # hours once per market that planned them.
+    # The window summed is the OPTIMIZATION horizon (idx_horizon), not
+    # the market's period: reward_function() evaluates the reward over
+    # that whole horizon and the optimizer maximises its total, so any
+    # narrower window would report a number the search never compared
+    # its candidates on. It is the one quantity here that is not bounded
+    # to what the market commits, because it is not a commitment: it is
+    # the value of the decision.
+    # Accumulated rather than assigned, like the lump-sum signals above,
+    # so that a row where both a Scheduling and a Piloting market clear
+    # carries both decisions.
+    # -------------------------------------------------------------
+    set(Main_df, i = row_index, j = "Reward",
+        value = Main_df$Reward[row_index] +
+          sum(results_df$Reward[simulation_control$indexes_local$idx_horizon],
+              na.rm = TRUE))
     rm(E_orig_sel, E_new_sel, weight_col_sel, is_sched_sel,
        purchase_cost_total, sell_revenue_total)
   }
@@ -565,7 +706,8 @@ integrate_market_process <- function(prefix,
   rm(row_m, row_m_full, idx_target_market, slot_pos, analysis_dest_row,
      E_orig_base_by_market, E_new_base_by_market,
      E_orig_flex_by_market, E_new_flex_by_market,
-     E_orig_expflex_by_market, E_new_expflex_by_market)
+     E_orig_expflex_down_by_market, E_new_expflex_down_by_market,
+     E_orig_expflex_up_by_market, E_new_expflex_up_by_market)
 
   return(list(Main_df            = Main_df,
               market_commitments = market_commitments,

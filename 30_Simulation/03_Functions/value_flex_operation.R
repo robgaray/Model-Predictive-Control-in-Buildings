@@ -14,8 +14,8 @@
 # become a net exporter), and "growing the positive leg" is always a
 # purchase. Explicit flexibility is different: it is a service the
 # building SELLS to the grid, in two independent, always non-negative
-# legs - down-flexibility (Elec_flex_plan > 0, a promise to reduce
-# load) and up-flexibility (Elec_flex_plan < 0, a promise to increase
+# legs - down-flexibility (Elec_flex_down_plan > 0, a promise to reduce
+# load) and up-flexibility (Elec_flex_down_plan < 0, a promise to increase
 # it). Growing either leg is a SALE (income), and shrinking it is a
 # BUY BACK (expense) - the opposite polarity of calc_differential_cost()'s
 # "growing the positive leg = a purchase" convention. Passing E_orig/
@@ -24,28 +24,34 @@
 # inversion reported in
 # 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md
 # (finding 1) and confirmed in
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md: the
-# optimizer currently only ever offers down-flexibility, so every
-# negative Elec_flex_plan value seen in practice is a partial buy-back
-# of a down commitment, never a genuine up-flexibility sale - but the
-# two legs are kept independent here so that a real up-flexibility
-# product can be added later without changing this function.
+# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+# The two legs are told apart by the sign of the series given here, and
+# the caller decides which leg a series belongs to: the down leg carries
+# Elec_flex_down_plan as it is, and the up leg carries Elec_flex_up_plan
+# negated. Both signals are non-negative by construction and each is
+# passed in its own call, so a call only ever activates one leg and a
+# downward commitment can never cancel an upward one.
 # -------------------------------------------------------------
 # Inputs
 # E_orig, E_new : Numeric vectors, same length. Explicit flexibility
-#                 commitment (Elec_flex_plan) before/after the change,
-#                 for one or more target slots.
-# price_down_sell, price_down_buy, price_up_sell, price_up_buy :
-#                 Numeric vectors, same length as E_orig. Effective
-#                 price (commitment + execution, weighted by activation
-#                 probability) of selling/buying back the down/up leg
-#                 in each target slot.
+#                 commitment before/after the change, for one or more
+#                 target slots: Elec_flex_down_plan for the down leg,
+#                 -Elec_flex_up_plan for the up leg.
+# The four prices below are numeric vectors, same length as E_orig:
+# the effective price (commitment + execution, weighted by activation
+# probability) of selling/buying back the down/up leg in each target
+# slot.
+#   - price_down_sell
+#   - price_down_buy
+#   - price_up_sell
+#   - price_up_buy
 # -------------------------------------------------------------
 # Outputs
 # Named list of five numeric vectors, all the same length as E_orig:
-#   down_sold, down_bought, up_sold, up_bought : >= 0. Volume sold or
-#     bought back on each leg.
-#   revenue : Net cash flow (positive = income, negative = expense) -
+#   - down_sold, down_bought : >= 0. Volume sold or bought back on the
+#     downward leg.
+#   - up_sold, up_bought : >= 0. The same on the upward leg.
+#   - revenue : Net cash flow (positive = income, negative = expense) -
 #     down_sold*price_down_sell + up_sold*price_up_sell -
 #     down_bought*price_down_buy - up_bought*price_up_buy.
 # -------------------------------------------------------------

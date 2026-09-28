@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Loads Energy_Prices_df (energy and flexibility market price input
 # data) from disk and validates it before it is used by
 # assemble_main_df.R. See
@@ -21,7 +22,7 @@
 #                            Elec_unit_cost_buy, Elec_unit_cost_distribution,
 #                            Flex_unit_cost_down_com, Flex_unit_cost_down_exec,
 #                            Flex_unit_cost_up_com, Flex_unit_cost_up_exec,
-#                            Flex_Probab.
+#                            Flex_Probab_down, Flex_Probab_up.
 #   energy_prices_step_sec : Numeric. Detected step (seconds) of
 #                            Energy_Prices_df$time.
 # -------------------------------------------------------------
@@ -32,15 +33,19 @@
 #    resolution)
 # 4. Validate column ranges against Validation_Energy_Prices_df.csv
 # -------------------------------------------------------------
-# Usage
+# Usage instructions
 # source(file.path("30_Simulation", "04_Scripts", "load_energy_prices_df.R"))
 # -------------------------------------------------------------
-# Where this script is used
+# Where this function/script is used
 # Sourced by assemble_main_df.R.
 # -------------------------------------------------------------
 # functions/scripts called
 #   validate_time_grid(), validate_dataframe_config()
 #   -- from 30_Simulation/03_Functions/
+# -------------------------------------------------------------
+# Usage instructions
+#   Not called: sourced by assemble_main_df.R while it builds
+#   Main_df out of the input series.
 # -------------------------------------------------------------
 
 {
@@ -49,7 +54,7 @@
   required_cols <- c("time", "Elec_unit_cost_buy", "Elec_unit_cost_distribution",
                       "Flex_unit_cost_down_com", "Flex_unit_cost_down_exec",
                       "Flex_unit_cost_up_com", "Flex_unit_cost_up_exec",
-                      "Flex_Probab")
+                      "Flex_Probab_down", "Flex_Probab_up")
   missing_cols  <- setdiff(required_cols, names(Energy_Prices_df))
   if (length(missing_cols) > 0) {
     stop("Energy_Prices_df.rds is missing required columns: ",
@@ -59,7 +64,11 @@
   # validate_time_grid is called to check that Energy_Prices_df$time
   # is an equispaced grid compatible with Main_df's own resolution,
   # and to return its detected step in seconds.
-  energy_prices_step_sec <- validate_time_grid(Energy_Prices_df$time, "Energy_Prices_df.rds")
+  energy_prices_step_sec <- validate_time_grid(
+    time                = Energy_Prices_df$time,
+    file_name           = "Energy_Prices_df.rds",
+    main_resolution_sec = parameters$computing$main_resolution_sec
+  )
 
   energy_prices_validation_config <- read.csv(
     paths$energy_prices_validation_file,

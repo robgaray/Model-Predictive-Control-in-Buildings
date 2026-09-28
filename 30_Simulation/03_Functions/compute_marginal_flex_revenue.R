@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Values a candidate explicit-flexibility schedule (from a single GA
 # candidate's period_calculation() output) at its marginal
 # (differential) revenue relative to a fixed baseline, per target
@@ -22,8 +23,11 @@
 # Inputs
 # E_candidate         : Numeric vector. Per-timestep explicit
 #                       flexibility commitment of the candidate being
-#                       evaluated (Elec_flex_plan of a period_chunk),
-#                       one value per fine timestep.
+#                       evaluated, one value per fine timestep. It is one
+#                       leg's signal, not both: Elec_flex_down_plan for
+#                       the down leg, -Elec_flex_up_plan for the up leg,
+#                       since value_flex_operation() tells the two apart
+#                       by sign and both signals are non-negative.
 # MarketUTC_candidate  : POSIXct vector, same length as E_candidate.
 #                       Market interval of each fine timestep.
 # market_utc          : POSIXct vector. Target market intervals, in
@@ -37,6 +41,11 @@
 #                       Numeric vectors, same length/order as market_utc.
 #                       Effective down/up flexibility prices per target
 #                       interval, as returned by resolve_marginal_context().
+# discount_by_market  : Numeric vector, same length/order as market_utc.
+#                       Revenue discount factor of each target interval,
+#                       as returned by revenue_discount_factor(). It
+#                       weighs down the intervals that pay and only
+#                       those - see apply_revenue_discount().
 # -------------------------------------------------------------
 # Outputs
 # Numeric scalar. Total marginal cash flow (positive = net income,
@@ -47,7 +56,7 @@
 # Code outline
 # 1. Aggregate the candidate's flexibility commitment per target
 #    market interval
-# 2. Net cash flow per interval and total
+# 2. Net cash flow per interval, discounted, and total
 # -------------------------------------------------------------
 # Usage instructions
 # revenue <- compute_marginal_flex_revenue(E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, price_down_sell_by_market, price_down_buy_by_market, price_up_sell_by_market, price_up_buy_by_market)
@@ -58,7 +67,10 @@
 # "operationflex" (Piloting) with an active flexibility event.
 # -------------------------------------------------------------
 # functions/scripts called
+# market_slot_index() - which target slot each timestep belongs to
+# aggregate_by_market_slot() - adds the candidate up on that index
 # value_flex_operation()
+# apply_revenue_discount() - discounts the income of each interval
 # -------------------------------------------------------------
 
 compute_marginal_flex_revenue <- function(E_candidate,
@@ -68,7 +80,8 @@ compute_marginal_flex_revenue <- function(E_candidate,
                                           price_down_sell_by_market,
                                           price_down_buy_by_market,
                                           price_up_sell_by_market,
-                                          price_up_buy_by_market) {
+                                          price_up_buy_by_market,
+                                          discount_by_market) {
 
   # 1. Aggregate the candidate's flexibility commitment per target
   #    market interval
@@ -77,14 +90,19 @@ compute_marginal_flex_revenue <- function(E_candidate,
   # runs once per GA candidate.
   # -------------------------------------------------------------
   {
-    E_new_by_market <- vapply(
-      market_utc,
-      function(mkt) sum(E_candidate[MarketUTC_candidate == mkt]),
-      numeric(1)
+    # market_slot_index is called to say which target slot each timestep
+    # of the candidate belongs to, and aggregate_by_market_slot to add
+    # the candidate up on that index. Together they replace a walk that
+    # masked the candidate once per slot, comparing two POSIXct vectors
+    # on every step; the totals are the same bit for bit, and the
+    # ordering of the sums is what guarantees it.
+    E_new_by_market <- aggregate_by_market_slot(
+      values     = E_candidate,
+      slot_index = market_slot_index(MarketUTC_candidate, market_utc)
     )
   }
 
-  # 2. Net cash flow per interval and total
+  # 2. Net cash flow per interval, discounted, and total
   # -------------------------------------------------------------
   {
     # value_flex_operation is called to resolve, per target market
@@ -100,7 +118,12 @@ compute_marginal_flex_revenue <- function(E_candidate,
       price_up_sell   = price_up_sell_by_market,
       price_up_buy    = price_up_buy_by_market
     )
-    total_revenue <- sum(operation$revenue)
+    # apply_revenue_discount() is called on the per-interval revenue,
+    # so that selling a service far into the future weighs less in the
+    # decision than selling the same service in the next slot. Only the
+    # intervals that pay are discounted; one that costs money keeps its
+    # full weight.
+    total_revenue <- sum(apply_revenue_discount(operation$revenue, discount_by_market))
     rm(operation)
   }
 

@@ -20,12 +20,15 @@
 #                   row 1 when no other source of a real initial
 #                   condition exists. Ti and Te are the documented
 #                   exception: their row-1 value is overwritten by
-#                   parameters$model$Ti_0/Te_0 in simulation.R
+#                   parameters$model$Ti_0/Te_0 in 14_simulation.R
 #                   (Model initialization block), regardless of the
 #                   generic value declared here - see Part G of the
 #                   plan document above.
-#   scenario      : yes -> the variable is expanded into 3 columns,
-#                   <variable>_exec, <variable>_plan, <variable>_plan_flex.
+#   scenario      : yes -> the variable is expanded into 4 columns,
+#                   <variable>_exec, <variable>_plan,
+#                   <variable>_plan_flex_down and <variable>_plan_flex_up.
+#                   The last two are the two flexibility itineraries:
+#                   downward (load reduction) and upward (load increase).
 #                   no  -> the variable is kept as a single column,
 #                   <variable>, with no suffix.
 # -------------------------------------------------------------
@@ -50,7 +53,10 @@ Elec_heat	energy	0	yes
 Elec_cool	energy	0	yes
 Elec_total	energy	0	yes
 Elec_total_no_flex	energy	0	no
-Elec_flex_plan	energy	0	no
+Elec_flex_down_plan	energy	0	no
+Elec_flex_up_plan	energy	0	no
+Flex_phase_down_plan	evaluation	0	no
+Flex_phase_up_plan	evaluation	0	no
 Elec_purchase_cost_market	economic	0	no
 Elec_sell_revenue_market	economic	0	no
 Elec_flex_sell_revenue_market	economic	0	no

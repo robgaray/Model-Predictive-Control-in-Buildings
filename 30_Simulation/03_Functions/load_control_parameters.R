@@ -4,112 +4,59 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# This function structures the already-parsed, already-validated
-# control parameters (as read and validated by
-# read_and_validate_parameter_csv()) into a named list.
-# Numeric values are coerced to numeric. The control_type parameter
-# is read as text ("modes" or "setpoints") and returned as-is.
+# Overall description
+# Structures the control parameters that apply whatever control_type
+# is chosen, as read and validated from 02_Control.csv, into the
+# first part of parameters$control. control_type is kept as text
+# ("modes" or "setpoints"); every other value is converted to a
+# number.
 # -------------------------------------------------------------
 # Inputs
-#   values : Named list. Raw parameter/value pairs for control
-#            parameters, as returned by read_and_validate_parameter_csv().
-#            Expected parameters are:
-#                    set_point_range_heating_low  – lower bound of heating setpoint range (°C)
-#                    set_point_range_heating_high – upper bound of heating setpoint range (°C)
-#                    set_point_range_cooling_low  – lower bound of cooling setpoint range (°C)
-#                    set_point_range_cooling_high – upper bound of cooling setpoint range (°C)
-#                    Deadband                     – deadband width for histeresis control (°C)
-#                    control_type                 – control strategy type ("modes" or "setpoints")
-#                    set_point_default_cooling    – default cooling setpoint (°C)
-#                    set_point_default_heating    – default heating setpoint (°C)
-#                    optimization_aim             – optimization objective code
-#                    flexibility_event_length_max – maximum duration of a flexibility event (h)
-#                    flexibility_recover_timespan – duration of the recovery period after a flexibility event (h)
-#                    thermal_stabilization_timespan – duration of the thermal stabilisation period (h)
-#                    minimum_flexibility          – minimum flexibility power (kW)
-#                    flexibility_splits           – number of flexibility fraction steps for parametric evaluation
-#
+#   values : Named list. Raw parameter/value pairs of 02_Control.csv,
+#            as returned by read_and_validate_parameter_csv():
+#              - control_type : "modes" or "setpoints"
+#              - Deadband : width of the hysteresis band [degC]
+#              - set_point_default_heating : heating setpoint when no
+#                market has set one [degC]
+#              - set_point_default_cooling : cooling setpoint when no
+#                market has set one [degC]
+#              - pad_heating : heating setpoint beyond the optimized
+#                horizon [degC]
+#              - pad_cooling : cooling setpoint beyond the optimized
+#                horizon [degC]
+# -------------------------------------------------------------
 # Outputs
-#   A named list with the following elements:
-#     set_point_range_heating   : Numeric vector of length 2. [low, high] bounds.
-#     set_point_range_cooling   : Numeric vector of length 2. [low, high] bounds.
-#     Deadband                  : Numeric scalar. Deadband width (°C).
-#     control_type              : Character scalar. "modes" or "setpoints".
-#     set_point_default_cooling : Numeric scalar. Default cooling setpoint (°C).
-#     set_point_default_heating : Numeric scalar. Default heating setpoint (°C).
-#     optimization_aim          : Numeric scalar. Optimization objective code.
-#     flexibility_event_length_max : Numeric scalar. Maximum duration of a flexibility event (h).
-#     flexibility_recover_timespan : Numeric scalar. Duration of the recovery period after a flexibility event (h).
-#     thermal_stabilization_timespan : Numeric scalar. Duration of the thermal stabilisation period (h).
-#     minimum_flexibility       : Numeric scalar. Minimum flexibility power (kW).
-#     flexibility_splits        : Numeric scalar. Number of flexibility fraction steps for parametric evaluation.
+#   Named list with the same six elements, control_type as text and
+#   the rest as numbers.
 # -------------------------------------------------------------
 # Code outline
-# 1. Extract control_type as text; convert all other values to numeric
+# 1. Keep control_type as text and convert the rest to numbers.
 # -------------------------------------------------------------
 # Usage instructions
-# params <- load_control_parameters(raw_values)
+# control <- load_control_parameters(raw_values)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by load_12_control_parameters.R.
-# -------------------------------------------------------------
-# EXCEPTIONS AND SPECIAL CASES:
-#   - control_type must be "modes" or "setpoints"; any other value will produce
-#     an error when validated by validate_parameter_config() (in
-#     read_and_validate_parameter_csv(), before this function is called).
-#   - All non-text values are read as character and then coerced to numeric;
-#     non-numeric entries in the 'value' column will produce NA with a coercion
-#     warning.
+# Called by load_02_control.R.
 # -------------------------------------------------------------
 # functions/scripts called
-#   (none)
+# None.
 # -------------------------------------------------------------
 
 load_control_parameters <- function(values) {
 
-  # Separate text vs numeric parameters
+  # -------------------------------------------------------------
+  # 1. Keep control_type as text and convert the rest to numbers
+  # -------------------------------------------------------------
   {
-    control_type <- trimws(as.character(values$control_type))
-    
-    text_params <- c("control_type")
-    numeric_values <- lapply(
-      values[!names(values) %in% text_params],
-      as.numeric
+    control <- list(
+      control_type              = trimws(as.character(values$control_type)),
+      Deadband                  = as.numeric(values$Deadband),
+      set_point_default_heating = as.numeric(values$set_point_default_heating),
+      set_point_default_cooling = as.numeric(values$set_point_default_cooling),
+      pad_heating               = as.numeric(values$pad_heating),
+      pad_cooling               = as.numeric(values$pad_cooling)
     )
-    rm(values)
-    
-    set_point_range_heating <- c(numeric_values$set_point_range_heating_low,
-                                 numeric_values$set_point_range_heating_high)
-    
-    set_point_range_cooling <- c(numeric_values$set_point_range_cooling_low,
-                                 numeric_values$set_point_range_cooling_high)
-    
-    Deadband <- numeric_values$Deadband
-    
-    set_point_default_cooling <- numeric_values$set_point_default_cooling
-    set_point_default_heating <- numeric_values$set_point_default_heating
-    
-    flexibility_event_length_max  <- numeric_values$flexibility_event_length_max
-    flexibility_recover_timespan      <- numeric_values$flexibility_recover_timespan
-    thermal_stabilization_timespan    <- numeric_values$thermal_stabilization_timespan
-    minimum_flexibility       <- numeric_values$minimum_flexibility
-    flexibility_splits        <- numeric_values$flexibility_splits
-    rm(numeric_values)
   }
-  
-  cat("setpoint bands loaded\n")
-  
-  return(list(
-    set_point_range_heating   = set_point_range_heating,
-    set_point_range_cooling   = set_point_range_cooling,
-    Deadband                  = Deadband,
-    control_type              = control_type,
-    set_point_default_cooling = set_point_default_cooling,
-    set_point_default_heating = set_point_default_heating,
-    flexibility_event_length_max  = flexibility_event_length_max,
-    flexibility_recover_timespan      = flexibility_recover_timespan,
-    thermal_stabilization_timespan    = thermal_stabilization_timespan,
-    minimum_flexibility       = minimum_flexibility,
-    flexibility_splits        = flexibility_splits
-  ))
+
+  return(control)
 }

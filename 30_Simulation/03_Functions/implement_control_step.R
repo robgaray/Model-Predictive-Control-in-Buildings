@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function implements a single MPC control step by running the
 # physical simulation of the building over the control implementation
 # horizon using actual (measured) weather data and the setpoints that
@@ -47,7 +48,7 @@
 # every row. When they are written, they must carry the repository's
 # usual sign - positive = income to the building, negative = expense -
 # exactly like every other economic column here. Their consumer,
-# economic_analysis_finalize.R, adds them together to get the executed-
+# 15_economic_analysis_finalize.R, adds them together to get the executed-
 # flexibility cash flow; it does not negate either of them. Writing
 # Elec_flex_deviations_net_cost_h as a positive "cost" magnitude would
 # therefore flip the sign of that cash flow.
@@ -89,16 +90,19 @@
 # 1. Validate: if period_chunk has fewer than 2 rows, return it
 #    unchanged (see EXCEPTIONS below)
 # 2. Run period_calculation() with calculation_mode/calculation_context
-# 3. If calculation_context == "execution": resolve
-#    Elec_deviations_net_cost_h, Elec_cost_distr_h, Elec_net_cost_h and
-#    Elec_total_no_flex for the new rows (see header above)
+# 3. If calculation_context == "execution": resolve, for the new rows
+#    (see header above):
+#      - Elec_deviations_net_cost_h
+#      - Elec_cost_distr_h
+#      - Elec_net_cost_h
+#      - Elec_total_no_flex
 # 4. Return updated period_chunk
 # -------------------------------------------------------------
 # Usage instructions
 # result <- implement_control_step(period_chunk, simulation_control, timestamps, parameters, calculation_context)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R during initialization (step 2) and
+# Called by 14_simulation.R during initialization (step 2) and
 # implementation (step 4) phases of the MPC loop, and by
 # run_market_process.R (step 3, Initialization) to run the
 # calculation_context == "plan" pass used to seed the market's
@@ -108,7 +112,7 @@
 #   - If the trimmed period_chunk has fewer than 2 rows, the function
 #     returns early without calling period_calculation(). A warning message
 #     is printed if verbose = TRUE. This is a defensive fallback: the
-#     execution-phase call from simulation.R already skips calling this
+#     execution-phase call from 14_simulation.R already skips calling this
 #     function entirely at the last simulation row (where this condition
 #     would otherwise always occur), but the guard remains here in case
 #     of degenerate horizons from other callers.

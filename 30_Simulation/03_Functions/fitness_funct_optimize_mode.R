@@ -4,10 +4,20 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function is the fitness function used by the Genetic Algorithm
 # in optimize_modes(). It converts an integer mode vector (one mode index
 # per market period) into a structured setpoint data frame, evaluates the
 # building simulation, and returns the resulting scalar reward.
+# -------------------------------------------------------------
+# A candidate that cannot be evaluated
+# A chromosome carrying NA is not a building operation: it cannot be
+# turned into setpoints and there is nothing to simulate. It is scored
+# with a penalty large enough to be worse than any reachable reward, so
+# the optimizer discards it, instead of being allowed to stop the run
+# inside convert_modes_to_setpoints(). The chromosome should never
+# arrive in that state - optimize_modes() sizes the elitism so that
+# ga() cannot build one - and this is the net under that.
 # -------------------------------------------------------------
 # Inputs
 #   x            : Integer vector of length n_periods. Each element is a
@@ -31,7 +41,7 @@
 #   simulation_control : Named list. Simulation control object passed through
 #                        to evaluate_control().
 #   marginal_context   : Named list or NULL. Passed through to evaluate_control().
-#
+# -------------------------------------------------------------
 # Outputs
 #   evaluation : Numeric scalar. Reward value extracted from evaluate_control()
 #                return list for the given mode schedule. Higher is better.
@@ -52,7 +62,8 @@
 #   convert_modes_to_setpoints() - maps mode selections to setpoint values
 #                                  with hysteresis deadbands
 #   evaluate_control()         - simulates the building and returns the scalar
-#                                reward
+#                                reward, or -1e9 when the chromosome
+#                                carries NA and cannot be evaluated
 # -------------------------------------------------------------
 fitness_funct_optimize_mode <- function(x,
                                         n_modes,
@@ -62,6 +73,19 @@ fitness_funct_optimize_mode <- function(x,
                                         period_chunk,
                                         simulation_control,
                                         marginal_context = NULL) {
+
+  # 0. Refuse a chromosome that carries NA
+  # -------------------------------------------------------------
+  # The penalty is deliberately not a parameter: an unevaluable
+  # candidate is not a preference the user can weigh. Its magnitude only
+  # has to dominate any reachable reward, and the rewards of this model
+  # are of the order of 1e3.
+  # -------------------------------------------------------------
+  {
+    if (any(is.na(x))) {
+      return(-1e9)
+    }
+  }
 
   # 1. Create mode data frame from integer vector
   # -------------------------------------------------------------
@@ -89,7 +113,9 @@ fitness_funct_optimize_mode <- function(x,
       setpoint_modes_df = set_point_df_inner,
       setpoint_modes    = parameters$setpoint_modes,
       Deadband          = parameters$control$Deadband,
-      target_periods    = timestamps$target_periods
+      target_periods    = timestamps$target_periods,
+      pad_heating       = parameters$control$pad_heating,
+      pad_cooling       = parameters$control$pad_cooling
     )
   }
 

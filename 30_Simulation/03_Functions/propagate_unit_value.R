@@ -33,7 +33,7 @@
 # Main_df    : Data frame. The main simulation data frame.
 # weight_col : Character. Name of the Main_df column holding the
 #              per-timestamp energy used to weight the value
-#              propagation (e.g. "Elec_flex_plan"). The column is a
+#              propagation (e.g. "Elec_flex_down_plan"). The column is a
 #              signed position; its absolute value is what is used as
 #              the weight - see block 2.
 # target_col : Character. Name of the Main_df column to add the
@@ -73,7 +73,7 @@ propagate_unit_value <- function(row_m,
 
   # 1. Accumulation into cost_df
   {
-    cost_df[row_m, col_j] <- cost_df[row_m, col_j] + delta_C
+    cost_df[[col_j]][row_m] <- cost_df[[col_j]][row_m] + delta_C
   }
 
   # 2. Unit value propagation to Main_df, weighted by energy per timestamp

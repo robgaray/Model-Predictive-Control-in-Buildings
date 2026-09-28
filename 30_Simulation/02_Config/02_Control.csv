@@ -1,0 +1,22 @@
+# Control parameters
+# -------------------------------------------------------------
+# The parameters of the control that apply whatever control_type is
+# chosen: the type itself, the deadband of the hysteresis, the
+# setpoints used when no market has set any, and the setpoints
+# applied beyond the optimized horizon.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Control approach
+control_type,modes,text (modes/setpoints)
+#
+# Hysteresis
+Deadband,0.5,degC
+#
+# Default setpoints
+set_point_default_heating,21,degC
+set_point_default_cooling,24,degC
+#
+# Setpoints beyond the optimized horizon
+pad_heating,0,degC
+pad_cooling,50,degC

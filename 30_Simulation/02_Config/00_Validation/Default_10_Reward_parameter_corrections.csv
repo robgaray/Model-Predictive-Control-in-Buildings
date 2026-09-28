@@ -1,0 +1,20 @@
+# Default values for 10_Reward_parameter_corrections.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
+# to fill in missing or invalid entries when loading 10_Reward_parameter_corrections.csv.
+# Reward parameter corrections
+parameter,value,unit
+#
+# Anticipation of the service period
+Service_Anticipation_Begin,3,h
+Service_Anticipation_End,3,h
+#
+# Correction of the comfort band by season
+Service_AT_Low_Sched_HDD,2,degC
+Service_AT_High_Sched_CDD,2,degC
+#
+# Heating season
+T_ref_Heating_Season,15,degC
+HDD_period,7,days
+#
+# Cooling season
+T_ref_Cooling_Season,23,degC
+CDD_period,7,days

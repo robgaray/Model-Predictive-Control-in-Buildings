@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function converts Air Change per Hour (ACH) ventilation
 # rates (RENventXX) into thermal ventilation resistances (RventXX)
 # used by the building simulation model. It also computes the

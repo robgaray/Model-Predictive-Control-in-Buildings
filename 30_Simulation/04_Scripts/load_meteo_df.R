@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Loads Meteo_df (weather input data: Text, SolarR) from disk and
 # validates it before it is used by assemble_main_df.R. See
 # 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E,
@@ -15,7 +16,10 @@
 #                                 Validation_Meteo_df.csv.
 # -------------------------------------------------------------
 # Outputs
-#   Meteo_df       : Data frame. Columns: time (POSIXct), Text, SolarR.
+#   Meteo_df       : Data frame, with the columns:
+#                      - time (POSIXct)
+#                      - Text
+#                      - SolarR
 #   meteo_step_sec : Numeric. Detected step (seconds) of Meteo_df$time.
 # -------------------------------------------------------------
 # Code outline
@@ -25,15 +29,19 @@
 #    resolution)
 # 4. Validate column ranges against Validation_Meteo_df.csv
 # -------------------------------------------------------------
-# Usage
+# Usage instructions
 # source(file.path("30_Simulation", "04_Scripts", "load_meteo_df.R"))
 # -------------------------------------------------------------
-# Where this script is used
+# Where this function/script is used
 # Sourced by assemble_main_df.R.
 # -------------------------------------------------------------
 # functions/scripts called
 #   validate_time_grid(), validate_dataframe_config()
 #   -- from 30_Simulation/03_Functions/
+# -------------------------------------------------------------
+# Usage instructions
+#   Not called: sourced by assemble_main_df.R while it builds
+#   Main_df out of the input series.
 # -------------------------------------------------------------
 
 {
@@ -49,7 +57,11 @@
   # validate_time_grid is called to check that Meteo_df$time is an
   # equispaced grid compatible with Main_df's own resolution, and to
   # return its detected step in seconds.
-  meteo_step_sec <- validate_time_grid(Meteo_df$time, "Meteo_df.rds")
+  meteo_step_sec <- validate_time_grid(
+    time                = Meteo_df$time,
+    file_name           = "Meteo_df.rds",
+    main_resolution_sec = parameters$computing$main_resolution_sec
+  )
 
   meteo_validation_config <- read.csv(
     paths$meteo_validation_file,

@@ -30,8 +30,12 @@
 # purchase, or buying back/unwinding a previous sale) is NEGATIVE. The
 # branch logic itself lives in split_market_operation(), which
 # resolves the same six branches into the four elementary market
-# operations (new buy, buy back, new sell, resell); this function
-# aggregates those four into the single signed number:
+# operations:
+#   - new buy
+#   - buy back
+#   - new sell
+#   - resell
+# This function aggregates those four into the single signed number:
 #   result = (val_sell_new + val_sell_back) - (val_buy_new + val_buy_back)
 # -------------------------------------------------------------
 # Inputs
@@ -65,7 +69,8 @@
 # integrate_market_process.R for Scheduling/Piloting), directly by
 # implement_control_step.R (execution-phase economic accounting), and
 # by compute_marginal_energy_cost() (energy reward term, via
-# reward_function.R).
+# reward_function.R). Also by compute_recovery_energy_cost(), which
+# values the rebuy of a recovery at the same differential prices.
 # -------------------------------------------------------------
 # functions/scripts called
 # split_market_operation()

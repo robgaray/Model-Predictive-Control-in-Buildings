@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Generic interval arithmetic: given a horizon [horizon_begin,
 # horizon_end] (numeric, seconds since epoch) and a list of forbidden
 # intervals (each a length-2 numeric vector c(lo, hi), in the same
@@ -29,6 +30,13 @@
 # Usage instructions
 # compute_available_segments(horizon_begin, horizon_end,
 #   list(c(lo1, hi1), c(lo2, hi2)))
+# -------------------------------------------------------------
+# Code outline
+# 1. Return nothing when the horizon is empty or inverted, and the
+#    whole horizon when nothing is forbidden.
+# 2. Clip every forbidden interval to the horizon and drop the ones
+#    that fall outside it.
+# 3. Merge what overlaps and return the gaps left between them.
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by generate_flexibility_events.R and try_flex_echo.R.

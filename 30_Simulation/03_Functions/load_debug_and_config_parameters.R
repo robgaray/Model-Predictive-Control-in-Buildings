@@ -4,9 +4,10 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # This function structures the already-parsed debug and
 # configuration parameters (as read and validated by
-# read_and_validate_parameter_csv() from 30_Debug_and_config.csv) into
+# read_and_validate_parameter_csv() from 16_Debug_and_config.csv) into
 # a named list. All values are coerced to numeric.
 # -------------------------------------------------------------
 # Inputs
@@ -17,15 +18,23 @@
 #                             period_subset   – period filter (0 = all periods, >0 = limit timesteps)
 #                             verbose         – verbosity flag (0 = silent, 1 = print progress)
 #                             parallel        – parallelization flag (1 = parallel, 0 = sequential)
+#                             parallel_workers – worker processes when parallel = 1
+#                                               (0 = all logical cores but one)
 #                             Price_emulation – price emulation flag (1 = enabled, 0 = disabled)
-#
+#                             random_seed     – random number generator seed
+#                                               (0 = do not fix the seed)
+# -------------------------------------------------------------
 # Outputs
 #   A named list with the following elements:
 #     month_subset    : Month filter index (numeric).
 #     period_subset   : Period filter index (numeric).
 #     verbose         : Verbosity flag converted to logical (TRUE/FALSE).
 #     parallel        : Parallelization flag (numeric, 1 or 0).
+#     parallel_workers: Worker processes of the optimizer when parallel
+#                       is 1 (numeric). 0 means all logical cores but one.
 #     Price_emulation : Price emulation flag (numeric, 1 or 0).
+#     random_seed     : Random number generator seed (numeric). 0 means the
+#                       seed is not fixed and the run uses system entropy.
 # -------------------------------------------------------------
 # Code outline
 # 1. Coerce all values to numeric
@@ -35,7 +44,7 @@
 # params <- load_debug_and_config_parameters(raw_values)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by load_30_debug_and_config.R.
+# Called by load_16_debug_and_config.R.
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)
@@ -50,7 +59,9 @@ load_debug_and_config_parameters <- function(values) {
     period_subset   = values$period_subset,
     verbose         = (values$verbose == 1),
     parallel        = values$parallel,
-    Price_emulation = values$Price_emulation
+    parallel_workers = values$parallel_workers,
+    Price_emulation = values$Price_emulation,
+    random_seed     = values$random_seed
   )
   rm(values)
   

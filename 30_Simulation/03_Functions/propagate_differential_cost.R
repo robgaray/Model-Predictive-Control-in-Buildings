@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Resolves the net cash flow of a single market/target-interval energy
 # transaction via calc_differential_cost(), then accumulates and
 # propagates it via propagate_unit_value() (see that function's header
@@ -18,12 +19,22 @@
 # see integrate_market_process.R.
 # -------------------------------------------------------------
 # Inputs
-# row_m, col_j, mkt_target, cost_df, Main_df, weight_col, target_col :
-#              Same meaning as in propagate_unit_value().
-# E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell :
-#              Numeric scalars, passed straight through to
-#              calc_differential_cost() (see that function's header
-#              for their meaning).
+# Same meaning as in propagate_unit_value():
+#   - row_m
+#   - col_j
+#   - mkt_target
+#   - cost_df
+#   - Main_df
+#   - weight_col
+#   - target_col
+# Numeric scalars, passed straight through to calc_differential_cost()
+# (see that function's header for their meaning):
+#   - E_orig
+#   - E_new
+#   - P_import_buy
+#   - P_import_sell
+#   - P_export_buy
+#   - P_export_sell
 # -------------------------------------------------------------
 # Outputs
 # Named list with:

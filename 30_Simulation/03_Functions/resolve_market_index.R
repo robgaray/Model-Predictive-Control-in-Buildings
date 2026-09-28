@@ -4,6 +4,7 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
+# Overall description
 # Converts a market timestamp to its index position in a
 # reference time vector.
 # -------------------------------------------------------------
@@ -19,8 +20,12 @@
 # Usage instructions
 # resolve_market_index(time_raw, column_name, row_index, time_vector)
 # -------------------------------------------------------------
+# Code outline
+# 1. Parse the timestamp, stopping if it is not readable.
+# 2. Locate it in the time vector, stopping if it is not there.
+# -------------------------------------------------------------
 # Where this function/script is used
-# Called by simulation.R only (no longer called from
+# Called by 14_simulation.R only (no longer called from
 # run_market_process()).
 # -------------------------------------------------------------
 # functions/scripts called
