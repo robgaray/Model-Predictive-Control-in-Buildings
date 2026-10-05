@@ -1,0 +1,13 @@
+# Run configuration of the standalone market script
+# -------------------------------------------------------------
+# The resolution of the market the script trades on, and how the
+# optimizer runs: in parallel or not, and with how many workers.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Market
+market_resolution,15,min
+#
+# Parallel execution of the genetic algorithm
+parallel,1,-(boolean 0/1)
+parallel_workers,0,-(count)

@@ -5,8 +5,8 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Builds the label of a parameter input as "name [unit]", as
-# 00_Base_Criteria.md asks for every parameter shown in a GUI.
+# Builds the label of a parameter input as "name [unit]", so that
+# every parameter the GUI shows carries its unit.
 # -------------------------------------------------------------
 # Inputs
 #   param_name       : Character. Name of the parameter.

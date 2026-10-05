@@ -1,0 +1,70 @@
+# reconstruct_flex_phases.R
+
+**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/reconstruct_flex_phases.R`
+
+## Function
+
+Rebuilds the phase of every row of a flexibility window from the committed energy that Main_df already stores, without any label of its own. The phase codes are:
+
+- 1 Commitment
+- 2 Neutral
+- 3 Recovery
+- 0 outside the window
+
+## Called by
+
+- [derive_flex_itineraries.R](derive_flex_itineraries.md)
+- [evaluate_control.R](evaluate_control.md)
+- [hand_over_window_tail.R](hand_over_window_tail.md)
+- [pre_horizon_window_tails.R](pre_horizon_window_tails.md)
+
+## What it calls, in order of appearance
+
+- Nothing: this piece calls no other piece of the project.
+
+## Input data
+
+- period_chunk : Data frame. Must carry time, MarketUTC and the committed-energy column of the leg being rebuilt.
+- leg          : Character. "down" or "up".
+- parameters   : Named list. parameters$control$neutral_phase_timespan and recovery_phase_timespan (h), commitment_phase_length_max (h), and parameters$computing$flex_energy_tol.
+
+## Output data
+
+- Integer vector, one entry per row of period_chunk: 1 inside a Commitment Phase, 2 inside a Neutral Phase, 3 inside a Recovery Phase, 0 outside any window.
+
+## Other notes from the file header
+
+### Why there is no label to read
+
+Because storing one would be storing the same fact twice. The commitment is already written, row by row, in Elec_flex_down_plan and Elec_flex_up_plan, and a label beside it could only ever agree with it or contradict it. With a single source there is nothing to reconcile. The Commitment Phase is the support of that column - reward_function() defines the commitment as the energy difference multiplied by (phase == 1), so it is zero everywhere else by construction - and the other two phases follow from it: they are neutral_phase_timespan and recovery_phase_timespan hours long, both read from 08_Flexibility_Event_Configuration.csv.
+
+### Why it works on market slots and not on rows
+
+A Commitment Phase is assembled from whole market slots, so that is the grain the reconstruction has to use. Read row by row it would break on a case that is not rare at all: a row INSIDE the commitment whose committed energy is exactly zero, which happens whenever the flexible itinerary consumes the same as the plan at that instant - because the machine was already off, for example. Row by row that row would split one window into two and drop a Neutral Phase in the middle of a commitment. Slot by slot the slot stays in the phase as long as any of its rows carries something.
+
+### Code outline
+
+1. Which market slots carry a commitment
+2. Group them into windows, and lay the three phases on each
+
+### Usage instructions
+
+```r
+phase <- reconstruct_flex_phases(period_chunk, "up", parameters)
+```
+
+### Exceptions and special cases
+
+- A stretch of committed slots longer than commitment_phase_length_max cannot be one Commitment Phase, so it is cut into consecutive windows of at most that length. It should not arise once windows are written whole, and cutting it is the honest reading if it does.
+- The two legs are rebuilt independently and may overlap each other. That is intended: they are two different itineraries living in two different sets of columns.
+- A window whose Neutral or Recovery Phase runs past the end of the chunk simply has it truncated. What is outside the chunk is not this chunk's business.
+
+## Diagram
+
+![Block diagram of reconstruct_flex_phases.R](reconstruct_flex_phases.jpg)
+
+Also available as [reconstruct_flex_phases.svg](reconstruct_flex_phases.svg).
+
+---
+
+[Back to the code structure index](../Code_Structure.md)

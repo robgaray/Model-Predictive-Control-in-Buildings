@@ -34,7 +34,7 @@ energy_price_file,06_Energy_price_parameters.csv,-
 flexibility_price_emulation_file,07_Flexibility_price_emulation_parameters.csv,-
 flexibility_events_file,08_Flexibility_Event_Configuration.csv,-
 reward_file,09_Reward_parameters.csv,-
-reward_corrections_file,10_Reward_parameter_corrections.csv,-
+operational_temperature_corrections_file,10_Operational_temperature_corrections.csv,-
 model_file,11_Model_parameters.csv,-
 temperature_setpoints_file,12_Temperature_Setpoints.csv,-
 setpoint_mode_file,13_Modes_setpoints.csv,-

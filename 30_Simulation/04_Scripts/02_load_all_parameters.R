@@ -30,6 +30,7 @@
 #                  - market_config_scheduling
 #                  - market_config_piloting
 #                  - reward
+#                  - operational_temperature_corrections
 #                  - forecast
 #                  - energy_price
 #                  - flexibility_price_emulation
@@ -74,7 +75,7 @@
 #   load_07_flexibility_price_emulation.R,
 #   load_08_flexibility_event_configuration.R,
 #   load_09_reward_parameters.R,
-#   load_10_reward_parameter_corrections.R,
+#   load_10_operational_temperature_corrections.R,
 #   load_11_model_parameters.R, load_12_temperature_setpoints.R,
 #   load_13_modes_setpoints.R, load_14_use_patterns.R,
 #   load_15_forecast_parameters.R
@@ -227,7 +228,7 @@
 #   14. Flexibility price emulation
 #   15. Flexibility event configuration
 #   16. Reward parameters
-#   17. Reward parameter corrections
+#   17. Operational temperature corrections
 #   18. Model parameters
 #   19. Temperature setpoints
 #   20. Modes setpoints
@@ -304,12 +305,13 @@
   source(file.path("30_Simulation", "04_Scripts", "load_09_reward_parameters.R"))
 
   # -------------------------------------------------------------
-  # 17. Reward parameter corrections
+  # 17. Operational temperature corrections
   # -------------------------------------------------------------
-  # load_10_reward_parameter_corrections.R is sourced to add the
-  # corrections of the reference temperature curves, from
-  # 10_Reward_parameter_corrections.csv, to parameters$reward.
-  source(file.path("30_Simulation", "04_Scripts", "load_10_reward_parameter_corrections.R"))
+  # load_10_operational_temperature_corrections.R is sourced to load
+  # the corrections of the reference temperature curves, from
+  # 10_Operational_temperature_corrections.csv, into
+  # parameters$operational_temperature_corrections.
+  source(file.path("30_Simulation", "04_Scripts", "load_10_operational_temperature_corrections.R"))
 
   # -------------------------------------------------------------
   # 18. Model parameters

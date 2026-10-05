@@ -23,13 +23,14 @@
 # be committed at that start row.
 # -------------------------------------------------------------
 # The dominance criterion
-# The heat of each system is accumulated (not the electricity: what
-# matters is the thermal service the building is asking for, not how
-# efficiently it is produced) over two horizons, one medium-term and
-# one short-term:
+# The planned electricity of each system is accumulated over two
+# horizons, one medium-term and one short-term. Electricity, and not
+# heat, is the quantity the market trades and the one the technical
+# feasibility rule (flex_window_is_feasible()) measures, so both rules
+# judge the two systems on the same footing:
 #
-#   S_heat(H) = sum of Q_heat_plan over the rows in [t0, t0 + H)
-#   S_cool(H) = sum of Q_cool_plan over the same rows
+#   S_heat(H) = sum of Elec_heat_plan over the rows in [t0, t0 + H)
+#   S_cool(H) = sum of Elec_cool_plan over the same rows
 #
 # The dominance index is measured over the LARGER of the two, in
 # absolute value:
@@ -53,8 +54,8 @@
 # -------------------------------------------------------------
 # Inputs
 #   period_chunk : Data frame. Planning-period data. Must contain the
-#                  columns time (POSIXct), Q_heat_plan and Q_cool_plan
-#                  (Numeric, kWh per timestep, as produced by
+#                  columns time (POSIXct), Elec_heat_plan and
+#                  Elec_cool_plan (Numeric, kWh per timestep, as produced by
 #                  period_calculation() with calculation_context =
 #                  "plan").
 #   i_flex       : Integer scalar. Row of period_chunk at which the
@@ -75,7 +76,7 @@
 # -------------------------------------------------------------
 # Code outline
 # 1. Validate inputs
-# 2. Accumulate the heat of each system over the two horizons
+# 2. Accumulate the planned electricity of each system over the two horizons
 # 3. Resolve the dominant system of each horizon
 # 4. Fix the system only if both horizons agree
 # -------------------------------------------------------------
@@ -127,7 +128,7 @@ resolve_flex_up_system <- function(period_chunk, i_flex, parameters) {
     stopifnot(is.numeric(i_flex), length(i_flex) == 1,
               i_flex >= 1, i_flex <= nrow(period_chunk))
 
-    required_cols <- c("time", "Q_heat_plan", "Q_cool_plan")
+    required_cols <- c("time", "Elec_heat_plan", "Elec_cool_plan")
     missing_cols  <- required_cols[!required_cols %in% names(period_chunk)]
     if (length(missing_cols) > 0) {
       stop("resolve_flex_up_system: period_chunk is missing required columns: ",
@@ -152,11 +153,11 @@ resolve_flex_up_system <- function(period_chunk, i_flex, parameters) {
     threshold <- threshold_pct / 100
   }
 
-  # 2. Accumulate the heat of each system over a horizon
+  # 2. Accumulate the planned electricity of each system over a horizon
   # -------------------------------------------------------------
   # The window is half-open: it starts at the candidate's own row and
-  # stops before t0 + H. Q_* columns hold energy per timestep (kWh),
-  # so a plain sum is the accumulated thermal service of the horizon.
+  # stops before t0 + H. Elec_* columns hold energy per timestep (kWh),
+  # so a plain sum is the electricity planned over the horizon.
   # -------------------------------------------------------------
   {
     time_at_i_flex <- period_chunk$time[i_flex]
@@ -170,8 +171,8 @@ resolve_flex_up_system <- function(period_chunk, i_flex, parameters) {
         return("none")
       }
 
-      S_heat <- sum(period_chunk$Q_heat_plan[window_rows])
-      S_cool <- sum(period_chunk$Q_cool_plan[window_rows])
+      S_heat <- sum(period_chunk$Elec_heat_plan[window_rows])
+      S_cool <- sum(period_chunk$Elec_cool_plan[window_rows])
 
       # 3. Resolve the dominant system of this horizon
       # -----------------------------------------------------------

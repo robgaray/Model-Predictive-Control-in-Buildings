@@ -96,7 +96,13 @@ validate_parameter_config <- function(values, file_name, validation_config) {
           if (output == "Error") stop(msg) else warning(msg)
         }
         if (!is.na(options_str) && nzchar(options_str)) {
-          range_vals <- as.numeric(trimws(strsplit(options_str, ",")[[1]]))
+          # An empty side of the range ("0," or ",5") means no bound on that
+          # side. strsplit() drops a trailing empty field, so the two sides are
+          # completed before they are read.
+          range_vals <- suppressWarnings(as.numeric(trimws(
+            c(strsplit(options_str, ",")[[1]], "")[1:2]
+          )))
+          range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
           if (length(range_vals) == 2 &&
               (value_num < range_vals[1] || value_num > range_vals[2])) {
             msg <- paste0("Parameter '", param_name, "' = ", value_num,
@@ -114,7 +120,13 @@ validate_parameter_config <- function(values, file_name, validation_config) {
                       file_name, ". Got: '", value_char, "'")
         if (output == "Error") stop(msg) else warning(msg)
       } else if (!is.na(options_str) && nzchar(options_str)) {
-        range_vals <- as.numeric(trimws(strsplit(options_str, ",")[[1]]))
+        # An empty side of the range ("0," or ",5") means no bound on that
+        # side. strsplit() drops a trailing empty field, so the two sides are
+        # completed before they are read.
+        range_vals <- suppressWarnings(as.numeric(trimws(
+          c(strsplit(options_str, ",")[[1]], "")[1:2]
+        )))
+        range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
         if (length(range_vals) == 2 &&
             (value_num < range_vals[1] || value_num > range_vals[2])) {
           msg <- paste0("Parameter '", param_name, "' = ", value_num,

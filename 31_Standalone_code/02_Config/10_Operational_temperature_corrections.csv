@@ -1,0 +1,15 @@
+# Operational temperature corrections
+# -------------------------------------------------------------
+# The parameters that shape the reference temperature curves the
+# reward compares against: how far ahead of and after occupancy the
+# service band applies, and how the band is corrected by season.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Anticipation of the service period
+Service_Anticipation_Begin,3,h
+Service_Anticipation_End,3,h
+#
+# Correction of the comfort band by season
+Service_AT_Low_Sched_HDD,2,degC
+Service_AT_High_Sched_CDD,2,degC

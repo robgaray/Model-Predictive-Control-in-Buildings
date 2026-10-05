@@ -15,9 +15,7 @@
 #   - Meteo_transformations_df
 # on a common master grid, then assembles them into a single
 # Main_df - exactly the interface the rest of the
-# codebase expects. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md for the
-# full rationale (Partes A-G).
+# codebase expects.
 # -------------------------------------------------------------
 # Inputs
 #   paths      : List, set by 01_initialization.R. Must contain:

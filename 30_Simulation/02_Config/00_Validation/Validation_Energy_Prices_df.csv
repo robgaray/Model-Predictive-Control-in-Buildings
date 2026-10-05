@@ -4,8 +4,7 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Range/type validation for the columns of Energy_Prices_df, applied by
-# load_energy_prices_df.R (protection 5, see
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E).
+# load_energy_prices_df.R (step 4 of its code outline).
 # Structure: same convention as Parameter_config.csv
 #   file_name      : name of the dataframe file
 #   parameter_name : name of the column to validate

@@ -4,7 +4,7 @@
 parameter,value,unit
 weather_forecast_type,accurate,text (accurate/inaccurate)
 weather_forecast_n_days_back,7,days
-weather_forecast_weight_history,0.2,-
+weather_forecast_weight_history,0.2,-(per day of horizon)
 price_forecast_type,inaccurate,text (accurate/inaccurate)
 price_forecast_n_days_back,7,days
 price_forecast_weight_history,0.3,-(per day of horizon)

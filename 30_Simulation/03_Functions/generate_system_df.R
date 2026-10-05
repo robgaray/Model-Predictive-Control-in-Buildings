@@ -14,8 +14,7 @@
 # Variables with scenario == "yes" are expanded into 4 columns
 # (<variable>_exec, <variable>_plan, <variable>_plan_flex_down,
 # <variable>_plan_flex_up); variables
-# with scenario == "no" are kept as a single column, <variable>. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part C.
+# with scenario == "no" are kept as a single column, <variable>.
 # -------------------------------------------------------------
 # Inputs
 #   registry_path : Character. Path to a Simulation_Variables_<name>.txt
@@ -52,8 +51,8 @@
 #   - If scenario contains a value other than "yes"/"no", stop().
 #   - Ti and Te are not special-cased here: their row-1 initial_value is
 #     overwritten later by parameters$model$Ti_0/Te_0 in 14_simulation.R
-#     (see Part G of the plan document above); this function only
-#     applies the generic registry initial_value.
+#     (Model initialization block); this function only applies the
+#     generic registry initial_value.
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)

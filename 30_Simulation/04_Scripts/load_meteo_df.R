@@ -6,9 +6,7 @@
 # -------------------------------------------------------------
 # Overall description
 # Loads Meteo_df (weather input data: Text, SolarR) from disk and
-# validates it before it is used by assemble_main_df.R. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E,
-# for the rationale of each protection.
+# validates it before it is used by assemble_main_df.R.
 # -------------------------------------------------------------
 # Inputs
 #   paths$meteo_file            : Character. Path to Meteo_df.rds.

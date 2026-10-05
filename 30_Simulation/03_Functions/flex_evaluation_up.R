@@ -113,12 +113,17 @@
 #   - If resolve_flex_up_system() returns "none", period_chunk is
 #     returned without any changes: there is no system the building can
 #     commit to, so there is no upward flexibility to offer.
-#   - If the time distance from i_flex to the last row of period_chunk
-#     is less than commitment_phase_length + neutral_phase_timespan
-#     + recovery_phase_timespan (hours), period_chunk is returned
-#     without any changes.
-#   - If the Commitment Phase does not increase the energy of the selected
-#     system, period_chunk is returned without any changes. That happens
+#   - A new window (not restated) whose Commitment, Neutral and Recovery
+#     Phases do not fit before i_end_control is refused ("no_room").
+#   - A restated window (simulation_control$flexibility$restating) is
+#     drawn wherever it falls. Only the rows of its Commitment Phase in
+#     the guard zone take simulation_control$flexibility$flexibility and
+#     the commitment margin; the other rows take
+#     simulation_control$flexibility$flexibility_projected and no margin
+#     (see derive_flex_itineraries()). It is not checked for
+#     convergence at the close of the control horizon.
+#   - If the Commitment Phase of a new window does not increase the
+#     energy of the selected system, period_chunk is returned without any changes. That happens
 #     when the plan was already running at maximum power throughout the
 #     event, and it is not an error: there is simply nothing left to
 #     offer from that start row.
@@ -159,8 +164,6 @@
 # functions/scripts called
 #   apply_commitment_margin() - keeps the electrical headroom of every
 #                          market slot of the window
-#   market_can_trade_flex() - whether this market may trade flexibility
-#                          to keep its itineraries inside the margin
 #   build_system_lock_caps() - per-step power caps of the Recovery Phase
 #   check_recovery_convergence() - convergence test at the close of the
 #                          control horizon
@@ -220,19 +223,28 @@ flex_evaluation_up <- function(period_chunk, parameters, simulation_control) {
 
   # A window that is being RE-STATED is not a new sale: the energy was
   # already sold by an earlier market and what is left to do is to carry
-  # it forward. Its tail is meant to fall beyond this market's control
-  # horizon, because the next market picks it up. Demanding room for the
-  # whole window would refuse every standing commitment placed near the
-  # close of the horizon and destroy it - see
-  # 01_Agent_Comments/20260920b_Diagnostico_Compromiso_Vigente.md. So a
-  # re-statement only has to fit its Commitment Phase, which is the part
-  # that carries the energy; a new sale still has to fit whole.
-  restating <- isTRUE(simulation_control$flexibility$restating)
-  room_needed_h <- if (restating) commitment_phase_length else total_window_h
+  # it forward, wherever it falls. Only a new sale has to fit whole
+  # inside the control horizon. The restatement mode says which rows of
+  # a restated Commitment Phase are in the guard zone (see
+  # derive_flex_itineraries()): with "guard", the rows up to
+  # i_end_control; with "projection", none. The rows out of the guard
+  # zone take their own fraction, flexibility_projected.
+  restating        <- isTRUE(simulation_control$flexibility$restating)
+  restatement_mode <- simulation_control$flexibility$restatement_mode
+  if (is.null(restatement_mode)) {
+    restatement_mode <- "guard"
+  }
+  flexibility_projected <- simulation_control$flexibility$flexibility_projected
+  if (is.null(flexibility_projected)) {
+    flexibility_projected <- flexibility
+  }
 
-  time_distance_h <- as.numeric(difftime(time_at_end, time_at_i_flex, units = "hours"))
-  if (time_distance_h < room_needed_h) {
-    return(flex_refused(period_chunk, "no_room"))
+  if (!restating) {
+    time_distance_h <- as.numeric(difftime(time_at_end, time_at_i_flex, units = "hours"))
+    if (time_distance_h < total_window_h) {
+      return(flex_refused(period_chunk, "no_room"))
+    }
+    rm(time_distance_h)
   }
 
   # Generate period_chunk_subset: rows from i_flex to i_flex + total_window_h hours
@@ -280,6 +292,17 @@ flex_evaluation_up <- function(period_chunk, parameters, simulation_control) {
     delta_t_h_subset <- as.numeric(diff(as.numeric(all_times_with_prev))) / 3600
     delta_t_h_flex   <- delta_t_h_subset[flex_rows_subset]
 
+    # The rows of the Commitment Phase in the guard zone, and the
+    # fraction of every row. Every row of a new sale is in it.
+    guard_row <- if (!restating) {
+      rep(TRUE, length(flex_rows_subset))
+    } else if (restatement_mode == "guard") {
+      subset_rows[flex_rows_subset] <= i_end_control
+    } else {
+      rep(FALSE, length(flex_rows_subset))
+    }
+    fraction_row <- ifelse(guard_row, flexibility, flexibility_projected)
+
     if (system_up == "heat") {
       P_max <- if (identical(parameters$control$flex_up_max_power_heating, "Q_hp_heat_1")) {
         parameters$model$Q_hp_heat_1
@@ -302,48 +325,41 @@ flex_evaluation_up <- function(period_chunk, parameters, simulation_control) {
     Q_used_flex_up <- pmin(
       Q_used_max,
       pmax(
-        Q_used_plan + flexibility * (Q_used_max - Q_used_plan),
+        Q_used_plan + fraction_row * (Q_used_max - Q_used_plan),
         Q_used_plan + minimum_flexibility * delta_t_h_flex
       )
     )
 
     # apply_commitment_margin is called to pull the itinerary back from
-    # the system's limit, so that every market slot of the window keeps
-    # flexibility_commitment_margin of electricity unused and a later
-    # re-optimization still has room to move the operation without
-    # breaking what this window sells.
-    # The margin is skipped in one case only: a window being RE-STATED
-    # by a market whose aim is operation alone. Such a market has no
-    # flexibility of its own to move, so demanding the headroom from it
-    # would destroy energy already sold instead of unwinding it. It is
-    # then allowed to sit closer to the limit. Every other aim, energy
-    # included, may trade flexibility to keep its itineraries inside
-    # the margin: see market_can_trade_flex().
-    can_retrade_flex <- market_can_trade_flex(parameters$control$optimization_aim)
-    margin_applies <- !isTRUE(simulation_control$flexibility$restating) ||
-      can_retrade_flex
-
-    if (margin_applies) {
-      Q_heat_flex <- if (system_up == "heat") Q_used_flex_up else rep(0, length(flex_rows_subset))
-      Q_cool_flex <- if (system_up == "heat") rep(0, length(flex_rows_subset)) else Q_used_flex_up
-      Q_heat_ceiling <- if (system_up == "heat") Q_used_max else rep(0, length(flex_rows_subset))
-      Q_cool_ceiling <- if (system_up == "heat") rep(0, length(flex_rows_subset)) else Q_used_max
+    # the system's limit on the rows of the guard zone, so that every
+    # market slot of the window keeps flexibility_commitment_margin of
+    # electricity unused and a later re-optimization still has room to
+    # move the operation without breaking what this window sells. The
+    # other rows of a restated window are drawn as the plan allows,
+    # without the margin.
+    if (any(guard_row)) {
+      n_guard        <- sum(guard_row)
+      margin_rows    <- flex_rows_subset[guard_row]
+      Q_heat_flex    <- if (system_up == "heat") Q_used_flex_up[guard_row] else rep(0, n_guard)
+      Q_cool_flex    <- if (system_up == "heat") rep(0, n_guard) else Q_used_flex_up[guard_row]
+      Q_heat_ceiling <- if (system_up == "heat") Q_used_max[guard_row] else rep(0, n_guard)
+      Q_cool_ceiling <- if (system_up == "heat") rep(0, n_guard) else Q_used_max[guard_row]
 
       margined <- apply_commitment_margin(
         Q_heat_flex    = Q_heat_flex,
-        Q_heat_plan    = period_chunk_subset$Q_heat_plan[flex_rows_subset],
+        Q_heat_plan    = period_chunk_subset$Q_heat_plan[margin_rows],
         Q_cool_flex    = Q_cool_flex,
-        Q_cool_plan    = period_chunk_subset$Q_cool_plan[flex_rows_subset],
+        Q_cool_plan    = period_chunk_subset$Q_cool_plan[margin_rows],
         Q_heat_ceiling = Q_heat_ceiling,
         Q_cool_ceiling = Q_cool_ceiling,
-        market_slot    = period_chunk_subset$MarketUTC[flex_rows_subset],
-        Text           = period_chunk_subset$Text[flex_rows_subset],
-        delta_t_h      = delta_t_h_flex,
+        market_slot    = period_chunk_subset$MarketUTC[margin_rows],
+        Text           = period_chunk_subset$Text[margin_rows],
+        delta_t_h      = delta_t_h_flex[guard_row],
         leg            = "up",
         parameters     = parameters
       )
 
-      Q_used_flex_up <- if (system_up == "heat") margined$Q_heat else margined$Q_cool
+      Q_used_flex_up[guard_row] <- if (system_up == "heat") margined$Q_heat else margined$Q_cool
 
       # The other system stays off, as it does without the margin. The
       # scaling walks the itinerary back towards the plan and would
@@ -353,15 +369,18 @@ flex_evaluation_up <- function(period_chunk, parameters, simulation_control) {
       # electricity of the itinerary, so the headroom the bisection just
       # secured is kept and, where the plan ran the other system, a
       # little more.
-      rm(Q_heat_flex, Q_cool_flex, Q_heat_ceiling, Q_cool_ceiling, margined)
+      rm(Q_heat_flex, Q_cool_flex, Q_heat_ceiling, Q_cool_ceiling, margined,
+         margin_rows, n_guard)
     }
-    rm(can_retrade_flex, margin_applies)
+    rm(guard_row, fraction_row)
 
-    # A window that does not increase the energy of the event is not an
-    # offer of upward flexibility. It happens when the plan was already
-    # running at maximum power throughout the event, and now also when
-    # the margin left no room to raise anything.
-    if (sum(Q_used_flex_up - Q_used_plan) <= 0) {
+    # A new window that does not increase the energy of the event is
+    # not an offer of upward flexibility. It happens when the plan was
+    # already running at maximum power throughout the event, or when
+    # the margin left no room to raise anything. A restated window is
+    # still drawn: what it commits is then what the new plan allows,
+    # and the caller decides what to do with the shortfall.
+    if (!restating && sum(Q_used_flex_up - Q_used_plan) <= 0) {
       return(period_chunk)
     }
 
@@ -473,10 +492,12 @@ flex_evaluation_up <- function(period_chunk, parameters, simulation_control) {
   # looks at can be outside the window: see
   # check_recovery_convergence() for why it is measured there and not at
   # the end of the Recovery Phase.
-  if (!check_recovery_convergence(period_chunk,
-                                  "Elec_total_plan_flex_up",
-                                  i_end_control,
-                                  parameters)) {
+  # A restated window is not checked: its tail may run past the
+  # control horizon, and the next market rebuilds it.
+  if (!restating && !check_recovery_convergence(period_chunk,
+                                               "Elec_total_plan_flex_up",
+                                               i_end_control,
+                                               parameters)) {
     return(flex_refused(period_chunk_before, "no_convergence"))
   }
 

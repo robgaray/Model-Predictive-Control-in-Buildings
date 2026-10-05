@@ -41,7 +41,7 @@
 #   - load_07_flexibility_price_emulation.R
 #   - load_08_flexibility_event_configuration.R
 #   - load_09_reward_parameters.R
-#   - load_10_reward_parameter_corrections.R
+#   - load_10_operational_temperature_corrections.R
 #   - load_11_model_parameters.R
 #   - load_12_temperature_setpoints.R
 #   - load_15_forecast_parameters.R

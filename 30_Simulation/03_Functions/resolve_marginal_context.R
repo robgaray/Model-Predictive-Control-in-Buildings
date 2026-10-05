@@ -104,8 +104,7 @@
 #                              interval, ready to pass into
 #                              compute_marginal_distribution_cost() for
 #                              the base-energy term only (not used for
-#                              flexibility) - see
-#                              01_Agent_Comments/20260722c_Plan_Costes_Distribucion_Recompensa.md.
+#                              flexibility).
 #   p_up_buy_by_market, p_up_sell_by_market,
 #   p_down_buy_by_market, p_down_sell_by_market :
 #                              Numeric vectors. Effective up/down

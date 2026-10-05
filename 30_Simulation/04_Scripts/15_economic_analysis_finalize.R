@@ -26,7 +26,7 @@
 # operation. A deviation that merely shifts energy from one timestep
 # to another inside the same slot leaves the slot's position almost
 # unchanged and must not be reported as a purchase plus a matching
-# sale - see 00_Agent_Input/20260820_Correcciones.md.
+# sale.
 # implement_control_step.R still prices the same deviation per
 # timestep into Elec_deviations_net_cost_h; that column is a
 # per-timestep cost signal, not a market operation, so the two are
@@ -109,9 +109,8 @@
 # operations. Doing it the other way round (one operation per 5-minute
 # row, summed afterwards) invents a buy and a matching sell whenever
 # the deviation merely moves energy between two timesteps of the same
-# slot, even though the slot's net position barely changed - see
-# 00_Agent_Input/20260820_Correcciones.md. Only the slot's net
-# adjustment is a real market operation.
+# slot, even though the slot's net position barely changed. Only the
+# slot's net adjustment is a real market operation.
 # -------------------------------------------------------------
 {
   # split_market_operation is called on the move from the last

@@ -6,7 +6,7 @@
 # -------------------------------------------------------------
 # Overall description
 # Generates Main_df$Overall_Climate on a daily basis from
-# Main_df$Text and parameters$reward.
+# Main_df$Text and parameters$operational_temperature_corrections.
 # Sourced by Main.R before simulation.
 # A day is tagged "Heating" only when every one of the preceding
 # HDD_period individual 24h periods has its own mean Text below
@@ -26,8 +26,9 @@
 # -------------------------------------------------------------
 # Inputs
 #   Main_df, with its time and Text columns.
-#   parameters$reward : the season reference temperatures and the
-#     number of trailing periods each verdict is taken over.
+#   parameters$operational_temperature_corrections : the season
+#     reference temperatures and the number of trailing periods each
+#     verdict is taken over.
 # -------------------------------------------------------------
 # Outputs
 #   Main_df$Overall_Climate, one verdict per row: Heating, Cooling
@@ -92,10 +93,14 @@
   }
 
   heating_ok <- all_periods_satisfy(
-    parameters$reward$HDD_period, parameters$reward$T_ref_Heating_Season, `<`
+    parameters$operational_temperature_corrections$HDD_period,
+    parameters$operational_temperature_corrections$T_ref_Heating_Season,
+    `<`
   )
   cooling_ok <- all_periods_satisfy(
-    parameters$reward$CDD_period, parameters$reward$T_ref_Cooling_Season, `>`
+    parameters$operational_temperature_corrections$CDD_period,
+    parameters$operational_temperature_corrections$T_ref_Cooling_Season,
+    `>`
   )
 
   climate_tags <- ifelse(

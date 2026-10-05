@@ -1,0 +1,22 @@
+# Computing parameters of the standalone market script
+# -------------------------------------------------------------
+# Numerical constants that define how the simulation itself is
+# computed: the resolution of its internal time grid and the
+# numerical tolerance it applies. They are not properties of the
+# building, of the market, or of the control strategy.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Internal time grid
+main_resolution_sec,300,s
+#
+# Numerical tolerances
+flex_energy_tol,1e-9,kWh
+#
+# Weight of the technical-feasibility term of the reward
+# Penalty, in reward units, for each flexibility leg whose window is
+# technically infeasible. It is not a preference of the reward: it
+# only has to dominate any reachable reward (of the order of 1e3) so
+# that an infeasible candidate never pays. It is finite on purpose, so
+# that the fitness scaling of the genetic algorithm never meets -Inf.
+flex_infeasible_penalty,1e9,-

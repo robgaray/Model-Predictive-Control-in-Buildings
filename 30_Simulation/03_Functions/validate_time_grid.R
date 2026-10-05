@@ -11,8 +11,7 @@
 # The step itself is NOT assumed
 # to be any particular value (e.g. 1h or 15') - that is only the
 # resolution of the current dataset, not a requirement; any equispaced
-# step that is a multiple of main_resolution_sec is accepted (see
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E).
+# step that is a multiple of main_resolution_sec is accepted.
 # -------------------------------------------------------------
 # Inputs
 #   time               : POSIXct vector. Timestamps to validate.

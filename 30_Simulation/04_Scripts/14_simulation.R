@@ -22,8 +22,7 @@
 # usual absolute update of the *_plan/*_plan_flex_down columns of Main_df;
 # then as the net cash flow of the explicit flexibility service (both
 # down and up legs, value_flex_operation() - registered for both
-# Scheduling and Piloting, see finding 3 of
-# 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md) and
+# Scheduling and Piloting) and
 # of the base energy commitment (calc_differential_cost(), the same
 # track for Scheduling and Piloting), each accumulated into
 # its own market_commitments cost matrix and propagated unit-value-per-
@@ -33,11 +32,9 @@
 # (value_flex_operation()/split_market_operation()) and summed, on the
 # market's own row, into Main_df$Elec_flex_sell_revenue_market/
 # Elec_flex_purchase_cost_market and Elec_sell_revenue_market/
-# Elec_purchase_cost_market - see
-# 01_Agent_Comments/20260725_Plan_Reporte_Costes_Mercados_Main_df.md.
+# Elec_purchase_cost_market.
 # Every one of these signals follows the same sign convention: income
-# positive, expense negative - see
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+# positive, expense negative.
 # -------------------------------------------------------------
 # Inputs
 # Main_df : Data frame. The main simulation data frame.
@@ -101,8 +98,7 @@
 #        differential cash flow of the explicit flexibility service
 #        and of the base energy commitment
 #    4.3 Execution process (always): implement_control_step() also
-#        fixes Elec_total_no_flex for the executed rows (see finding 4
-#        of 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md)
+#        fixes Elec_total_no_flex for the executed rows
 #    4.4 Track execution progress
 # -------------------------------------------------------------
 # Usage instructions
@@ -170,8 +166,7 @@
   # object instead of editing it, so a full year (105 120 rows by
   # ~120 columns) is duplicated on each write just to change two
   # rows. setDT() converts in place and lets the loop use
-  # data.table::set(), which writes into the existing columns - see
-  # finding 2 of 01_Agent_Comments/20260820_Revision_Global_Codigo.md.
+  # data.table::set(), which writes into the existing columns.
   # Only Main_df is converted. Every subset taken from it inside the
   # loop is turned back into a plain data frame (see the "2. Subset"
   # blocks), so period_chunk and everything downstream of it - the
@@ -232,7 +227,6 @@
   simulation_control$indexes_global <- list(
     n_steps          = nrow(Main_df),
     i0               = 0,
-    i1               = 0,
     i_begin_horizon  = 0,
     i_end_horizon    = 0,
     i_end_control    = 0,
@@ -245,7 +239,6 @@
   simulation_control$indexes_local <- list(
     n_steps          = nrow(Main_df),
     i0               = 0,
-    i1               = 0,
     i_begin_horizon  = 0,
     idx_period       = 0,
     i_end_horizon    = 0,
@@ -377,7 +370,6 @@
               time_vector  = Main_df$time
             )
             
-            simulation_control$indexes_global$i1          <- simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_period  <- simulation_control$indexes_global$i0:simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_horizon <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_ctrl    <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_control
@@ -388,7 +380,6 @@
           # Adapt to local indexes
           {
             simulation_control$indexes_local$i0              <- 1
-            simulation_control$indexes_local$i1              <- simulation_control$indexes_global$i1              - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_begin_horizon <- simulation_control$indexes_global$i_begin_horizon - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_end_horizon   <- simulation_control$indexes_global$i_end_horizon   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_end_control   <- simulation_control$indexes_global$i_end_control   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
@@ -550,7 +541,6 @@
               time_vector  = Main_df$time
             )
             
-            simulation_control$indexes_global$i1          <- simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_period  <- simulation_control$indexes_global$i0:simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_horizon <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_horizon
             simulation_control$indexes_global$idx_ctrl    <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_control
@@ -561,7 +551,6 @@
           # Adapt to local indexes
           {
             simulation_control$indexes_local$i0              <- 1
-            simulation_control$indexes_local$i1              <- simulation_control$indexes_global$i1              - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_begin_horizon <- simulation_control$indexes_global$i_begin_horizon - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_end_horizon   <- simulation_control$indexes_global$i_end_horizon   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
             simulation_control$indexes_local$i_end_control   <- simulation_control$indexes_global$i_end_control   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
@@ -684,9 +673,8 @@
         {
           simulation_control$indexes_global$i0              <- CONT_003
           simulation_control$indexes_global$i_begin_horizon <-simulation_control$indexes_global$i0
-          simulation_control$indexes_global$i1              <- min(CONT_003 + 1L, simulation_control$indexes_global$n_steps)
-          simulation_control$indexes_global$i_end_horizon   <- simulation_control$indexes_global$i1
-          simulation_control$indexes_global$i_end_control   <- simulation_control$indexes_global$i1
+          simulation_control$indexes_global$i_end_horizon   <- min(CONT_003 + 1L, simulation_control$indexes_global$n_steps)
+          simulation_control$indexes_global$i_end_control   <- simulation_control$indexes_global$i_end_horizon
           simulation_control$indexes_global$idx_period      <- simulation_control$indexes_global$i0:simulation_control$indexes_global$i_end_horizon
           simulation_control$indexes_global$idx_horizon     <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_horizon
           simulation_control$indexes_global$idx_ctrl        <- simulation_control$indexes_global$i_begin_horizon:simulation_control$indexes_global$i_end_control
@@ -696,7 +684,6 @@
         # Adapt to local indexes
         {
           simulation_control$indexes_local$i0              <- 1
-          simulation_control$indexes_local$i1              <- simulation_control$indexes_global$i1              - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
           simulation_control$indexes_local$i_begin_horizon <- simulation_control$indexes_global$i_begin_horizon - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
           simulation_control$indexes_local$i_end_horizon   <- simulation_control$indexes_global$i_end_horizon   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
           simulation_control$indexes_local$i_end_control   <- simulation_control$indexes_global$i_end_control   - simulation_control$indexes_global$i0 + simulation_control$indexes_local$i0
@@ -709,12 +696,12 @@
 
       # 1-4. Run and integrate the execution step
       # -----------------------------------------------------------
-      # Skipped when i0 == i1 (last simulation row): there is no next
+      # Skipped when i0 == i_end_horizon (last simulation row): there is no next
       # row to pair with, so idx_period would resolve to a single
       # row and there is nothing to execute (that row already
-      # received its values as the i1 endpoint of the previous step).
+      # received its values as the i_end_horizon endpoint of the previous step).
       # -----------------------------------------------------------
-      if (simulation_control$indexes_global$i0 != simulation_control$indexes_global$i1) {
+      if (simulation_control$indexes_global$i0 != simulation_control$indexes_global$i_end_horizon) {
 
         # 1. Forecast context
         # Not needed, we just use real context

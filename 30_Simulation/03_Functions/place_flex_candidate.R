@@ -6,9 +6,8 @@
 # -------------------------------------------------------------
 # Overall description
 # Draws one flexibility event candidate (start + duration), both
-# discretized to the market_resolution grid (see
-# 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md, Parte
-# B.0): duration is an integer number of slots (>= 1, up to
+# discretized to the market_resolution grid: duration is an
+# integer number of slots (>= 1, up to
 # max_duration_hours/slot), and the start is a slot-aligned position
 # within one of the given available segments, chosen so the candidate
 # fits entirely inside it. Used identically for:
@@ -20,7 +19,7 @@
 #     window
 # Returns NULL whenever no candidate can be placed (max_duration_hours
 # shorter than one slot, or no segment long enough) - a silent,
-# no-error outcome by design (see Parte B.7).
+# no-error outcome by design: the market then places no event.
 # -------------------------------------------------------------
 # Inputs
 # available_segments  : Data frame with columns start, end (numeric,

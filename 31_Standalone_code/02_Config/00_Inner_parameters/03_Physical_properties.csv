@@ -1,0 +1,6 @@
+# Physical properties of air
+parameter,value,unit
+#
+# Properties of air
+Cp_air,1.005,kJ/(kg.K)
+dens_air,1.204,kg/m3

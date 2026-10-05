@@ -132,26 +132,26 @@ all_load_messages <- character(0)
 # -------------------------------------------------------------
 {
   default_file_names <- list(
-    library_file                     = "00_Inner_parameters/00_Libraries.txt",
-    needed_cols_file                 = "00_Inner_parameters/02_Needed_cols.csv",
-    parameter_validation_file        = "00_Validation/Parameter_config.csv",
-    physical_properties_file         = "00_Inner_parameters/03_Physical_properties.csv",
-    optimization_file                = "01_Optimization_parameters.csv",
-    control_file                     = "02_Control.csv",
-    market_file                      = "03_Market_config.csv",
-    market_config_scheduling_file    = "04_Market_config_scheduling.csv",
-    market_config_piloting_file      = "05_Market_config_piloting.csv",
-    energy_price_file                = "06_Energy_price_parameters.csv",
-    flexibility_price_emulation_file = "07_Flexibility_price_emulation_parameters.csv",
-    flexibility_events_file          = "08_Flexibility_Event_Configuration.csv",
-    reward_file                      = "09_Reward_parameters.csv",
-    reward_corrections_file          = "10_Reward_parameter_corrections.csv",
-    model_file                       = "11_Model_parameters.csv",
-    temperature_setpoints_file       = "12_Temperature_Setpoints.csv",
-    setpoint_mode_file               = "13_Modes_setpoints.csv",
-    use_patterns_file                = "14_Use_Patterns.csv",
-    forecast_file                    = "15_Forecast_parameters.csv",
-    debug_and_config_file            = "16_Debug_and_config.csv"
+    library_file                             = "00_Inner_parameters/00_Libraries.txt",
+    needed_cols_file                         = "00_Inner_parameters/02_Needed_cols.csv",
+    parameter_validation_file                = "00_Validation/Parameter_config.csv",
+    physical_properties_file                 = "00_Inner_parameters/03_Physical_properties.csv",
+    optimization_file                        = "01_Optimization_parameters.csv",
+    control_file                             = "02_Control.csv",
+    market_file                              = "03_Market_config.csv",
+    market_config_scheduling_file            = "04_Market_config_scheduling.csv",
+    market_config_piloting_file              = "05_Market_config_piloting.csv",
+    energy_price_file                        = "06_Energy_price_parameters.csv",
+    flexibility_price_emulation_file         = "07_Flexibility_price_emulation_parameters.csv",
+    flexibility_events_file                  = "08_Flexibility_Event_Configuration.csv",
+    reward_file                              = "09_Reward_parameters.csv",
+    operational_temperature_corrections_file = "10_Operational_temperature_corrections.csv",
+    model_file                               = "11_Model_parameters.csv",
+    temperature_setpoints_file               = "12_Temperature_Setpoints.csv",
+    setpoint_mode_file                       = "13_Modes_setpoints.csv",
+    use_patterns_file                        = "14_Use_Patterns.csv",
+    forecast_file                            = "15_Forecast_parameters.csv",
+    debug_and_config_file                    = "16_Debug_and_config.csv"
   )
 
   paths_file_name <- "00_Inner_parameters/04_File_paths.csv"
@@ -199,7 +199,7 @@ all_load_messages <- character(0)
     sched        = paths$market_config_scheduling_file,
     pilot        = paths$market_config_piloting_file,
     reward       = paths$reward_file,
-    reward_corrections = paths$reward_corrections_file,
+    operational_temperature_corrections = paths$operational_temperature_corrections_file,
     forecast     = paths$forecast_file,
     energy_price = paths$energy_price_file,
     flex_generation = paths$flexibility_price_emulation_file,
@@ -240,8 +240,7 @@ all_load_messages <- character(0)
 # -------------------------------------------------------------
 # get_param_unit()/label_with_unit() (03_Functions/) read this table
 # for build_param_editor() and build_group_editor(), to append
-# "[unit]" to every parameter label, per 00_Base_Criteria.md ("Units
-# in graphic interfaces").
+# "[unit]" to every parameter label.
 # -------------------------------------------------------------
 {
   param_units_table <- tryCatch(
@@ -375,9 +374,9 @@ market_load       <- load_param_file_safe(file_names$market, "03_Market_config.c
                                           default_file_for(file_names$market), validation_config)
 reward_load       <- load_param_file_safe(file_names$reward, "09_Reward_parameters.csv",
                                           default_file_for(file_names$reward), validation_config)
-reward_corr_load  <- load_param_file_safe(file_names$reward_corrections,
-                                          "10_Reward_parameter_corrections.csv",
-                                          default_file_for(file_names$reward_corrections),
+op_temp_corr_load <- load_param_file_safe(file_names$operational_temperature_corrections,
+                                          "10_Operational_temperature_corrections.csv",
+                                          default_file_for(file_names$operational_temperature_corrections),
                                           validation_config)
 forecast_load     <- load_param_file_safe(file_names$forecast, "15_Forecast_parameters.csv",
                                           default_file_for(file_names$forecast), validation_config)
@@ -406,7 +405,7 @@ flex_events_df     <- flex_events_load$df
 optimization_df    <- optimization_load$df
 market_df          <- market_load$df
 reward_df          <- reward_load$df
-reward_corr_df     <- reward_corr_load$df
+op_temp_corr_df    <- op_temp_corr_load$df
 forecast_df        <- forecast_load$df
 energy_price_df    <- energy_price_load$df
 flex_generation_df <- flex_generation_load$df
@@ -421,7 +420,7 @@ all_load_messages <- c(
   all_load_messages,
   model_load$messages, control_load$messages, setpoints_load$messages,
   flex_events_load$messages, optimization_load$messages,
-  market_load$messages, reward_load$messages, reward_corr_load$messages,
+  market_load$messages, reward_load$messages, op_temp_corr_load$messages,
   forecast_load$messages,
   energy_price_load$messages,
   flex_generation_load$messages, debug_load$messages, modes_load$messages,
@@ -666,9 +665,9 @@ ui <- fluidPage(
       actionButton("save_reward", "save", class = "btn-primary")
     ),
     tabPanel(
-      "Reward Corrections",
-      uiOutput("reward_corrections_ui"),
-      actionButton("save_reward_corrections", "save", class = "btn-primary")
+      "Operational Temperature Corrections",
+      uiOutput("operational_temperature_corrections_ui"),
+      actionButton("save_operational_temperature_corrections", "save", class = "btn-primary")
     ),
     tabPanel(
       "Model",
@@ -790,7 +789,7 @@ server <- function(input, output, session) {
     sched           = sched_df,
     pilot           = pilot_df,
     reward          = reward_df,
-    reward_corr     = reward_corr_df,
+    op_temp_corr    = op_temp_corr_df,
     forecast        = forecast_df,
     energy_price    = energy_price_df,
     flex_generation = flex_generation_df,
@@ -803,7 +802,7 @@ server <- function(input, output, session) {
     optimization_defaulted = optimization_load$defaulted,
     market_defaulted       = market_load$defaulted,
     reward_defaulted       = reward_load$defaulted,
-    reward_corr_defaulted  = reward_corr_load$defaulted,
+    op_temp_corr_defaulted = op_temp_corr_load$defaulted,
     forecast_defaulted     = forecast_load$defaulted,
     energy_price_defaulted = energy_price_load$defaulted,
     flex_generation_defaulted = flex_generation_load$defaulted,
@@ -816,7 +815,7 @@ server <- function(input, output, session) {
     optimization_duplicated = optimization_load$duplicated,
     market_duplicated       = market_load$duplicated,
     reward_duplicated       = reward_load$duplicated,
-    reward_corr_duplicated  = reward_corr_load$duplicated,
+    op_temp_corr_duplicated = op_temp_corr_load$duplicated,
     forecast_duplicated     = forecast_load$duplicated,
     energy_price_duplicated = energy_price_load$duplicated,
     flex_generation_duplicated = flex_generation_load$duplicated,
@@ -868,26 +867,26 @@ server <- function(input, output, session) {
     )
   })
 
-  output$reward_corrections_ui <- renderUI({
+  output$operational_temperature_corrections_ui <- renderUI({
     tagList(
       build_group_editor(
-        rv$reward_corr,
-        "rewardcorr__",
+        rv$op_temp_corr,
+        "optempcorr__",
         "Scheduling",
         c("Service_Anticipation_Begin", "Service_Anticipation_End",
           "Service_AT_Low_Sched_HDD", "Service_AT_High_Sched_CDD"),
-        defaulted = rv$reward_corr_defaulted,
-        duplicated = rv$reward_corr_duplicated,
-        file_key = "10_Reward_parameter_corrections.csv"
+        defaulted = rv$op_temp_corr_defaulted,
+        duplicated = rv$op_temp_corr_duplicated,
+        file_key = "10_Operational_temperature_corrections.csv"
       ),
       build_group_editor(
-        rv$reward_corr,
-        "rewardcorr__",
+        rv$op_temp_corr,
+        "optempcorr__",
         "Climate Correction for Scheduling",
         c("T_ref_Heating_Season", "HDD_period", "T_ref_Cooling_Season", "CDD_period"),
-        defaulted = rv$reward_corr_defaulted,
-        duplicated = rv$reward_corr_duplicated,
-        file_key = "10_Reward_parameter_corrections.csv"
+        defaulted = rv$op_temp_corr_defaulted,
+        duplicated = rv$op_temp_corr_duplicated,
+        file_key = "10_Operational_temperature_corrections.csv"
       )
     )
   })
@@ -1180,7 +1179,7 @@ server <- function(input, output, session) {
         rv$optimization <- update_df_from_inputs(rv$optimization, "opt__", input)
         rv$market       <- update_df_from_inputs(rv$market, "market__", input)
         rv$reward       <- update_df_from_inputs(rv$reward, "reward__", input)
-        rv$reward_corr  <- update_df_from_inputs(rv$reward_corr, "rewardcorr__", input)
+        rv$op_temp_corr <- update_df_from_inputs(rv$op_temp_corr, "optempcorr__", input)
         rv$forecast     <- update_df_from_inputs(rv$forecast, "forecast__", input)
         rv$energy_price <- update_df_from_inputs(rv$energy_price, "energyprice__", input)
         rv$flex_generation <- update_df_from_inputs(rv$flex_generation, "flexgen__", input)
@@ -1203,7 +1202,7 @@ server <- function(input, output, session) {
           validate_param_df_gui(rv$optimization, "01_Optimization_parameters.csv", validation_config),
           validate_param_df_gui(rv$market, "03_Market_config.csv", validation_config),
           validate_param_df_gui(rv$reward, "09_Reward_parameters.csv", validation_config),
-          validate_param_df_gui(rv$reward_corr, "10_Reward_parameter_corrections.csv",
+          validate_param_df_gui(rv$op_temp_corr, "10_Operational_temperature_corrections.csv",
                                 validation_config),
           validate_param_df_gui(rv$forecast, "15_Forecast_parameters.csv", validation_config),
           validate_param_df_gui(rv$energy_price, "06_Energy_price_parameters.csv", validation_config),
@@ -1290,9 +1289,9 @@ server <- function(input, output, session) {
           rv$reward
         )
         write_param_file(
-          file_names$reward_corrections,
-          "# Reward parameter corrections",
-          rv$reward_corr
+          file_names$operational_temperature_corrections,
+          "# Operational temperature corrections",
+          rv$op_temp_corr
         )
         write_param_file(
           file_names$forecast,
@@ -1326,7 +1325,7 @@ server <- function(input, output, session) {
         rv$optimization_defaulted <- character(0)
         rv$market_defaulted       <- character(0)
         rv$reward_defaulted       <- character(0)
-        rv$reward_corr_defaulted  <- character(0)
+        rv$op_temp_corr_defaulted <- character(0)
         rv$forecast_defaulted     <- character(0)
         rv$energy_price_defaulted <- character(0)
         rv$flex_generation_defaulted <- character(0)
@@ -1338,7 +1337,7 @@ server <- function(input, output, session) {
         rv$optimization_duplicated <- character(0)
         rv$market_duplicated       <- character(0)
         rv$reward_duplicated       <- character(0)
-        rv$reward_corr_duplicated  <- character(0)
+        rv$op_temp_corr_duplicated <- character(0)
         rv$forecast_duplicated     <- character(0)
         rv$energy_price_duplicated <- character(0)
         rv$flex_generation_duplicated <- character(0)
@@ -1371,7 +1370,7 @@ server <- function(input, output, session) {
     "save_model", "save_occupancy", "save_control", "save_temperature_setpoints",
     "save_modes", "save_flexibility_events",
     "save_optimization", "save_market", "save_sched", "save_pilot",
-    "save_reward", "save_reward_corrections", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
+    "save_reward", "save_operational_temperature_corrections", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
   )
 
   for (CONT_004 in save_buttons) {
@@ -1380,8 +1379,7 @@ server <- function(input, output, session) {
       observeEvent(input[[button_id]], {
         # Every "save" button triggers the same save_all(): it always
         # validates and writes the whole configuration at once, not
-        # just the tab the button belongs to (see the "Clear scope for
-        # save actions" rule in 00_Base_Criteria.md).
+        # just the tab the button belongs to.
         save_all()
       })
     })

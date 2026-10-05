@@ -1,0 +1,17 @@
+# Required R libraries for the standalone market script
+# -------------------------------------------------------------
+# Only what the code actually calls:
+#   GA          - ga(), the genetic algorithm of the optimizer
+#   doParallel  - registerDoParallel(), when the optimizer runs parallel.
+#                 Loading it also attaches parallel and foreach, whose
+#                 functions the optimizer calls unqualified:
+#                   - makeCluster(), clusterExport(), clusterEvalQ(),
+#                     stopCluster() (parallel)
+#                   - registerDoSEQ() (foreach)
+#   Rcpp        - sourceCpp(), to build the simulation core
+#   jsonlite    - read_json()/write_json(), in call_script_console.R
+# -------------------------------------------------------------
+GA
+doParallel
+Rcpp
+jsonlite

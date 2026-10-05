@@ -12,7 +12,6 @@
 #   - 2 Neutral
 #   - 3 Recovery
 #   - 0 outside the window
-# See 01_Agent_Comments/20260918g_Plan_Compromiso_Vigente.md
 # -------------------------------------------------------------
 # Why there is no label to read
 # Because storing one would be storing the same fact twice. The
@@ -61,7 +60,10 @@
 # Where this function/script is used
 # Called by derive_flex_itineraries(), which needs to know where each
 # phase of a standing commitment falls before it can hold it over a new
-# plan.
+# plan; by pre_horizon_window_tails(), to find the windows that start
+# before the optimization horizon; by hand_over_window_tail(), for the
+# phases of a window held with its Commitment Phase alone; and by
+# evaluate_control(), for the rows a new window may not touch.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - A stretch of committed slots longer than commitment_phase_length_max

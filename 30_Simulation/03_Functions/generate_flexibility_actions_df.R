@@ -9,11 +9,9 @@
 # synthetic dataframe (not loaded from a data file): Flex_Act is an
 # engine-level explicit-flexibility tracking signal, stable across
 # building models, so unlike System_df it is not driven by an external
-# variable registry - see
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part D.
+# variable registry.
 # Initialized to 0 here; set to 1 for rows covered by an accepted
-# flexibility event by 09_flexibility_price_emulation.R - see
-# 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md.
+# flexibility event by 09_flexibility_price_emulation.R.
 # -------------------------------------------------------------
 # Inputs
 #   time : POSIXct vector. The master 5' time grid of Main_df.

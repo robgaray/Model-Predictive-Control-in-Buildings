@@ -7,9 +7,7 @@
 # Overall description
 # Loads Energy_Prices_df (energy and flexibility market price input
 # data) from disk and validates it before it is used by
-# assemble_main_df.R. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part E,
-# for the rationale of each protection.
+# assemble_main_df.R.
 # -------------------------------------------------------------
 # Inputs
 #   paths$energy_prices_file            : Character. Path to

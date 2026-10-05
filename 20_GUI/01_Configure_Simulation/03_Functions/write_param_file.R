@@ -6,8 +6,7 @@
 # -------------------------------------------------------------
 # Overall description
 # Writes the values the user edited into a flat parameter,value,unit
-# configuration file, changing nothing else. As 00_Base_Criteria.md
-# asks of every configuration file, the file keeps its:
+# configuration file, changing nothing else. The file keeps its:
 #   - header
 #   - block headers
 #   - order

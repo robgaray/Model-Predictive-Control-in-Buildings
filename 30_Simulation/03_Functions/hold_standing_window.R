@@ -10,24 +10,20 @@
 # leg and marking its Commitment Phase.
 # -------------------------------------------------------------
 # Why it exists
-# A market that does not trade flexibility has to carry the standing
-# commitment forward untouched. Until this function existed, a window
-# the builder refused was simply dropped: the market bought the
-# commitment back and re-issued nothing, so the energy left the books
-# with no counterpart. In a run whose Piloting markets did not trade
-# flexibility, that happened on 88 of every 100 rebuys. See
-# 01_Agent_Comments/20260920b_Diagnostico_Compromiso_Vigente.md.
+# A refusal of the builder says that it would not draw the window over
+# this plan, not that the commitment is gone. If a window the builder
+# refused were simply dropped, the market would buy the commitment back
+# and re-issue nothing, so the energy would leave the books with no
+# counterpart.
 # -------------------------------------------------------------
 # What it does and does not do
 # reward_function() recomputes the committed energy as the difference
 # between the plan and the leg's itinerary over the Commitment Phase,
 # so writing that difference is what preserves the commitment exactly.
-# The THERMAL columns of the itinerary are left as the plan's. The
-# window this is used on is one whose tail falls outside the control
-# horizon, so its thermal trajectory is not executed inside this
-# market's horizon anyway, and the next market rebuilds it in full.
-# Holding the commitment with an approximate thermal itinerary is worth
-# more than losing the commitment, which is the alternative.
+# The THERMAL columns of the itinerary are left as the plan's, and the
+# next market tries to rebuild the window in full. Holding the
+# commitment with an approximate thermal itinerary is worth more than
+# losing the commitment, which is the alternative.
 # -------------------------------------------------------------
 # Inputs
 #   period_chunk : Data frame. The chunk being derived.
@@ -51,8 +47,8 @@
 # period_chunk <- hold_standing_window(period_chunk, "down", rows, standing)
 # -------------------------------------------------------------
 # Where this function/script is used
-# Called by derive_flex_itineraries() when the builder refuses a
-# standing window for any reason other than opposed systems.
+# Called by derive_flex_itineraries() when the builder refuses to draw
+# a standing window, whatever the reason.
 # -------------------------------------------------------------
 # functions/scripts called
 #   (none)

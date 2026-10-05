@@ -7,14 +7,16 @@
 # Overall description
 # This function implements a single MPC control step by running the
 # physical simulation of the building over the control implementation
-# horizon using actual (measured) weather data and the setpoints that
-# were previously optimized by optimize_control_step().
+# horizon with the setpoints that were previously optimized by
+# optimize_control_step(). The weather it uses is the one
+# period_calculation() reads for the calculation context: the actual
+# (measured) weather for "execution", and the forecast for "plan" and
+# the flexibility contexts.
 # It performs the following steps:
 #   1. Determines the end index of the control window based on
 #      optimization_frequency_sec starting from i0.
 #   2. Trims period_chunk to the control window.
-#   3. Calls period_calculation() with the actual weather data and
-#      the provided setpoints.
+#   3. Calls period_calculation() with the provided setpoints.
 #   4. Appends forecasted state columns from forecast_states to the
 #      result for later comparison and logging.
 #   5. For calculation_context == "execution" only: resolves
@@ -32,9 +34,7 @@
 #      since distribution is always an expense) - the net of all
 #      electricity bought/sold in that hour, market and deviations
 #      combined, since Elec_total_exec is already that net by
-#      construction (see
-#      01_Agent_Comments/20260725_Plan_Reporte_Costes_Mercados_Main_df.md,
-#      Parte B.4/B.9). Finally, Elec_net_cost_h = Elec_market_net_cost_h
+#      construction. Finally, Elec_net_cost_h = Elec_market_net_cost_h
 #      (already accumulated in Main_df by any prior market decision for
 #      that row, via integrate_market_process.R) + the just-resolved
 #      Elec_deviations_net_cost_h. Elec_total_no_flex is also fixed for
@@ -190,9 +190,7 @@ implement_control_step <- function(period_chunk,
         period_chunk$Elec_deviations_net_cost_h[new_rows]
       # Elec_total_no_flex is reserved for the energy that would have
       # been used during a flexibility event had that event not been
-      # executed (see
-      # 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md,
-      # finding 4). It is fixed here, once per executed row, together
+      # executed. It is fixed here, once per executed row, together
       # with the rest of this row's execution-phase accounting.
       # Flexibility execution is not simulated yet (Elec_flex_execution_revenue_h/
       # Elec_flex_deviations_net_cost_h are always 0), so the executed

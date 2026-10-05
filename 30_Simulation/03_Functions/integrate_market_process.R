@@ -28,8 +28,7 @@
 #       is valued by reward_function() to steer the decision but never
 #       settled here.
 #   4.5 Accumulate the net cash flow of the explicit-flexibility service
-#       (both down and up legs, for both Scheduling and Piloting - see
-#       finding 3 of the audit referenced below) into
+#       (both down and up legs, for both Scheduling and Piloting) into
 #       market_commitments$Elec_flex_Cost_plan_df and propagate it into
 #       Main_df$Elec_flex_commitment_revenue_h; also add the sold/
 #       bought-back totals, on this decision's own row, to
@@ -46,12 +45,8 @@
 #   4.7 Book the total reward of this decision on its own row: the sum
 #       of the per-timestep rewards over the optimization horizon, which
 #       is the total the optimizer maximised.
-# See 01_Agent_Comments/20260725_Plan_Reporte_Costes_Mercados_Main_df.md
-# for the original design of these signals, and
-# 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md plus
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md for
-# the sign convention (income positive, expense negative, throughout)
-# and the fix that registers flexibility economics for Scheduling too.
+# Every money signal follows the same sign convention: income
+# positive, expense negative.
 # full_market_information and market_commitments have one row per
 # market event (not one row per market-resolution interval), while
 # their future-step columns still refer to market-resolution-grid
@@ -479,9 +474,7 @@ integrate_market_process <- function(prefix,
   # Piloting: a Scheduling market with a flexibility-inclusive aim takes
   # this same economic decision (see resolve_marginal_context.R and
   # reward_function.R, which already value it regardless of prefix) and
-  # it must leave the same kind of entry - see
-  # 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md
-  # (finding 3) and 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+  # it must leave the same kind of entry.
   # Runs after block 4 (not inside block 3, where the per-interval net
   # cash flow was resolved) because propagate_unit_value() spreads that
   # cash flow across Main_df's rows weighted by the leg's own signal,
@@ -572,15 +565,14 @@ integrate_market_process <- function(prefix,
   #    both market families alike. The flexibility itineraries are not
   #    settled here: what they move is sold as the flexibility service,
   #    in block 4b, valued on Elec_flex_down_plan/Elec_flex_up_plan.
-  #    Settling Piloting on Elec_total_plan_flex_down instead, as this
-  #    block used to, booked the building as buying the energy of an
-  #    itinerary it only flies if the operator calls the service: it
-  #    disagreed with what the building consumes (Elec_total_exec), with
-  #    what the reward values (reward_function() prices energy on
-  #    Elec_total_plan for every aim), and it paid the same reduction
-  #    twice, once as energy not bought and again as flexibility sold.
-  #    See 01_Agent_Comments/20260915_Propuesta_Correccion_Energia_Liquidada.md.
-  #    prefix therefore no longer selects an energy track; it only says
+  #    Settling on Elec_total_plan_flex_down instead would book the
+  #    building as buying the energy of an itinerary it only flies if
+  #    the operator calls the service: it would disagree with what the
+  #    building consumes (Elec_total_exec) and with what the reward
+  #    values (reward_function() prices energy on Elec_total_plan for
+  #    every aim), and it would pay the same reduction twice, once as
+  #    energy not bought and again as flexibility sold.
+  #    prefix therefore selects no energy track; it only says
   #    whether the target slot counts towards economic_analysis$slot's
   #    "committed in Scheduling" fraction.
   {

@@ -1,0 +1,19 @@
+# Simulation plausibility bounds file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Plausibility bounds of parameters, as a second, looser check on top
+# of the parameter's own range in Parameter_config.csv. They are
+# applied by validate_model_parameters() through
+# get_validation_bounds(), and every one of them only warns: a value
+# outside these bounds is unusual, not impossible.
+# Structure: same convention as Parameter_config.csv
+#   file_name      : name of the parameter file
+#   parameter_name : name of the parameter to validate
+#   type           : Integer | Real
+#   output         : Error (stops execution) | Warning (issues a warning)
+#   options        : "min,max"; an empty side means unbounded on that side
+# -------------------------------------------------------------
+file_name,parameter_name,type,output,options
+11_Model_parameters.csv,Volume,Real,Warning,"50,"

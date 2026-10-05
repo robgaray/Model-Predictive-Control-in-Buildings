@@ -40,9 +40,8 @@
 #                  2 Neutral, 3 Recovery; 0 elsewhere, as left by
 #                  initialize_plan_flex_columns()). Corresponds to
 #                  period_chunk in the caller.
-#                  Returned unchanged if there is not enough time
-#                  remaining from i_flex to accommodate the full
-#                  flexibility window.
+#                  A new window that does not fit before
+#                  i_end_control is refused (see EXCEPTIONS).
 # -------------------------------------------------------------
 # Code outline
 # 1. Extract flexibility parameters from simulation_control
@@ -64,10 +63,15 @@
 #   - simulation_control$indexes_local$i_flex must be a single integer row index within period_chunk.
 #   - simulation_control$flexibility$commitment_phase_length must be <= commitment_phase_length_max.
 #   - simulation_control$flexibility$flexibility must be in (0, 1].
-#   - If the time distance from i_flex to the last row of period_chunk
-#     is less than commitment_phase_length + neutral_phase_timespan
-#     + recovery_phase_timespan (hours), period_chunk is returned
-#     without any changes.
+#   - A new window (not restated) whose Commitment, Neutral and Recovery
+#     Phases do not fit before i_end_control is refused ("no_room").
+#   - A restated window (simulation_control$flexibility$restating) is
+#     drawn wherever it falls. Only the rows of its Commitment Phase in
+#     the guard zone take simulation_control$flexibility$flexibility and
+#     the commitment margin; the other rows take
+#     simulation_control$flexibility$flexibility_projected and no margin
+#     (see derive_flex_itineraries()). It is not checked for
+#     convergence at the close of the control horizon.
 #   - This function assumes *_plan_flex_down baseline columns already exist
 #     (initialized by evaluate_control() through
 #     initialize_plan_flex_columns()).
@@ -100,8 +104,6 @@
 # functions/scripts called
 #   apply_commitment_margin() - keeps the electrical headroom of every
 #                          market slot of the window
-#   market_can_trade_flex() - whether this market may trade flexibility
-#                          to keep its itineraries inside the margin
 #   build_system_lock_caps() - per-step power caps of the Recovery Phase
 #   check_recovery_convergence() - convergence test at the close of the
 #                          control horizon
@@ -152,19 +154,28 @@ flex_evaluation_down <- function(period_chunk, parameters, simulation_control) {
 
   # A window that is being RE-STATED is not a new sale: the energy was
   # already sold by an earlier market and what is left to do is to carry
-  # it forward. Its tail is meant to fall beyond this market's control
-  # horizon, because the next market picks it up. Demanding room for the
-  # whole window would refuse every standing commitment placed near the
-  # close of the horizon and destroy it - see
-  # 01_Agent_Comments/20260920b_Diagnostico_Compromiso_Vigente.md. So a
-  # re-statement only has to fit its Commitment Phase, which is the part
-  # that carries the energy; a new sale still has to fit whole.
-  restating <- isTRUE(simulation_control$flexibility$restating)
-  room_needed_h <- if (restating) commitment_phase_length else total_window_h
+  # it forward, wherever it falls. Only a new sale has to fit whole
+  # inside the control horizon. The restatement mode says which rows of
+  # a restated Commitment Phase are in the guard zone (see
+  # derive_flex_itineraries()): with "guard", the rows up to
+  # i_end_control; with "projection", none. The rows out of the guard
+  # zone take their own fraction, flexibility_projected.
+  restating        <- isTRUE(simulation_control$flexibility$restating)
+  restatement_mode <- simulation_control$flexibility$restatement_mode
+  if (is.null(restatement_mode)) {
+    restatement_mode <- "guard"
+  }
+  flexibility_projected <- simulation_control$flexibility$flexibility_projected
+  if (is.null(flexibility_projected)) {
+    flexibility_projected <- flexibility
+  }
 
-  time_distance_h <- as.numeric(difftime(time_at_end, time_at_i_flex, units = "hours"))
-  if (time_distance_h < room_needed_h) {
-    return(flex_refused(period_chunk, "no_room"))
+  if (!restating) {
+    time_distance_h <- as.numeric(difftime(time_at_end, time_at_i_flex, units = "hours"))
+    if (time_distance_h < total_window_h) {
+      return(flex_refused(period_chunk, "no_room"))
+    }
+    rm(time_distance_h)
   }
 
   # Generate period_chunk_subset: rows from i_flex to i_flex + total_window_h hours
@@ -212,59 +223,61 @@ flex_evaluation_down <- function(period_chunk, parameters, simulation_control) {
     delta_t_h_subset <- as.numeric(diff(as.numeric(all_times_with_prev))) / 3600
     delta_t_h_flex <- delta_t_h_subset[flex_rows_subset]
 
+    # The rows of the Commitment Phase in the guard zone, and the
+    # fraction of every row. Every row of a new sale is in it.
+    guard_row <- if (!restating) {
+      rep(TRUE, length(flex_rows_subset))
+    } else if (restatement_mode == "guard") {
+      subset_rows[flex_rows_subset] <= i_end_control
+    } else {
+      rep(FALSE, length(flex_rows_subset))
+    }
+    fraction_row <- ifelse(guard_row, flexibility, flexibility_projected)
+
     # Compute minimum-corrected flex values
     Q_heat_plan_flex_down <- pmax(
       0,
       pmin(
-        period_chunk_subset$Q_heat_plan[flex_rows_subset] * (1 - flexibility),
+        period_chunk_subset$Q_heat_plan[flex_rows_subset] * (1 - fraction_row),
         period_chunk_subset$Q_heat_plan[flex_rows_subset] - (minimum_flexibility * delta_t_h_flex)
       )
     )
     Q_cool_plan_flex_down <- pmax(
       0,
       pmin(
-        period_chunk_subset$Q_cool_plan[flex_rows_subset] * (1 - flexibility),
+        period_chunk_subset$Q_cool_plan[flex_rows_subset] * (1 - fraction_row),
         period_chunk_subset$Q_cool_plan[flex_rows_subset] - minimum_flexibility * delta_t_h_flex
       )
     )
 
-    # apply_commitment_margin is called to lift the itinerary off zero,
-    # so that every market slot of the window keeps at least
-    # flexibility_commitment_margin of electricity running and a later
-    # re-optimization still has something left to shed without breaking
-    # what this window sells.
-    # The margin is skipped in one case only: a window being RE-STATED
-    # by a market whose aim is operation alone. Such a market has no
-    # flexibility of its own to move, so demanding the headroom from it
-    # would destroy energy already sold instead of unwinding it. It is
-    # then allowed to sit closer to the limit. Every other aim, energy
-    # included, may trade flexibility to keep its itineraries inside
-    # the margin: see market_can_trade_flex().
-    can_retrade_flex <- market_can_trade_flex(parameters$control$optimization_aim)
-    margin_applies <- !isTRUE(simulation_control$flexibility$restating) ||
-      can_retrade_flex
-
-    if (margin_applies) {
+    # apply_commitment_margin is called to lift the itinerary off zero
+    # on the rows of the guard zone, so that every market slot of the
+    # window keeps at least flexibility_commitment_margin of electricity
+    # running and a later re-optimization still has something left to
+    # shed without breaking what this window sells. The other rows of a
+    # restated window are drawn as the plan allows, without the margin.
+    if (any(guard_row)) {
+      margin_rows <- flex_rows_subset[guard_row]
       # The ceiling arguments are not read on the downward leg, whose
       # bound is the margin itself, so the plan is passed for them.
       margined <- apply_commitment_margin(
-        Q_heat_flex    = Q_heat_plan_flex_down,
-        Q_heat_plan    = period_chunk_subset$Q_heat_plan[flex_rows_subset],
-        Q_cool_flex    = Q_cool_plan_flex_down,
-        Q_cool_plan    = period_chunk_subset$Q_cool_plan[flex_rows_subset],
-        Q_heat_ceiling = period_chunk_subset$Q_heat_plan[flex_rows_subset],
-        Q_cool_ceiling = period_chunk_subset$Q_cool_plan[flex_rows_subset],
-        market_slot    = period_chunk_subset$MarketUTC[flex_rows_subset],
-        Text           = period_chunk_subset$Text[flex_rows_subset],
-        delta_t_h      = delta_t_h_flex,
+        Q_heat_flex    = Q_heat_plan_flex_down[guard_row],
+        Q_heat_plan    = period_chunk_subset$Q_heat_plan[margin_rows],
+        Q_cool_flex    = Q_cool_plan_flex_down[guard_row],
+        Q_cool_plan    = period_chunk_subset$Q_cool_plan[margin_rows],
+        Q_heat_ceiling = period_chunk_subset$Q_heat_plan[margin_rows],
+        Q_cool_ceiling = period_chunk_subset$Q_cool_plan[margin_rows],
+        market_slot    = period_chunk_subset$MarketUTC[margin_rows],
+        Text           = period_chunk_subset$Text[margin_rows],
+        delta_t_h      = delta_t_h_flex[guard_row],
         leg            = "down",
         parameters     = parameters
       )
-      Q_heat_plan_flex_down <- margined$Q_heat
-      Q_cool_plan_flex_down <- margined$Q_cool
-      rm(margined)
+      Q_heat_plan_flex_down[guard_row] <- margined$Q_heat
+      Q_cool_plan_flex_down[guard_row] <- margined$Q_cool
+      rm(margined, margin_rows)
     }
-    rm(can_retrade_flex, margin_applies)
+    rm(guard_row, fraction_row)
 
     period_chunk_subset$Q_heat_plan_flex_down[flex_rows_subset] <- Q_heat_plan_flex_down
     period_chunk_subset$Q_cool_plan_flex_down[flex_rows_subset] <- Q_cool_plan_flex_down
@@ -375,10 +388,12 @@ flex_evaluation_down <- function(period_chunk, parameters, simulation_control) {
   # looks at can be outside the window: see
   # check_recovery_convergence() for why it is measured there and not at
   # the end of the Recovery Phase.
-  if (!check_recovery_convergence(period_chunk,
-                                  "Elec_total_plan_flex_down",
-                                  i_end_control,
-                                  parameters)) {
+  # A restated window is not checked: its tail may run past the
+  # control horizon, and the next market rebuilds it.
+  if (!restating && !check_recovery_convergence(period_chunk,
+                                               "Elec_total_plan_flex_down",
+                                               i_end_control,
+                                               parameters)) {
     return(flex_refused(period_chunk_before, "no_convergence"))
   }
 

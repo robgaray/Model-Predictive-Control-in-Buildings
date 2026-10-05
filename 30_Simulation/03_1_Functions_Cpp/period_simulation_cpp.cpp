@@ -68,7 +68,9 @@
 //   SolarR                 : NumericVector. Solar radiation.
 //   Text                   : NumericVector. Outdoor temperature.
 //   T_ext_24h              : NumericVector. 24h mean outdoor temperature.
-//   Act_vent               : IntegerVector. Ventilation activation.
+//   Occupancy              : IntegerVector. Building occupancy (0/1).
+//                            Daytime ventilation runs while the
+//                            building is occupied (see block 1.4).
 //   time                   : NumericVector. Simulation timestamps (seconds
 //                            since epoch; converted to hours per step below).
 //   comfort_low            : NumericVector. Lower comfort temperature limit.
@@ -152,7 +154,7 @@ List period_simulation_cpp(
   NumericVector SolarR,
   NumericVector Text,
   NumericVector T_ext_24h,
-  IntegerVector Act_vent,
+  IntegerVector Occupancy,
   NumericVector time,
   NumericVector comfort_low,
   NumericVector comfort_high,
@@ -240,7 +242,7 @@ List period_simulation_cpp(
 
       // current values
       SolarR_t         = SolarR[CONT_001];
-      Act_vent_t       = Act_vent[CONT_001];
+      Act_vent_t       = Occupancy[CONT_001] == 1 ? 1 : 0;
       Text_t           = Text[CONT_001];
       STP_heat_low_t   = STP_heat_low[CONT_001];
       STP_heat_high_t  = STP_heat_high[CONT_001];
@@ -387,10 +389,12 @@ List period_simulation_cpp(
     // -------------------------------------------------------------
     {
       // Rvent calculation
-      // For daytime ventilation (Act_vent_t == 1), an advanced selection
-      // logic is applied based on T_equilibrium and the comparison between
-      // indoor and outdoor temperatures. The heat recovery system (HR) is
-      // activated when it reduces energy consumption:
+      // Daytime ventilation (Act_vent_t == 1) runs while the building is
+      // occupied: Act_vent_t is the occupancy of the step. For it, an
+      // advanced selection logic is applied based on T_equilibrium and the
+      // comparison between indoor and outdoor temperatures. The heat
+      // recovery system (HR) is activated when it reduces energy
+      // consumption:
       //   - Heating mode (Ti < T_eq): activate HR when outdoor is colder
       //     than indoor (prevents heat loss through ventilation).
       //   - Cooling mode (Ti > T_eq): activate HR when outdoor is warmer

@@ -2,8 +2,7 @@
 # One column name per line; lines starting with # are comments
 # Main_df is assembled by assemble_main_df.R from 2 real input
 # dataframes (Meteo_df, Energy_Prices_df) and 3 synthetic dataframes
-# (System_df, Flexibility_actions_df, Meteo_transformations_df) - see
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md
+# (System_df, Flexibility_actions_df, Meteo_transformations_df).
 
 # Timestamp
 time
@@ -78,7 +77,6 @@ Comfort_exec
 Comfort_plan
 Comfort_plan_flex_down
 Comfort_plan_flex_up
-Act_vent
 Act_heat_exec
 Act_heat_plan
 Act_heat_plan_flex_down

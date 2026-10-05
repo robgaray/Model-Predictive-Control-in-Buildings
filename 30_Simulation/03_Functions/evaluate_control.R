@@ -163,6 +163,8 @@
 #     horizons.
 # -------------------------------------------------------------
 # functions/scripts called
+#   reconstruct_flex_phases() - the phases of the windows already
+#     committed, to keep new windows off them
 #   period_calculation() - core building physics simulation
 #   derive_flex_itineraries() - builds the two flexibility itineraries
 #     from the plan and the commitment already standing
@@ -197,13 +199,30 @@ evaluate_control <- function(period_chunk,
                                           simulation_control = simulation_control)
   period_chunk <- derived$period_chunk
 
-  # Whether the standing commitment could be held over this candidate's
-  # plan travels with the chunk, because it is reward_function() that
-  # has to price it: a candidate whose plan makes an already-sold window
-  # impossible is not merely a candidate that sells nothing, it is one
-  # that breaks a contract.
+  # Whether every standing window of the guard zone could be drawn over
+  # this candidate's plan travels with the chunk, because it is
+  # reward_function() that has to price it: a candidate whose plan
+  # would make an already-sold window raise both thermal systems keeps
+  # that window only as it stands, and may not deliver it.
   period_chunk$Standing_commitment_held_plan <- as.integer(derived$feasible)
   rm(derived)
+
+  # Rows each leg already occupies with a window committed by an earlier
+  # market: its Commitment, Neutral and Recovery Phases, including the
+  # tail of a window that started before this chunk. A new window of
+  # the same leg may not touch them, so that it never starts before an
+  # earlier window of that leg has finished its Recovery Phase.
+  # The phases are taken both from the itineraries just derived and from
+  # the committed energy itself (reconstruct_flex_phases()), because a
+  # window that could not be redrawn over this plan is held with its
+  # Commitment Phase alone, and its Neutral and Recovery Phases still
+  # belong to it.
+  occupied_rows <- list(
+    down = period_chunk$Flex_phase_down_plan > 0 |
+      reconstruct_flex_phases(period_chunk, "down", parameters) > 0,
+    up   = period_chunk$Flex_phase_up_plan > 0 |
+      reconstruct_flex_phases(period_chunk, "up", parameters) > 0
+  )
 
   # Compute the reward for this flexibility scenario
   period_chunk <- reward_function(
@@ -384,6 +403,20 @@ evaluate_control <- function(period_chunk,
             # Get the starting row index (first row of the first market slot)
             i_flex <- market_slot_rows[1]
 
+            # A candidate whose whole window (Commitment, Neutral and
+            # Recovery Phases) touches a row this leg already occupies
+            # is not tested, and neither is any longer one from here.
+            window_end_time <- period_chunk$time[i_flex] +
+              (commitment_phase_length +
+                 parameters$control$neutral_phase_timespan +
+                 parameters$control$recovery_phase_timespan) * 3600
+            window_rows <- which(period_chunk$time >= period_chunk$time[i_flex] &
+                                   period_chunk$time <= window_end_time)
+            blocked <- any(occupied_rows[[leg]][window_rows])
+            rm(window_end_time, window_rows)
+            if (blocked) break
+            rm(blocked)
+
             # 1.2.3 Generate period_chunk_test_inner with this leg's
             # evaluation function (flexibility <- 1) and reward_function.
             # Set flexibility parameters in simulation_control_2.
@@ -467,6 +500,8 @@ evaluate_control <- function(period_chunk,
     # For energy mode the reward was already computed above; nothing more to do.
 
   }
+
+  rm(occupied_rows)
 
   return(list(period_chunk = period_chunk, reward = reward))
 }

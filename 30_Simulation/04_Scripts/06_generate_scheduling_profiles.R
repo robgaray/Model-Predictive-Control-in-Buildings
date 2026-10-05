@@ -6,7 +6,8 @@
 # -------------------------------------------------------------
 # Overall description
 # Generates Main_df$Scheduling from Main_df$Occupancy and the
-# anticipation parameters stored in parameters$reward.
+# anticipation parameters stored in
+# parameters$operational_temperature_corrections.
 # Sourced by Main.R before simulation.
 # For each calendar day with at least one occupied row, computes
 # one [interval_begin, interval_end] window (first/last occupied
@@ -25,8 +26,8 @@
 # -------------------------------------------------------------
 # Inputs
 #   Main_df, with its time and Occupancy columns.
-#   parameters$reward : the anticipation applied to the start and
-#     the end of each occupied stretch.
+#   parameters$operational_temperature_corrections : the anticipation
+#     applied to the start and the end of each occupied stretch.
 # -------------------------------------------------------------
 # Outputs
 #   Main_df$Scheduling, one flag per row, marking the window the
@@ -56,8 +57,10 @@
     stop("Main_df$Occupancy must contain only 0 or 1 values")
   }
 
-  anticipation_begin_sec <- as.numeric(parameters$reward$Service_Anticipation_Begin) * 3600
-  anticipation_end_sec   <- as.numeric(parameters$reward$Service_Anticipation_End) * 3600
+  corrections            <- parameters$operational_temperature_corrections
+  anticipation_begin_sec <- as.numeric(corrections$Service_Anticipation_Begin) * 3600
+  anticipation_end_sec   <- as.numeric(corrections$Service_Anticipation_End) * 3600
+  rm(corrections)
   row_dates              <- as.Date(Main_df$time, tz = "UTC")
   times                  <- as.numeric(Main_df$time)
 

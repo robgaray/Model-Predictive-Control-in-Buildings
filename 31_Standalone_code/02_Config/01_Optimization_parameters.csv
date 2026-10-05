@@ -1,0 +1,8 @@
+# Optimization parameters: genetic algorithm of the optimizer
+# (the horizons of each market come with its input)
+parameter,value,unit
+population_size,40,-
+iteration_number,50,-
+run_number,10,-
+pcrossover,0,-
+pmutation,0.2,-

@@ -154,8 +154,7 @@
 # PL_rebuy_resale, Flex_executed_cash_flow and Distribution_cost hold
 # money, and share the same sign convention as every other economic
 # signal in the repository: positive means money received (income),
-# negative means money paid (expense) - see
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+# negative means money paid (expense).
 # Distribution_cost is consequently always <= 0 (it is only ever an
 # expense); it comes straight from Main_df$Elec_cost_distr_h, which
 # already carries that sign (see implement_control_step.R).

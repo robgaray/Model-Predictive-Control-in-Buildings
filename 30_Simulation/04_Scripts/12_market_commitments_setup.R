@@ -78,6 +78,9 @@
 # Sourced by 30_Simulation/Main.R.
 # -------------------------------------------------------------
 # functions/scripts called
+#   compute_max_steps_ahead() - the number of steps ahead of the
+#                        furthest-looking market, when it is not
+#                        set yet
 #   is_market_active() - says whether a market name marks an
 #                        active market
 # -------------------------------------------------------------
@@ -92,30 +95,9 @@
 # -------------------------------------------------------------
 {
   if (!exists("max_steps_ahead")) {
-    max_hours_sched <- 0
-    if (!is.null(parameters$market_config_scheduling) &&
-        nrow(parameters$market_config_scheduling) > 0) {
-      max_hours_sched <- max(
-        as.numeric(parameters$market_config_scheduling$end) +
-        as.numeric(parameters$market_config_scheduling$end_optimization) +
-        as.numeric(parameters$market_config_scheduling$closure)
-      )
-    }
-
-    max_hours_pilot <- 0
-    if (!is.null(parameters$market_config_piloting) &&
-        nrow(parameters$market_config_piloting) > 0) {
-      max_hours_pilot <- max(
-        as.numeric(parameters$market_config_piloting$end) +
-        as.numeric(parameters$market_config_piloting$end_optimization) +
-        as.numeric(parameters$market_config_piloting$closure)
-      )
-    }
-
-    max_hours_ahead <- max(max_hours_sched, max_hours_pilot)
-    max_steps_ahead <- as.integer(ceiling(max_hours_ahead * 60 / parameters$market$market_resolution))
-
-    rm(max_hours_sched, max_hours_pilot, max_hours_ahead)
+    # compute_max_steps_ahead is called to size the future-step columns
+    # when 11_full_market_information_setup.R has not done it.
+    max_steps_ahead <- compute_max_steps_ahead(parameters)
   }
 
   if (!"MarketUTC" %in% names(Main_df)) {

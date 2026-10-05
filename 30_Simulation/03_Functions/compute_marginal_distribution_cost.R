@@ -20,14 +20,11 @@
 # ("descompra"/"desventa") always reduces it; crossing from import to
 # export (or back) is handled automatically, without any explicit
 # branch, because abs(E) already passes through its minimum exactly at
-# the crossing point. See
-# 01_Agent_Comments/20260722c_Plan_Costes_Distribucion_Recompensa.md,
-# Parte A, for the full derivation and the branch-by-branch proof that
-# this single formula reproduces the same casuistry as the 4-branch
-# buy/sell/unwind logic (the sign of the whole formula is negated
-# relative to that derivation so that, like every other economic term
-# in this repository, an expense is negative and never a positive
-# number that has to be remembered and subtracted).
+# the crossing point. This single formula reproduces the same
+# casuistry as the 4-branch buy/sell/unwind logic, branch by branch.
+# Its sign is set so that, like every other economic term in this
+# repository, an expense is negative and never a positive number that
+# has to be remembered and subtracted.
 # Only used for the base-energy term of reward_function() - explicitly
 # not applied to flexibility.
 # -------------------------------------------------------------

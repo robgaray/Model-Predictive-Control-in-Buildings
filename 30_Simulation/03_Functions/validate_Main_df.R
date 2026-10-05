@@ -16,8 +16,6 @@
 #       - System_df
 #       - Flexibility_actions_df
 #       - Meteo_transformations_df
-# See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md.
 # It checks the following aspects:
 #   1. That Main_df is a non-empty data frame.
 #   2. That all required columns are present.
@@ -40,7 +38,7 @@
 #                 the flexibility probabilities
 #               - System_df, with the columns of:
 #                   - the thermal state (Ti, Te)
-#                   - the context (Occupancy, Scheduling and Act_vent)
+#                   - the context (Occupancy and Scheduling)
 #                   - the setpoints and comfort
 #                   - the heating and cooling actions
 #                   - the thermal energy and the electricity
@@ -89,7 +87,6 @@
 #     raised via stop().
 #   - If a binary column contains values other than 0 or 1, an error
 #     is raised via stop(). The binary columns are:
-#       - Act_vent
 #       - Act_heat_exec
 #       - Act_cool_exec
 #   - If Text is outside its plausibility bounds, a warning() is issued
@@ -151,7 +148,6 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
     # System_df - evaluation
     "Comfort_exec", "Comfort_plan", "Comfort_plan_flex_down", "Comfort_plan_flex_up",
     # System_df - action
-    "Act_vent",
     "Act_heat_exec", "Act_heat_plan", "Act_heat_plan_flex_down", "Act_heat_plan_flex_up",
     "Act_cool_exec", "Act_cool_plan", "Act_cool_plan_flex_down", "Act_cool_plan_flex_up",
     "Q_heat_exec", "Q_heat_plan", "Q_heat_plan_flex_down", "Q_heat_plan_flex_up",
@@ -231,7 +227,7 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
     }
   }
 
-  binary_cols <- c("Act_vent", "Act_heat_exec", "Act_cool_exec")
+  binary_cols <- c("Act_heat_exec", "Act_cool_exec")
   for (CONT_001 in binary_cols) {
     vals <- unique(na.omit(Main_df[[CONT_001]]))
     if (!all(vals %in% c(0, 1))) {

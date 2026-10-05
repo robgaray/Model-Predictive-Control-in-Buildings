@@ -20,12 +20,13 @@ This project is a test environment for Model Predictive Control in Buildings. Mu
 14. [Input-Output files](#14-input-output-files)
 15. [Economic data structures](#15-economic-data-structures)
 16. [Notes on code usage](#16-notes-on-code-usage)
-17. [Changes and version control](#17-changes-and-version-control)
-18. [Known Issues](#18-known-issues)
-19. [Discontinued items](#19-discontinued-items)
-20. [Authors & contributors](#20-authors--contributors)
-21. [Future works](#21-future-works)
-22. [Acknowledgements](#22-acknowledgements)
+17. [Standalone optimizer for third-party use](#17-standalone-optimizer-for-third-party-use)
+18. [Changes and version control](#18-changes-and-version-control)
+19. [Known Issues](#19-known-issues)
+20. [Discontinued items](#20-discontinued-items)
+21. [Authors & contributors](#21-authors--contributors)
+22. [Future works](#22-future-works)
+23. [Acknowledgements](#23-acknowledgements)
 
 # 1. Content of this repository
 
@@ -99,13 +100,13 @@ The energy model is based on a reduced order (RC) building model with integrated
 
 2 control modes are foreseen:
 
-- Setpoint based: Here, setpoints for heating and cooling are freely set by the optimized within a pre-defined range, as per the indications above.
+- Setpoint based: Here, setpoints for heating and cooling are freely set by the optimized within a pre-defined range, set in `30_Simulation/02_Config/12_Temperature_Setpoints.csv`. This control mode is likely to be discontinued soon.
 
-- Mode based: Here, the optimizer decide from a pre-defined set of modes in the `setpoint_modes.csv` file. Each mode has pre-set heating and cooling setpoints.
+- Mode based: Here, the optimizer decide from a pre-defined set of modes in the `30_Simulation/02_Config/13_Modes_setpoints.csv` file. Each mode has pre-set heating and cooling setpoints.
 
-The control mode is flagged through the "control_type" variable in the main.R script.
+The control mode is flagged through the `control_type` parameter in `30_Simulation/02_Config/02_Control.csv`.
 
-Even if simulations are performed at a lower resolution, setpoints and modes are defined in agreement with a market resolution (typically 15 minutes or one hour).
+Even if simulations are performed at shorter timesteps, setpoints and modes are defined in agreement with a market resolution (typically 15 minutes or one hour).
 
 Although still in early stages of research, it seems that Mode-based optimization is a faster and better approach.
 
@@ -115,7 +116,7 @@ Although still in early stages of research, it seems that Mode-based optimizatio
 
 A policy that incorporates heating costs and comfort is used. The reward it produces is dimensionless, and it is built from two terms that are each brought to a pure number by their own weight.
 
-- Comfort: System temperature is compared with reference temperatures during the occupancy periods. If the building is outside comfort bounds, a penalty is given for every hour spent that way, weighted by the `alpha_comfort` [1/h] parameter. Reference temperatures are defined separately for Scheduling and Piloting periods.
+- Comfort: System temperature is compared with reference temperatures at every time step. If the building is outside its comfort band, a penalty is given for every hour spent that way, weighted by the `alpha_comfort` [1/h] parameter. The plan is measured against the more restrictive of two bands: the occupancy band (the service band of `09_Reward_parameters.csv` while occupied, the setback band otherwise) and the scheduling band (the service band tightened before occupancy and according to the season by the corrections of `10_Operational_temperature_corrections.csv`). Inside a flexibility window, from the Commitment Phase to the end of the Recovery Phase, the flexibility itineraries are measured against the occupancy band.
 
 - Energy (and flexibility): The cost of Energy is aimed to be minimized. Accordingly, the cost of heating is considered as a negative reward. Every economic term is weighted by the `alpha_cost` [1/€] parameter. Shall there be a revenue, (i.e. by selling energy to the grid, or trading flexibility), this is incorporated in the same way with a possitive value.
 
@@ -123,17 +124,11 @@ Then both terms are added.
 
 ## Trade offs
 
-What governs the behaviour of the optimizer is the ratio between the two weights, not either of them on its own.
-
-It should be stated that the cost of energy is typically in the range of 0,0X. That is, 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort. Additionally, `alpha_comfort` is typically one order of magnitude above `alpha_cost`to enhance this behavior.
+It should be stated that the cost of energy is typically in the range of 0,0X. This implies that the cost of energy is typically 2-3 orders of magnitude below the penalty for being out of comfort. Accordingly, this reward is highly biased towards prioritizing occupant comfort. Additionally, `alpha_comfort` is typically one order of magnitude above `alpha_cost`to enhance this behavior.
 
 ## Revenue discount
 
-A decision should be cautious about money it expects to earn far into the future. Every economic term is valued market interval by market interval, and where an interval turns out to pay the building rather than cost it, that income is multiplied by
-
-`discount = (1 - Revenue_discount_per_hour/100) ^ n`
-
-with `n` the number of hours from the instant the market is optimized to that interval. `Revenue_discount_per_hour` is in %, between 0 and 100. As an example, with a discount rate of 0.25, so an income twelve hours ahead is worth about 97% of its face value and one a day ahead about 94%. Setting it to 0 switches the discount off.
+A decision should be cautious about money it expects to earn far into the future. for that reason, any future income (i.e. by flexibility) is discounted to account for the associated uncertainty. THe following  formula is used: `discount = (1 - Revenue_discount_per_hour/100) ^ n`, with `n` being the number of hours from the instant the market is optimized to that interval.
 
 Expense is never discounted, and neither is the comfort term. The asymmetry is deliberate: discounting a cost would make distant operation look cheaper than it is and would invite the optimizer to push spending towards the end of the horizon, which is the opposite of prudence.
 
@@ -175,15 +170,15 @@ The following picture shows the structure of Day Ahead (DA), Intra Day (ID) and 
 
 Source: [OMIE, Mercado de Electricidad (2026/06/13)](https://www.omie.es/es/mercado-de-electricidad)
 
-Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code in `main.R`:
+Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code in `30_Simulation/Main.R`:
 
-6. Initialise market columns in Main_df
+9. Initialise market columns in Main_df
 
-7. Flexibility generation (conditional)
+10. Flexibility generation (conditional)
 
-8. Energy/flexibility price signals (buy/sell derivation)
-   
-   
+11. Energy/flexibility price signals (buy/sell derivation)
+    
+    
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -207,7 +202,7 @@ In these cases the following optimization aims are considered:
 
 In all cases, the [policy](#6-policy) weights economic costs/revenues and comfort levels.
 
-Considering that scheduling and piloting processes have different aims, heating and cooling thresholds are established separately for each of them. Typicall (but not strictly required), Scheduling constraints are heavier than Piloting. Allowing for greater adaptarion in the short term. These are established in `30_Simulation/02_Config/09_Reward_parameters.csv`
+Every market, Scheduling and Piloting alike, plans against the same comfort band (`Scheduling_T_*`): the more restrictive of the occupancy band (`Service_T_*`) and the scheduling band, which is the service band of `30_Simulation/02_Config/09_Reward_parameters.csv` tightened while the building is prepared for occupancy and according to the season, as set in `30_Simulation/02_Config/10_Operational_temperature_corrections.csv`. Inside a flexibility window the flexibility itineraries are measured against the occupancy band. The executed operation is checked against the occupancy band (`Service_T_*`).
 
 More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
@@ -249,7 +244,13 @@ Genetic algorithms in this work are parametrized with the following parameters:
 
 - Maximum iterations: Maximum number of generations in the genetic algorithm
 
-- Number of runs: Number of times where the full process is executed
+- Runs without improvement: the algorithm stops after this many consecutive generations with no improvement of the best solution (`run_number`)
+
+- Crossover probability: probability that two solutions are combined (`pcrossover`)
+
+- Mutation probability: probability that a value of a solution is changed at random (`pmutation`)
+
+They are set in `30_Simulation/02_Config/01_Optimization_parameters.csv`.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -291,7 +292,7 @@ When operating in flexibility mode, the building receives incentives to flexibil
 
 Flexibility commitments are defined through an event-like approach, with threee phases:
 
-- Fexibility. Initially, the building modifies its behavior
+- Commitment. Initially, the building modifies its behavior
 
 - Neutral. Once the commited flexibility is executed, some time is provided where loads equal the standard path. This time is defined to allow for trading in continuous-intra-day markets for the recovery phase.
 
@@ -345,7 +346,7 @@ This code is developed in R 4.5.0.
 
 ## Code structure
 
-The simulation is built out of one entry point, `Main.R`, a set of scripts that it sources in order, and a set of functions that those scripts call. `Main.R` sources fifteen scripts, one after another: first the initialization and the parameters, then the market timeline, the prices and the occupancy profiles, then the commitments and the reference temperatures, then the simulation loop itself, and finally the economic analysis and the output files.
+The simulation is built out of one entry point, `Main.R`, a set of scripts that it sources in order, and a set of functions that those scripts call. `Main.R` sources a large number of scripts, one after another: first the initialization and the parameters, then the climate priority, the period subset, the occupancy and scheduling profiles and the reference temperatures, then the market timeline, the flexibility events and the price signals, then the price matrices, the commitments and the economic accumulators, then the simulation loop itself, and finally the economic analysis and the output files.
 
 Every piece of code the simulation reaches has its own page, with what it does, what calls it, what it calls in order of appearance, what it receives, what it sends out, and a block diagram. The whole map, and how to read it, is in [Code structure](99_Readme/Code_Structure.md).
 
@@ -353,17 +354,33 @@ This repository is currently under development, with a rapid evolution in featur
 
 The user should expect a **very long execution time**. Depending on the hyperparameter selection for the GA function, execution time is somewhere in between 1h and several days.
 
-Hyperparameter tuning for the GA function is unfeasible on a personal computer. This used to be performed by means of parametric simulations in a supercomputer facility. Given that the code is rapidly evolving, this part of the code was discontinued - see [Discontinued items](#19-discontinued-items) below - but it should be easy to redefine a similar code based on the examples from V2.
+Hyperparameter tuning for the GA function is unfeasible on a personal computer. This used to be performed by means of parametric simulations in a supercomputer facility. Given that the code is rapidly evolving, this part of the code was discontinued - see [Discontinued items](#20-discontinued-items) below - but it should be easy to redefine a similar code based on the examples from V2.
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 17. Changes and version control
+# 17. Standalone optimizer for third-party use
 
-The current version of this work is Version v5. It has the following changes from previous versions:
+The simulation in `30_Simulation/` runs a whole year of markets. But this is not suitable for third parties to execute the optimizer externally.
+
+For this, a standalone version of the optimizer is provided. Here Energy and flexibility commitments are optimized for one market. And the third-party is free to call the optimizer with the most appropiate context information, store its output, etc.
+
+`31_Standalone_code/` holds that program. The code is mostly written in R and shall be executed with Rscript, but it is meant to be called by other tools, in R or in any other language. 
+
+How it works, the full list of inputs and outputs, and how to call it from other tools are explained in [Standalone code](99_Readme/Standalone_Code.md).
+
+[back to top](#model-predictive-control-for-buildings)
+
+# 18. Changes and version control
+
+The current version of this work is Version v5.1. It has the following changes from previous versions:
 
 ### Overall
 
 - Relevant code re-structurations. The code is far from being stable and bugs are solved on the run (sorry for this).
+
+### V5.1
+
+- A new standalone version of the optimizer is incorporated. To be used by third-party callers.
 
 ### V5
 
@@ -401,11 +418,11 @@ The current version of this work is Version v5. It has the following changes fro
 
 - First load optimization MPC, setpoint-based
 
-See [Discontinued items](#19-discontinued-items) below for functionality that used to exist but is no longer part of the repository.
+See [Discontinued items](#20-discontinued-items) below for functionality that used to exist but is no longer part of the repository.
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 18. Known Issues
+# 19. Known Issues
 
 ## Calibration of the price forecast
 
@@ -421,7 +438,7 @@ What is not settled is how inaccurate that forecast should be. `price_forecast_n
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 19. Discontinued items
+# 20. Discontinued items
 
 The following components were part of earlier versions of this repository but have been removed. Their full source and documentation remain recoverable from the repository's git history.
 
@@ -431,7 +448,7 @@ The following components were part of earlier versions of this repository but ha
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 20. Authors & contributors
+# 21. Authors & contributors
 
 The main author of this code is [Dr. Roberto Garay-Martinez](https://robertogaray.com/).
 
@@ -443,11 +460,9 @@ The following contributions are acknowledged:
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 21. Future works
+# 22. Future works
 
 This is V5 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
-
-- Develop a simplified optimizer to be called by external tools.
 
 - Incorporate the execution of flexibility to the simulation. Currently load profile is optimized considering flexibility commitments, but these are not executed.
 
@@ -463,7 +478,7 @@ All of the above will take some time (it is not clear whether all of them will b
 
 [back to top](#model-predictive-control-for-buildings)
 
-# 22. Acknowledgements
+# 23. Acknowledgements
 
 The DIPC Supercomputing Center has been used to test the code, and run the simulations (probably now in the range of \>1exp4 simulations or \>1exp5 hours of computational time). The technical and human support provided by the [DIPC Supercomputing Center](https://dipc.ehu.eus/en/supercomputing-center) is acknowledged.
 

@@ -7,8 +7,7 @@
 # Overall description
 # Writes a table configuration file (modes or markets) from the rows
 # the user edited. The file keeps its own comment header and its
-# units row (the "text,..." line under the column names), as
-# 00_Base_Criteria.md asks of every configuration file; the rows
+# units row (the "text,..." line under the column names); the rows
 # below them are replaced.
 # When the file does not exist, the given header and the units row of
 # its Default_ file are used.

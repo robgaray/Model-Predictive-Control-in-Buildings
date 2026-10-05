@@ -9,7 +9,6 @@
 # the itinerary may not raise the electricity of BOTH thermal systems
 # over the _plan itinerary. The system that provides the service may go
 # up; the other one may not.
-# See 01_Agent_Comments/20260918b_Propuesta_Viabilidad_Tecnica_Flexibilidad.md
 # -------------------------------------------------------------
 # Why the whole window and not each phase
 # The case this rule exists to forbid splits the increase between the

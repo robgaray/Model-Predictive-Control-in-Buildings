@@ -78,7 +78,9 @@
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by flex_evaluation_down.R and flex_evaluation_up.R, just before
-# the period_calculation() call that simulates the flexibility window.
+# the period_calculation() call that simulates the flexibility window,
+# and by continue_standing_tail.R, before the one that continues the
+# tail of a window that started before the chunk.
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - system_used = "none" returns two vectors of Inf, that is, no

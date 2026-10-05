@@ -6,12 +6,11 @@
 # -------------------------------------------------------------
 # Overall description
 # Market-aware flexibility generation algorithm (Complex_Market_Config
-# == "yes"), implementing Partes B.1-B.7 of
-# 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md:
+# == "yes"), in two passes:
 #   1. Scheduling market events, in Bid_time order: for each one, an
 #      echo pass (try_flex_echo(), advance/delay of not-yet-displaced
 #      prior Scheduling events whose forbidden zone overlaps the new
-#      market's horizon) runs before new candidates (B.3) are placed
+#      market's horizon) runs before new candidates are placed
 #      in the segments still available after the echo pass.
 #   2. Piloting market events, in Bid_time order, after ALL Scheduling
 #      events: candidates are placed anywhere in the market's own
@@ -25,7 +24,7 @@
 # many markets cover it.
 # Every event's start/duration (and, for Scheduling's echo, its shift)
 # is discretized to slots of parameters$market$market_resolution
-# (Parte B.0) - this is what makes an event's exact placement always
+# - this is what makes an event's exact placement always
 # representable as a whole number of Main_df rows.
 # Writes (overwrites) these columns across the whole of Main_df:
 #   - Flex_unit_cost_down_com
@@ -37,8 +36,8 @@
 #   - Flex_Act
 # One accepted event sets its covered rows, everything else is 0
 # (Flex_Act: 0/1). Piloting is written after Scheduling, so on any overlap
-# Piloting's value prevails (last-write-wins, by design - see Parte
-# B.5.4).
+# Piloting's value prevails (last-write-wins, by design: Piloting is
+# the most up-to-date decision for that moment).
 # -------------------------------------------------------------
 # Inputs
 # Main_df    : Data frame. Must already have the Sched_*/Pilot_*
@@ -218,7 +217,7 @@ generate_flexibility_events <- function(Main_df, parameters) {
       horizon_end   <- sched_events$horizon_end_sec[CONT_001]
       if (horizon_end <= horizon_begin) next
 
-      # -- 2a. Echo pass (Parte B.4), only over not-yet-displaced events
+      # -- 2a. Echo pass, only over not-yet-displaced events
       #    whose forbidden zone overlaps this market's horizon --
       if (nrow(E_sched) > 0) {
         eligible <- !E_sched$displaced &
@@ -256,7 +255,7 @@ generate_flexibility_events <- function(Main_df, parameters) {
         }
       }
 
-      # -- 2b. New candidates (Parte B.3) --
+      # -- 2b. New candidates --
       forbidden <- if (nrow(E_sched) > 0) {
         lapply(seq_len(nrow(E_sched)), function(CONT_003) {
           c(E_sched$t_start_sec[CONT_003] - margin_sec,
@@ -343,7 +342,7 @@ generate_flexibility_events <- function(Main_df, parameters) {
     }
   }
 
-  # ---- 4. Write final state into Main_df (Parte B.6) ----
+  # ---- 4. Write final state into Main_df ----
   n_rows    <- nrow(Main_df)
   down_com  <- rep(0, n_rows)
   down_exec <- rep(0, n_rows)

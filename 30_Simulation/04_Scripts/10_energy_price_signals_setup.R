@@ -19,9 +19,8 @@
 #       - Flex_unit_cost_down_exec
 #       - Flex_unit_cost_up_com
 #       - Flex_unit_cost_up_exec
-# The four energy signals implement the Fase 3 discount formula of
-# 01_Agent_Comments/20260720_Plan_Redefinicion_Precios_Energia.md
-# (Sec. 4.3), using parameters$energy_price
+# The four energy signals implement this discount formula, using
+# parameters$energy_price
 # (Energy_Export_discount/Energy_Sell_discount/Price_variation_*):
 #   import_buy  = P_ref * factor_tiempo
 #   import_sell = import_buy * (1 - Sell_discount/100)
@@ -29,16 +28,16 @@
 #   export_sell = export_buy * (1 - Sell_discount/100)
 # These flat Main_df columns are the row-level ("now") prices used by
 # implement_control_step.R's execution-phase economic accounting, so
-# factor_tiempo here always uses h = 0 (the "below_1h" tier of
-# Price_variation_in_time - see
-# 01_Agent_Comments/20260725_Diagnostico_M7_Energy_Price.md, Sec. 4.1
-# for the 4-tier partition). The GA-facing, per-market-event/per-future-step
-# prices (h = j * market_resolution/60, j > 0 included) are computed
+# factor_tiempo here always uses h = 0 (the "below_1h" tier of the
+# 4-tier partition of Price_variation_in_time - see
+# price_variation_at_lead()). The GA-facing prices, per market event
+# and per future step (h = j * market_resolution/60, j > 0 included),
+# are computed
 # separately, cell by cell, in 11_full_market_information_setup.R -
 # these flat columns are NOT averaged into that script's energy
 # matrices the way the other nine signals are (see its header).
-# Differentiating the eight flexibility columns remains out of scope
-# (Fase 5 of the 20260720 plan) - unconditional buy/sell duplicates.
+# The eight flexibility columns are unconditional buy/sell duplicates
+# of the four flexibility prices.
 # Sourced from Main.R, after the (conditional) 09_flexibility_price_emulation.R
 # block and before 11_full_market_information_setup.R.
 # -------------------------------------------------------------
@@ -87,5 +86,5 @@
   Main_df$Flex_unit_cost_up_exec_buy    <- Main_df$Flex_unit_cost_up_exec
   Main_df$Flex_unit_cost_up_exec_sell   <- Main_df$Flex_unit_cost_up_exec
 
-  cat("Energy/flexibility price signals derived (energy: Fase 3 discount formula; flexibility: interim buy/sell duplicates)\n")
+  cat("Energy/flexibility price signals derived (energy: discount formula; flexibility: buy/sell duplicates)\n")
 }

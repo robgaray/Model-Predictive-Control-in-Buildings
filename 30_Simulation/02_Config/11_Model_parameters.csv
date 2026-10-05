@@ -26,7 +26,7 @@ RENvent1,5,h-1
 RENvent2,2,h-1
 Setpoint_Rvent1,20,degC
 Volume,250,m3
-Efi_Vent_Rec,0,-
+Efi_Vent_Rec,0.5,-
 Ti_0,20,degC
 Te_0,20,degC
 Qh_0,0,kW

@@ -1,0 +1,22 @@
+# Reward function parameters
+# -------------------------------------------------------------
+# The parameters of the reward function: the weights of comfort and
+# cost, the comfort band while the building is in service and in
+# setback, and the discount of revenue expected in the future.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Weights of the reward
+alpha_comfort,50,1/h
+alpha_cost,1,1/EUR
+#
+# Comfort band while in service
+Service_T_Low,20,degC
+Service_T_High,25,degC
+#
+# Comfort band in setback
+Setback_T_Low,5,degC
+Setback_T_High,45,degC
+#
+# Discount of future revenue
+Revenue_discount_per_hour,0.25,%

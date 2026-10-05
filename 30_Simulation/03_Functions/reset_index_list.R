@@ -16,7 +16,6 @@
 # Outputs
 # Named list with these elements, all set to 0:
 #   - i0
-#   - i1
 #   - i_begin_horizon
 #   - i_end_horizon
 #   - i_end_control
@@ -39,7 +38,7 @@
 # EXCEPTIONS AND SPECIAL CASES:
 #   - indexes_global and indexes_local also hold an n_steps field that
 #     must persist across the whole simulation loop. The partial,
-#     named-subset assignment shown above updates only the 9 fields
+#     named-subset assignment shown above updates only the 8 fields
 #     returned by this function, leaving n_steps (and any other field
 #     not covered here) untouched. A full-list replacement
 #     (simulation_control$indexes_global <- reset_index_list()) would
@@ -52,7 +51,6 @@
 reset_index_list <- function() {
   list(
     i0              = 0,
-    i1              = 0,
     i_begin_horizon = 0,
     i_end_horizon   = 0,
     i_end_control   = 0,

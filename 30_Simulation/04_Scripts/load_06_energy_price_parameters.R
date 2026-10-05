@@ -10,11 +10,10 @@
 # Parameter_config.csv, and stores the result in
 # parameters$energy_price. These parameters apply only to the four
 # energy buy/sell price signals (Elec_unit_cost_import_buy/sell,
-# _export_buy/sell), not to flexibility - see
-# 01_Agent_Comments/20260720_Plan_Redefinicion_Precios_Energia.md.
-# Not yet consumed by any derivation script (Fase 3 of that plan);
-# 10_energy_price_signals_setup.R still derives the four energy signals
-# as interim buy/sell duplicates.
+# _export_buy/sell), not to flexibility. They are read by:
+#   - 10_energy_price_signals_setup.R
+#   - 11_full_market_information_setup.R
+# which derive the four energy signals from them.
 # Sourced from 02_load_all_parameters.R.
 # -------------------------------------------------------------
 # Inputs

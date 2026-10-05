@@ -11,8 +11,7 @@
 # Sinthetized_df
 # One row per simulation, reconstructable in full from its own
 # columns: every money column follows the repository's sign
-# convention (income positive, expense negative - see
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md), so
+# convention (income positive, expense negative), so
 # Elec_cost + Elec_revenue + Flex_plan_revenue + Distr_cost is the
 # energy-and-flexibility economic result of the year, before comfort.
 # The market-decision (Scheduling/Piloting) and execution-deviation
@@ -46,8 +45,7 @@
 #                         A simulation that never exports therefore
 #                         reports Elec_revenue = 0, instead of
 #                         counting its resales as income - see
-#                         accumulate_market_operation()'s header and
-#                         00_Agent_Input/20260820_Correcciones.md.
+#                         accumulate_market_operation()'s header.
 #   Flex_plan_revenue   = sum(economic_analysis$slot$Revenue_flex_commitments):
 #                         net cash flow of flexibility commitments
 #                         (sold minus bought back), across Scheduling

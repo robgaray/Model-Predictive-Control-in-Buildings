@@ -6,7 +6,21 @@
 # -------------------------------------------------------------
 # Overall description
 # Executes one market optimization process (Scheduling or Piloting)
-# over a sliced simulation period.
+# over a sliced simulation period. Between i0 and i_begin_horizon the
+# plan is simulated as it stands, with the forecast of this market, and
+# both flexibility itineraries are projected over it: the windows
+# committed from i0 onwards are drawn as the new plan allows, without
+# judging them and without changing any commitment. When a window
+# whose Commitment Phase starts there runs into the optimization
+# horizon, that period is extended to the end of its Recovery Phase,
+# and what the optimization needs to continue the tail is handed over
+# in simulation_control$flexibility$pre_horizon_tail: the optimization
+# continues it over the plan of each candidate and starts no window of
+# the same leg on it.
+# Whatever the aim, the optimization keeps the commitments of the
+# market interval inside the commitment margin: the part the new plan
+# no longer holds is given back (see derive_flex_itineraries()). That
+# is the only flexibility a market with the "operation" aim trades.
 # -------------------------------------------------------------
 # Inputs
 # prefix             : Character. "Sched" or "Pilot".
@@ -37,15 +51,18 @@
 # -------------------------------------------------------------
 # Code outline
 # 1. Translate the market's aim into its internal name.
-# 2. Build the forecast the decision is taken on.
+# 2. Initialization period: simulate the plan from i0, project the
+#    windows that start there and hand their tail over.
 # 3. Optimize, or fly the plan straight when the aim is operation.
-# 4. Re-derive the itineraries of the accepted plan and value it.
+# 4. Inject the result over the control horizon.
 # -------------------------------------------------------------
 # Where this function/script is used
 # Called by 14_simulation.R in scheduling and piloting blocks.
 # -------------------------------------------------------------
 # functions/scripts called
 #   - map_optimization_aim()
+#   - pre_horizon_window_tails()
+#   - hand_over_window_tail()
 #   - implement_control_step()
 #   - optimize_control_step()
 #   - evaluate_control()
@@ -79,10 +96,6 @@ run_market_process <- function(prefix,
       stop("Invalid market range at row ", row_index,
            ": i_begin_horizon > i_end_horizon for ", prefix)
     }
-    if (simulation_control$indexes_local$i_begin_horizon > simulation_control$indexes_local$i1) {
-      stop("Invalid market range at row ", row_index,
-           ": i_begin_horizon > i1 for ", prefix)
-    }
   }
   
   # 1. Define Optimization aim
@@ -99,14 +112,32 @@ run_market_process <- function(prefix,
   }
 
   # 2. Iintialization period
+  # The plan is simulated from i0, from the state Main_df holds there,
+  # with the forecast of this market. A window whose Commitment Phase
+  # starts in this period may run its Neutral and Recovery Phases into
+  # the optimization horizon. The period is then extended to the end of
+  # the last of those Recovery Phases, so that the window is projected
+  # whole, over the plan the earlier markets left there. The
+  # optimization continues its tail and starts no window of the same
+  # leg on it.
   {
+    pre_horizon_tail <- list()
+
     if (simulation_control$indexes_local$i0 < simulation_control$indexes_local$i_begin_horizon) {
-      
+
       # 1. Subset
       {
+        i_begin_horizon <- simulation_control$indexes_local$i_begin_horizon
+
+        # pre_horizon_window_tails is called to find where the windows
+        # that start in this period end, for each leg.
+        tails    <- pre_horizon_window_tails(period_chunk, i_begin_horizon, parameters)
+        init_end <- min(max(i_begin_horizon, tails$down, tails$up),
+                        simulation_control$indexes_local$i_end_horizon)
+
         init_cols <- unique(c(parameters$needed_cols, "time"))
         period_init <- data.frame(
-          period_chunk[1:simulation_control$indexes_local$i_begin_horizon, init_cols]
+          period_chunk[1:init_end, init_cols]
         )
       }
       
@@ -154,9 +185,10 @@ run_market_process <- function(prefix,
       # 3. Initialization
       {
         # implement_control_step is called to run the initialization
-        # period's setpoints through the actual (non-forecast) building
-        # physics, so period_init holds real Ti/Te/comfort states before
-        # any of it is injected back into period_chunk below.
+        # period's setpoints through the building physics, with the
+        # forecast of this market, so period_init holds the Ti/Te/comfort
+        # states of the plan before any of it is injected back into
+        # period_chunk below.
         period_init <- implement_control_step(
           period_chunk        = period_init,
           simulation_control  = simulation_control,
@@ -170,12 +202,54 @@ run_market_process <- function(prefix,
       {
         plan_cols <- grep("_plan$", names(period_init), value = TRUE)
         plan_cols <- plan_cols[plan_cols %in% parameters$needed_cols]
-        period_chunk[simulation_control$indexes_local$i_begin_horizon, plan_cols] <-
-          period_init[simulation_control$indexes_local$i_begin_horizon, plan_cols]
+        period_chunk[i_begin_horizon, plan_cols] <-
+          period_init[i_begin_horizon, plan_cols]
       }
 
-      rm(period_init, plan_cols, init_cols)
+      # 5. Windows that run into the horizon
+      # The flexibility itineraries are projected over the plan just
+      # simulated. No market trades this period any more: the windows
+      # that fall in it are drawn as the new plan allows, without
+      # judging them, and no commitment is changed. For each leg whose
+      # window runs into the horizon, what the optimization needs to
+      # continue its tail is handed over.
+      {
+        if (init_end > i_begin_horizon) {
+          init_control <- simulation_control
+          init_control$indexes_local$i_end_control    <- init_end
+          init_control$indexes_local$i_flex           <- 1
+          init_control$flexibility$restatement_mode   <- "projection"
+
+          # derive_flex_itineraries is called to project both
+          # flexibility itineraries over the plan of this period, so the
+          # windows that start in it are drawn whole.
+          period_init <- derive_flex_itineraries(period_chunk       = period_init,
+                                                 parameters         = parameters,
+                                                 simulation_control = init_control)$period_chunk
+
+          # hand_over_window_tail is called for each leg whose window
+          # runs into the horizon, so that the optimization continues it
+          # over the plan of each candidate.
+          for (CONT_006 in c("down", "up")) {
+            if (tails[[CONT_006]] > i_begin_horizon) {
+              pre_horizon_tail[[CONT_006]] <- hand_over_window_tail(
+                stretch_chunk   = period_init,
+                committed_chunk = period_chunk[1:init_end, ],
+                i_begin_horizon = i_begin_horizon,
+                tail_end        = min(tails[[CONT_006]], init_end),
+                leg             = CONT_006,
+                parameters      = parameters)
+            }
+          }
+          rm(init_control, CONT_006)
+        }
+      }
+
+      rm(period_init, plan_cols, init_cols, tails, init_end, i_begin_horizon)
     }
+
+    simulation_control$flexibility$pre_horizon_tail <- pre_horizon_tail
+    rm(pre_horizon_tail)
   }
 
   # 3. Optimization
@@ -183,6 +257,16 @@ run_market_process <- function(prefix,
     # 1. Subset
     {
       optimization_chunk <- period_chunk[simulation_control$indexes_local$idx_horizon, ]
+
+      # The optimization works on a chunk that starts at i_begin_horizon,
+      # so the control horizon is handed to it as a row of that chunk.
+      # flex_evaluation_down() and flex_evaluation_up() read it that way;
+      # counted from i0, it would let a window reach past the period this
+      # market commits.
+      optimization_control <- simulation_control
+      optimization_control$indexes_local$i_end_control <-
+        simulation_control$indexes_local$i_end_control -
+        simulation_control$indexes_local$i_begin_horizon + 1
       
       timestamps$target_periods <- sort(unique(optimization_chunk$MarketUTC))
     }
@@ -198,7 +282,7 @@ run_market_process <- function(prefix,
           period_chunk       = optimization_chunk,
           timestamps         = timestamps,
           parameters         = parameters,
-          simulation_control = simulation_control,
+          simulation_control = optimization_control,
           marginal_context   = marginal_context
         )$period_chunk
       } else if (parameters$control$optimization_aim == "flexibility") {
@@ -209,7 +293,7 @@ run_market_process <- function(prefix,
           period_chunk       = optimization_chunk,
           timestamps         = timestamps,
           parameters         = parameters,
-          simulation_control = simulation_control,
+          simulation_control = optimization_control,
           marginal_context   = marginal_context
         )$period_chunk
       } else if (parameters$control$optimization_aim == "operation") {
@@ -228,11 +312,17 @@ run_market_process <- function(prefix,
         # PREVIOUS plan, written back to Main_df beside the new one.
         # This aim optimizes nothing, so the derivation only holds what
         # is already committed over the plan it has just recomputed.
-        optimization_chunk <- derive_flex_itineraries(
+        # The guard zone is the only flexibility this aim trades: the
+        # part of a commitment the new plan no longer holds is given
+        # back.
+        derived <- derive_flex_itineraries(
           period_chunk       = optimization_chunk,
           parameters         = parameters,
-          simulation_control = simulation_control
-        )$period_chunk
+          simulation_control = optimization_control
+        )
+        optimization_chunk <- derived$period_chunk
+        optimization_chunk$Standing_commitment_held_plan <- as.integer(derived$feasible)
+        rm(derived)
 
         # reward_function is called so that a market with this aim
         # reports a reward like any other. It decides nothing with it -
@@ -242,7 +332,7 @@ run_market_process <- function(prefix,
         optimization_chunk <- reward_function(
           period_chunk       = optimization_chunk,
           parameters         = parameters,
-          simulation_control = simulation_control,
+          simulation_control = optimization_control,
           marginal_context   = marginal_context
         )
       } else  if (parameters$control$optimization_aim == "operationflex") {
@@ -252,10 +342,20 @@ run_market_process <- function(prefix,
         # flexibility without optimizing the underlying schedule.
         optimization_chunk <- evaluate_control(period_chunk       = optimization_chunk,
                                                parameters         = parameters,
-                                               simulation_control = simulation_control,
+                                               simulation_control = optimization_control,
                                                marginal_context   = marginal_context)$period_chunk
       } else {
         stop("Invalid optimization aim: ", parameters$control$optimization_aim)
+      }
+
+      # A window of the guard zone that would raise both thermal systems
+      # over the plan of this market cannot be drawn. It is held as it
+      # stands, without giving any of it back, and reported, because the
+      # plan may not be able to deliver it.
+      if (any(optimization_chunk$Standing_commitment_held_plan == 0L, na.rm = TRUE)) {
+        warning("A flexibility commitment of the market interval is held as it stands: ",
+                "rebuilding it over the plan would raise both the heating and the cooling system.",
+                call. = FALSE)
       }
     }
     
@@ -309,7 +409,7 @@ run_market_process <- function(prefix,
         optimization_chunk[["Reward"]]
     }
 
-    rm(optimization_chunk, plan_cols, plan_flex_cols, inject_cols, idx_inject)
+    rm(optimization_chunk, optimization_control, plan_cols, plan_flex_cols, inject_cols, idx_inject)
   }
 
   if (parameters$debug_and_config$verbose) {

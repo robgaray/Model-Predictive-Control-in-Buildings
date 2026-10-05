@@ -8,7 +8,6 @@
 # Decides how many flexibility candidates each market event may place,
 # by drawing a number of events for each calendar day and sharing it out
 # among the markets of that day.
-# See 01_Agent_Comments/20260918d_Propuesta_Reparto_Eventos_Flexibilidad.md
 # -------------------------------------------------------------
 # Why the day comes first
 # Max_flex_periods_day is a cap per calendar DAY. Letting every market

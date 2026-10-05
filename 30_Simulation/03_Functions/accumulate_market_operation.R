@@ -40,8 +40,7 @@
 #     revenue, so it reduces Revenue_energy_sold.
 # Reporting them the other way round would create revenue in a slot
 # where no energy was ever exported (and cost where none was
-# imported), which is what
-# 00_Agent_Input/20260820_Correcciones.md asks to correct.
+# imported).
 # A consequence of this is that Cost_energy_bought and
 # Revenue_energy_sold are no longer non-negative magnitudes: a slot
 # whose position was mostly unwound reports a negative cost (net

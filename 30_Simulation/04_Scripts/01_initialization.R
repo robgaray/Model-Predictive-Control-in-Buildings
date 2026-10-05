@@ -93,7 +93,7 @@
     flexibility_price_emulation_file = file.path(config_path, "07_Flexibility_price_emulation_parameters.csv"),
     flexibility_events_file     = file.path(config_path, "08_Flexibility_Event_Configuration.csv"),
     reward_file                 = file.path(config_path, "09_Reward_parameters.csv"),
-    reward_corrections_file     = file.path(config_path, "10_Reward_parameter_corrections.csv"),
+    operational_temperature_corrections_file = file.path(config_path, "10_Operational_temperature_corrections.csv"),
     model_file                  = file.path(config_path, "11_Model_parameters.csv"),
     temperature_setpoints_file  = file.path(config_path, "12_Temperature_Setpoints.csv"),
     setpoint_mode_file          = file.path(config_path, "13_Modes_setpoints.csv"),

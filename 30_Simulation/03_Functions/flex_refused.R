@@ -15,13 +15,12 @@
 # would be raised at once. Only the last of those is technical
 # infeasibility in the sense the rule was written for, and only that
 # one should reach the reward as such.
-# Before this tag existed, whoever called the builder had to guess,
-# and derive_flex_itineraries() guessed by testing whether the rebuilt
-# phase was all zero. That test only holds for the first window of a
-# leg: from the second on the chunk already carries the phases of the
-# earlier ones, so a refusal went unnoticed and the standing commitment
-# was lost in silence. See
-# 01_Agent_Comments/20260920b_Diagnostico_Compromiso_Vigente.md.
+# Without this tag, the caller would have to guess from the rebuilt
+# phases, for instance by testing whether the phase is all zero. That
+# test only holds for the first window of a leg: from the second on the
+# chunk already carries the phases of the earlier ones, so a refusal
+# would go unnoticed and the standing commitment would be lost in
+# silence.
 # -------------------------------------------------------------
 # Inputs
 #   period_chunk : Data frame. The chunk the builder is returning.

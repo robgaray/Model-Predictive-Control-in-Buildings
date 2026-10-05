@@ -11,9 +11,7 @@
 #   - T_ext_24h, by 02_load_all_parameters.R
 #   - Text_forec/_ant and SolarR_forec/_ant, by
 #     context_forecast_step()/imperfect_forecast()
-# which is unaffected by this change - only the initial placeholder
-# generation moves here. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part D.
+# This function only creates those columns, as placeholders.
 # -------------------------------------------------------------
 # Inputs
 #   time : POSIXct vector. The master 5' time grid of Main_df.

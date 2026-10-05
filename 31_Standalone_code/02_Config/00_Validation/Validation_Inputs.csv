@@ -1,0 +1,61 @@
+# Input validation configuration file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Type and range validation of the inputs of optimize_market(),
+# applied by validate_inputs(). The scalars of the market block are
+# checked by validate_parameter_config(); the vectors of the context,
+# prices and itineraries blocks by validate_dataframe_config().
+# Structure: same convention as Parameter_config.csv
+#   file_name      : input block (market, context, prices, itinerary)
+#   parameter_name : name of the scalar or vector to validate
+#   type           : Integer | Real | Options
+#   output         : Error (stops execution) | Warning (issues a warning)
+#   options        : for Integer/Real: "min,max", an empty side means
+#                    unbounded on that side; for Options: "opt1,opt2,..."
+# -------------------------------------------------------------
+file_name,parameter_name,type,output,options
+#
+# Market block (scalars)
+market,aim,Options,Error,"E,E+F,O,O+F"
+market,T_ext_24h,Real,Warning,"-50,60"
+market,Overall_Climate,Options,Error,"Heating,Cooling,Intermediate"
+market,random_seed,Integer,Error,"0,2147483647"
+#
+# Context block (one value per market interval)
+context,Text,Real,Warning,"-50,60"
+context,SolarR,Real,Error,"0,1500"
+context,Occupancy,Integer,Error,"0,1"
+#
+# Prices block (one value per market interval)
+prices,Elec_unit_cost_import_buy,Real,Warning,"-1,5"
+prices,Elec_unit_cost_import_sell,Real,Warning,"-1,5"
+prices,Elec_unit_cost_export_buy,Real,Warning,"-1,5"
+prices,Elec_unit_cost_export_sell,Real,Warning,"-1,5"
+prices,Elec_unit_cost_distribution,Real,Warning,"-1,1"
+prices,Flex_unit_cost_down_com_buy,Real,Warning,"-1,5"
+prices,Flex_unit_cost_down_com_sell,Real,Warning,"-1,5"
+prices,Flex_unit_cost_down_exec_buy,Real,Warning,"-1,5"
+prices,Flex_unit_cost_down_exec_sell,Real,Warning,"-1,5"
+prices,Flex_unit_cost_up_com_buy,Real,Warning,"-1,5"
+prices,Flex_unit_cost_up_com_sell,Real,Warning,"-1,5"
+prices,Flex_unit_cost_up_exec_buy,Real,Warning,"-1,5"
+prices,Flex_unit_cost_up_exec_sell,Real,Warning,"-1,5"
+prices,Flex_Probab_down,Real,Error,"0,1"
+prices,Flex_Probab_up,Real,Error,"0,1"
+#
+# Itineraries (one value per market interval, every itinerary)
+itinerary,Ti,Real,Error,"-20,60"
+itinerary,Te,Real,Error,"-30,60"
+itinerary,STP_heat,Real,Error,"-20,80"
+itinerary,STP_heat_low,Real,Error,"-20,80"
+itinerary,STP_heat_high,Real,Error,"-20,80"
+itinerary,STP_cool,Real,Error,"-20,80"
+itinerary,STP_cool_low,Real,Error,"-20,80"
+itinerary,STP_cool_high,Real,Error,"-20,80"
+itinerary,Elec_total,Real,Warning,"-1000,1000"
+#
+# Commitments of the plan itinerary (one value per market interval)
+plan_commitments,Elec_flex_down,Real,Error,"0,"
+plan_commitments,Elec_flex_up,Real,Error,"0,"

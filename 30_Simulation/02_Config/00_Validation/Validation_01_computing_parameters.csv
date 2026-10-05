@@ -20,3 +20,4 @@ file_name,parameter_name,type,output,options
 01_computing_parameters.csv,price_lead_day_ahead_h,Real,Error,"0,168"
 01_computing_parameters.csv,price_lead_5h_h,Real,Error,"0,168"
 01_computing_parameters.csv,price_lead_1h_h,Real,Error,"0,168"
+01_computing_parameters.csv,flex_infeasible_penalty,Real,Error,"1000,1e15"

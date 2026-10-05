@@ -20,11 +20,7 @@
 # BUY BACK (expense) - the opposite polarity of calc_differential_cost()'s
 # "growing the positive leg = a purchase" convention. Passing E_orig/
 # E_new through that machinery would price a growing down-flexibility
-# commitment as an expense instead of income, exactly the sign
-# inversion reported in
-# 01_Agent_Comments/20260817_Auditoria_Consistencia_Economica.md
-# (finding 1) and confirmed in
-# 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+# commitment as an expense instead of income.
 # The two legs are told apart by the sign of the series given here, and
 # the caller decides which leg a series belongs to: the down leg carries
 # Elec_flex_down_plan as it is, and the up leg carries Elec_flex_up_plan

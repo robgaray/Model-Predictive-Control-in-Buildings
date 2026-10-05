@@ -1,0 +1,13 @@
+# Rtools release for each version of R
+# -------------------------------------------------------------
+# Read by setup.R on Windows, where Rtools is the C++ compiler that
+# R uses. Each R version takes the Rtools of the last row whose
+# r_version_from is not above it. R older than the first row is not
+# supported.
+# -------------------------------------------------------------
+r_version_from,rtools_folder
+-,-
+4.2.0,rtools42
+4.3.0,rtools43
+4.4.0,rtools44
+4.5.0,rtools45

@@ -14,6 +14,14 @@ main_resolution_sec,300,s
 # Numerical tolerances
 flex_energy_tol,1e-9,kWh
 #
+# Weight of the technical-feasibility term of the reward
+# Penalty, in reward units, for each flexibility leg whose window is
+# technically infeasible. It is not a preference of the reward: it
+# only has to dominate any reachable reward (of the order of 1e3) so
+# that an infeasible candidate never pays. It is finite on purpose, so
+# that the fitness scaling of the genetic algorithm never meets -Inf.
+flex_infeasible_penalty,1e9,-
+#
 # Flexibility event generation
 flexibility_event_margin_sec,10800,s
 #

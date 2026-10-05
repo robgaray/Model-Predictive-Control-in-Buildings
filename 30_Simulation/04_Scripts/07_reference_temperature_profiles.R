@@ -12,12 +12,19 @@
 # Inputs
 #   Main_df, with its Occupancy, Scheduling and Overall_Climate
 #     columns.
-#   parameters$reward : the service and setback comfort bands, and
-#     the shifts applied to them while the building is prepared.
+#   parameters$reward : the service and setback comfort bands.
+#   parameters$operational_temperature_corrections : the shifts
+#     applied to the service band while the building is prepared.
 # -------------------------------------------------------------
 # Outputs
 #   Main_df, with the reference temperature profiles the comfort
-#     term of the reward is measured against.
+#     term of the reward is measured against:
+#     - Service_T_Low/High: the occupancy band. The executed
+#       operation, and the flexibility itineraries inside their
+#       windows, are measured against it.
+#     - Scheduling_T_Low/High: the more restrictive of the occupancy
+#       band and the scheduling band. The plan, and the flexibility
+#       itineraries outside their windows, are measured against it.
 # -------------------------------------------------------------
 # Code outline
 # 1. Check the Occupancy, Scheduling and Overall_Climate columns.
@@ -26,6 +33,8 @@
 # 3. Scheduling band of each row: the service band where Scheduling
 #    is 1, shifted by the climate of the day, and the service band
 #    of step 2 everywhere else.
+# 4. Plan band: the more restrictive of the bands of steps 2 and 3,
+#    stored in Scheduling_T_*. The run stops if it is empty on any row.
 # -------------------------------------------------------------
 # Usage instructions
 #   Not called: sourced by Main.R before the simulation, and
@@ -62,19 +71,20 @@
 
   heating_like <- Main_df$Overall_Climate %in% c("Heating", "Intermediate")
   cooling_like <- Main_df$Overall_Climate %in% c("Cooling", "Intermediate")
+  corrections  <- parameters$operational_temperature_corrections
 
-  Main_df$Scheduling_T_Low <- ifelse(
+  scheduling_low <- ifelse(
     Main_df$Scheduling == 1L & heating_like,
-    parameters$reward$Service_T_Low + parameters$reward$Service_AT_Low_Sched_HDD,
+    parameters$reward$Service_T_Low + corrections$Service_AT_Low_Sched_HDD,
     ifelse(
       Main_df$Scheduling == 1L,
       parameters$reward$Service_T_Low,
       Main_df$Service_T_Low
     )
   )
-  Main_df$Scheduling_T_High <- ifelse(
+  scheduling_high <- ifelse(
     Main_df$Scheduling == 1L & cooling_like,
-    parameters$reward$Service_T_High - parameters$reward$Service_AT_High_Sched_CDD,
+    parameters$reward$Service_T_High - corrections$Service_AT_High_Sched_CDD,
     ifelse(
       Main_df$Scheduling == 1L,
       parameters$reward$Service_T_High,
@@ -82,7 +92,24 @@
     )
   )
 
-  rm(heating_like, cooling_like)
+  # The band the plan is measured against is the more restrictive of
+  # the scheduling band and the occupancy band. The scheduling
+  # corrections may be negative, which would make the scheduling band
+  # wider than the occupancy band; the intersection keeps the occupancy
+  # band as a floor in that case.
+  Main_df$Scheduling_T_Low  <- pmax(Main_df$Service_T_Low,  scheduling_low)
+  Main_df$Scheduling_T_High <- pmin(Main_df$Service_T_High, scheduling_high)
+
+  empty_band <- Main_df$Scheduling_T_Low >= Main_df$Scheduling_T_High
+  if (any(empty_band)) {
+    stop("The comfort band is empty (Scheduling_T_Low >= Scheduling_T_High) on ",
+         sum(empty_band), " rows, the first at ", format(Main_df$time[which(empty_band)[1]]),
+         ". Check Service_T_Low/High and Setback_T_Low/High in 09_Reward_parameters.csv",
+         " and Service_AT_Low_Sched_HDD/Service_AT_High_Sched_CDD in",
+         " 10_Operational_temperature_corrections.csv")
+  }
+
+  rm(heating_like, cooling_like, corrections, scheduling_low, scheduling_high, empty_band)
 
   cat("Reference temperature profiles generated\n")
 }

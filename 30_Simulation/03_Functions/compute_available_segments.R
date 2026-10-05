@@ -12,8 +12,7 @@
 # forbidden interval has been clipped to the horizon and merged. Makes
 # no assumption about how many forbidden intervals there are, whether
 # they overlap each other, or how they relate to any particular market
-# configuration - see 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md,
-# Parte A / B.3.
+# configuration.
 # -------------------------------------------------------------
 # Inputs
 # horizon_begin       : Numeric scalar. Start of the horizon (seconds).

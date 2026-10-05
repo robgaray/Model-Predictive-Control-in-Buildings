@@ -21,9 +21,7 @@
 # one silently overwrites the first, and 13_economic_analysis_setup.R keeps a
 # single row per (slot, market type), so their flows would be merged
 # and the identity of one of them lost. This is rejected here, at read
-# time, rather than left to surface as a wrong number later - see
-# finding 15 of 01_Agent_Comments/20260820_Revision_Global_Codigo.md
-# and 00_Agent_Input/20260820_Correcciones.md.
+# time, rather than left to surface as a wrong number later.
 # The check is per file, so it enforces exactly "no two Scheduling
 # markets in one slot" and "no two Piloting markets in one slot"; a
 # Scheduling and a Piloting market sharing a slot is legitimate and is

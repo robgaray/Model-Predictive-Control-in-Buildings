@@ -30,8 +30,7 @@
 # resolve_marginal_context()) instead of surfacing it as an error.
 # In addition to the energy price, the base-energy term also accounts
 # for the marginal distribution cost (Elec_unit_cost_distribution),
-# via compute_marginal_distribution_cost() - see
-# 01_Agent_Comments/20260722c_Plan_Costes_Distribucion_Recompensa.md.
+# via compute_marginal_distribution_cost().
 # This is a decision-time-only consideration (it is never written to
 # market_commitments, only to Reward): buying or selling energy always
 # adds distribution cost, unbuying ("descompra") or unselling
@@ -72,8 +71,7 @@
 # positive = income, negative = expense (see calc_differential_cost(),
 # compute_marginal_distribution_cost() and value_flex_operation()).
 # Reward is therefore a pure sum of the comfort term and every economic
-# term, never a mix of "+" and "-" that has to be remembered per term -
-# see 00_Agent_Input/20260818_comentarios_observaciones_anteriores.md.
+# term, never a mix of "+" and "-" that has to be remembered per term.
 # The explicit-flexibility term is valued via compute_marginal_flex_revenue(),
 # not compute_marginal_energy_cost(): explicit flexibility is a service
 # sold to the grid in two independent down/up legs, not a single
@@ -89,7 +87,6 @@
 #                              Required columns:
 #                                time             - POSIXct. Simulation timestamps.
 #                                MarketUTC        - POSIXct. Market interval of each row.
-#                                Occupancy        - Numeric (0/1). Occupancy flag.
 #                                Comfort_plan     - Numeric (0/1). Comfort flag (plan).
 #                                Elec_total_plan  - Numeric. Total electricity (plan).
 #                              Additional columns required for "flexibility" mode:
@@ -209,10 +206,9 @@
 #     economic term (EUR).
 #   - If optimization_aim is none of "energy", "operation",
 #     "flexibility" or "operationflex", stop() is called.
-#   - In "energy" mode, the comfort penalty is based on Comfort_plan.
-#   - In "flexibility" mode, the comfort penalty applies if ANY of
-#     Comfort_plan, Comfort_plan_flex_down or Comfort_plan_flex_up is 0
-#     (out of comfort) for an occupied period.
+#   - In every mode, the comfort penalty applies to every time step
+#     where ANY of Comfort_plan, Comfort_plan_flex_down or
+#     Comfort_plan_flex_up is 0 (out of its own band), occupied or not.
 #   - When simulation_control$indexes_local$i_flex is NULL, it defaults to 1 (first row).
 #   - When simulation_control$flexibility$commitment_phase_length is NULL,
 #     it falls back to parameters$control$commitment_phase_length_max.
@@ -351,7 +347,7 @@ reward_function <- function(period_chunk, parameters,
   rm(Elec_Cost_total)
 
   # Marginal distribution cost (base-energy term only, never for
-  # flexibility - see 01_Agent_Comments/20260722c_Plan_Costes_Distribucion_Recompensa.md).
+  # flexibility).
   Elec_Cost_distribution_total <- compute_marginal_distribution_cost(
     E_candidate                 = period_chunk$Elec_total_plan,
     MarketUTC_candidate         = period_chunk$MarketUTC,
@@ -379,27 +375,28 @@ reward_function <- function(period_chunk, parameters,
   # the number of rows.
   # -------------------------------------------------------------
   {
-    # Weight of the technical-feasibility term. Deliberately NOT a
-    # parameter of 09_Reward_parameters.csv: a physical restriction is
-    # not a preference the user may weigh, and a configurable weight
-    # could be set low enough that violating the restriction pays. Its
-    # magnitude only has to dominate any reachable reward; the rewards
-    # observed in simulation are of the order of 1e3, so 1e9 leaves
-    # six orders of margin and stays far from any precision trouble in
-    # double. It is not -Inf on purpose: with ga(), an -Inf can reach
-    # the fitness scaling and produce NaN in the selection, which is the
-    # kind of silent failure this model has already seen once.
-    FLEX_INFEASIBLE_PENALTY <- 1e9
+    # Weight of the technical-feasibility term, read from
+    # 01_computing_parameters.csv rather than from
+    # 09_Reward_parameters.csv: a physical restriction is not a
+    # preference the user may weigh. Its magnitude only has to dominate
+    # any reachable reward (of the order of 1e3). It is finite on
+    # purpose: with ga(), an -Inf can reach the fitness scaling and
+    # produce NaN in the selection.
+    FLEX_INFEASIBLE_PENALTY <- parameters$computing$flex_infeasible_penalty
+    if (is.null(FLEX_INFEASIBLE_PENALTY)) {
+      stop("flex_infeasible_penalty was not found in parameters$computing")
+    }
 
     infeasible_legs <- sum(vapply(c("down", "up"), function(one_leg) {
       as.integer(!flex_window_is_feasible(period_chunk, one_leg, parameters))
     }, integer(1)))
 
-    # And the other way a candidate can be infeasible: its plan cannot
-    # sustain a window that was already sold. derive_flex_itineraries()
-    # reports it, because it is the only thing that can - it is what
-    # tried to hold the commitment and failed. A chunk that never went
-    # through it carries no such column and nothing is added.
+    # And the other way a candidate can be infeasible: over its plan, a
+    # window of the guard zone that was already sold would raise both
+    # thermal systems, so it can only be held as it stands.
+    # derive_flex_itineraries() reports it, because it is what tried to
+    # draw the window. A chunk that never went through it carries no
+    # such column and nothing is added.
     if (!is.null(period_chunk$Standing_commitment_held_plan) &&
         any(period_chunk$Standing_commitment_held_plan == 0L)) {
       infeasible_legs <- infeasible_legs + 1L
@@ -439,11 +436,14 @@ reward_function <- function(period_chunk, parameters,
     # Where nothing is committed, derive_flex_itineraries() leaves both
     # flexibility itineraries as copies of the plan, so the "or" adds no
     # penalty and the result is what it always was.
-    Performance_plan <- ifelse(period_chunk$Occupancy == 1 &
-                                 (period_chunk$Comfort_plan == 0 |
-                                  period_chunk$Comfort_plan_flex_down == 0 |
-                                  period_chunk$Comfort_plan_flex_up == 0),
-                               -1, 0) * delta_t_h
+    # Every time step counts, occupied or not: each itinerary carries
+    # its own band (the plan band, or the occupancy band inside a
+    # flexibility window), and outside occupancy and the scheduling
+    # window that band is the setback band.
+    Performance_plan <- ifelse(period_chunk$Comfort_plan == 0 |
+                               period_chunk$Comfort_plan_flex_down == 0 |
+                               period_chunk$Comfort_plan_flex_up == 0,
+                             -1, 0) * delta_t_h
 
     # Every term already carries its own sign (comfort: neutral/positive
     # in comfort, negative out of it; economic terms: positive income,
@@ -493,11 +493,14 @@ reward_function <- function(period_chunk, parameters,
     # columns are the copy of Comfort_plan that
     # derive_flex_itineraries() made, so the "or" adds no false penalty
     # there.
-    Performance_flex <- ifelse(period_chunk$Occupancy == 1 &
-                                 (period_chunk$Comfort_plan == 0 |
-                                  period_chunk$Comfort_plan_flex_down == 0 |
-                                  period_chunk$Comfort_plan_flex_up == 0),
-                               -1, 0) * delta_t_h
+    # Every time step counts, occupied or not: each itinerary carries
+    # its own band (the plan band, or the occupancy band inside a
+    # flexibility window), and outside occupancy and the scheduling
+    # window that band is the setback band.
+    Performance_flex <- ifelse(period_chunk$Comfort_plan == 0 |
+                               period_chunk$Comfort_plan_flex_down == 0 |
+                               period_chunk$Comfort_plan_flex_up == 0,
+                             -1, 0) * delta_t_h
 
     # Marginal explicit-flexibility revenue: each leg's signal aggregated
     # per market interval, valued at that interval's own down/up

@@ -23,37 +23,33 @@
 # only object this script leaves in the global environment for this
 # subsystem.
 # Nine of the thirteen signals (Elec_unit_cost_distribution, used only
-# by reward_function() via resolve_marginal_context() - see
-# 01_Agent_Comments/20260722c_Plan_Costes_Distribucion_Recompensa.md -
-# and the eight flexibility buy/sell signals) are pass-through: the
+# by reward_function() via resolve_marginal_context(), and the eight
+# flexibility buy/sell signals) are pass-through: the
 # value assigned to a MarketUTC interval is simply the mean of the
 # Main_df signal over all observations sharing that interval (step 3),
 # then looked up per future step exactly as before (step 5).
 # The remaining four (Elec_unit_cost_import/export_buy/sell) are NOT
 # averaged from a flat Main_df column - they are computed cell by cell
-# from Elec_unit_cost_buy (P_ref) using the Fase 3 discount formula of
-# 01_Agent_Comments/20260720_Plan_Redefinicion_Precios_Energia.md
-# (Sec. 4.3) and parameters$energy_price, because factor_tiempo depends
-# on h = j * market_resolution/60 (j = future-step column), which is
-# not a property of a single Main_df row - see step 5 and
-# 01_Agent_Comments/20260725_Diagnostico_M7_Energy_Price.md (Sec. 4.2)
-# for why a flat per-row column cannot represent this signal.
-# The future-step column width (max_steps_ahead) is derived from
-# parameters$market_config_scheduling and
-# parameters$market_config_piloting: for every configured market,
-# the number of hours between its bid time and the end of its
-# optimization horizon is end + end_optimization + closure. The
-# largest value found across all Scheduling and Piloting markets
-# defines max_hours_ahead, which is then expressed as a number of
-# parameters$market$market_resolution steps, rounded up so that a
-# horizon that is not an exact multiple of the resolution still gets
-# a full future column for its last partial step.
+# from Elec_unit_cost_buy (P_ref) using the discount formula given in
+# 10_energy_price_signals_setup.R and parameters$energy_price, because
+# factor_tiempo depends on h = j * market_resolution/60 (j =
+# future-step column), which is not a property of a single Main_df
+# row - see step 5. A flat per-row column therefore cannot represent
+# this signal.
+# The future-step column width (max_steps_ahead) is the distance from
+# the bid time of the furthest-looking market to the end of its
+# optimization horizon, in market_resolution steps. It is read from
+# the market configuration in use (the basic markets of
+# 03_Market_config.csv, or the market tables in complex mode) by
+# compute_max_steps_ahead().
 # Sourced from Main.R, after 03_climate_priority.R and before
 # 07_reference_temperature_profiles.R.
 # -------------------------------------------------------------
 # Inputs
 #   Main_df, with its market columns and its twelve price signals.
-#   parameters$market : the resolution and the horizons.
+#   parameters$market, parameters$market_config_scheduling and
+#     parameters$market_config_piloting : the resolution and the
+#     horizons.
 #   parameters$energy_price : the variation of each price with the
 #     horizon it is quoted at.
 #   parameters$computing : the lead edges of the four price bands.
@@ -67,7 +63,7 @@
 # 1. Determine the furthest horizon any market looks at.
 # 2. Build the market-resolution grid and locate the market events.
 # 3. Average each price signal over every market interval.
-# 4. Create the horizon data frames at zero.
+# 4. Create the horizon data frames, with every cell missing (NA).
 # 5. Fill them from those averages, discounted to the horizon.
 # -------------------------------------------------------------
 # Usage instructions
@@ -80,6 +76,8 @@
 # functions/scripts called
 #   is_market_active() - says whether a market name marks an
 #                        active market
+#   compute_max_steps_ahead() - the number of steps ahead of the
+#                        furthest-looking market
 #   price_variation_at_lead() - the variation of the energy price
 #                        with the lead it is quoted at
 #   avg_by_market()    - local helper of block 3, defined and removed
@@ -91,30 +89,10 @@
 # 1. Determine the maximum future horizon (max_steps_ahead)
 # -------------------------------------------------------------
 {
-  max_hours_sched <- 0
-  if (!is.null(parameters$market_config_scheduling) &&
-      nrow(parameters$market_config_scheduling) > 0) {
-    max_hours_sched <- max(
-      as.numeric(parameters$market_config_scheduling$end) +
-      as.numeric(parameters$market_config_scheduling$end_optimization) +
-      as.numeric(parameters$market_config_scheduling$closure)
-    )
-  }
-
-  max_hours_pilot <- 0
-  if (!is.null(parameters$market_config_piloting) &&
-      nrow(parameters$market_config_piloting) > 0) {
-    max_hours_pilot <- max(
-      as.numeric(parameters$market_config_piloting$end) +
-      as.numeric(parameters$market_config_piloting$end_optimization) +
-      as.numeric(parameters$market_config_piloting$closure)
-    )
-  }
-
-  max_hours_ahead <- max(max_hours_sched, max_hours_pilot)
-  max_steps_ahead <- as.integer(ceiling(max_hours_ahead * 60 / parameters$market$market_resolution))
-
-  rm(max_hours_sched, max_hours_pilot, max_hours_ahead)
+  # compute_max_steps_ahead is called to size the future-step columns
+  # from the market configuration in use: the basic Scheduling and
+  # Piloting markets, or the market tables in complex mode.
+  max_steps_ahead <- compute_max_steps_ahead(parameters)
 }
 
 # -------------------------------------------------------------
@@ -246,13 +224,10 @@
 # beyond the end of the series repeat the last known value.
 # The nine pass-through signals are looked up directly. The four
 # energy signals are instead computed from buy_ref_by_market (P_ref)
-# using the Fase 3 discount formula (see header and
-# 01_Agent_Comments/20260720_Plan_Redefinicion_Precios_Energia.md,
-# Sec. 4.3): factor_tiempo depends only on h = CONT_001 *
-# market_resolution/60 (identical for every market event in this
-# column), via the 4-tier partition of Price_variation_in_time
-# confirmed in
-# 01_Agent_Comments/20260725_Diagnostico_M7_Energy_Price.md (Sec. 4.1):
+# using the discount formula (see header): factor_tiempo depends only
+# on h = CONT_001 * market_resolution/60 (identical for every market
+# event in this column), via the 4-tier partition of
+# Price_variation_in_time:
 # day_ahead if h >= price_lead_day_ahead_h, 5h if h >= price_lead_5h_h,
 # 1_5h if h > price_lead_1h_h, below_1h otherwise (24, 5 and 1 h in
 # 01_computing_parameters.csv); see price_variation_at_lead().

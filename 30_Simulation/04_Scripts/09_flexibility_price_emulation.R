@@ -11,7 +11,6 @@
 # values for them. It is sourced from Main.R only when
 # parameters$debug_and_config$Price_emulation == 1, the flag its name
 # comes from.
-# See 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md.
 # -------------------------------------------------------------
 # Columns overwritten in Main_df:
 #   Flex_unit_cost_down_com  – flexibility commitment price (down), EUR/kWh

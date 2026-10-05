@@ -8,8 +8,7 @@
 # assemble_main_df.R) to build System_df's column set automatically,
 # so that a different building model (different period_calculation
 # logic, different physical properties) can define its own variable
-# set here without any change to the loading code. See
-# 01_Agent_Comments/20260722b_Plan_Señales_por_Procedencia.md, Part C.
+# set here without any change to the loading code.
 #
 # Columns:
 #   variable      : base variable name.
@@ -22,8 +21,7 @@
 #                   exception: their row-1 value is overwritten by
 #                   parameters$model$Ti_0/Te_0 in 14_simulation.R
 #                   (Model initialization block), regardless of the
-#                   generic value declared here - see Part G of the
-#                   plan document above.
+#                   generic value declared here.
 #   scenario      : yes -> the variable is expanded into 4 columns,
 #                   <variable>_exec, <variable>_plan,
 #                   <variable>_plan_flex_down and <variable>_plan_flex_up.
@@ -44,7 +42,6 @@ STP_cool	action	0	yes
 STP_cool_high	context	0	yes
 STP_cool_low	context	0	yes
 Comfort	evaluation	0	yes
-Act_vent	action	0	no
 Act_heat	action	0	yes
 Act_cool	action	0	yes
 Q_heat	action	0	yes

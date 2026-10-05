@@ -90,7 +90,13 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
 
     if ((type == "Integer" || type == "Real") &&
         !is.na(options_str) && nzchar(options_str)) {
-      range_vals <- as.numeric(trimws(strsplit(options_str, ",")[[1]]))
+      # An empty side of the range ("0," or ",5") means no bound on that
+      # side. strsplit() drops a trailing empty field, so the two sides are
+      # completed before they are read.
+      range_vals <- suppressWarnings(as.numeric(trimws(
+        c(strsplit(options_str, ",")[[1]], "")[1:2]
+      )))
+      range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
       if (length(range_vals) == 2) {
         out_of_range <- col_values < range_vals[1] | col_values > range_vals[2]
         if (any(out_of_range, na.rm = TRUE)) {

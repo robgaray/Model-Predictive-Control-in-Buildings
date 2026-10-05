@@ -6,9 +6,8 @@
 # -------------------------------------------------------------
 # Overall description
 # Lays out a list of inputs in rows of max_per_row columns. An
-# input with options becomes a dropdown (selectInput), as
-# 00_Base_Criteria.md asks for closed lists; any other becomes a
-# text input.
+# input with options (a closed list) becomes a dropdown
+# (selectInput); any other becomes a text input.
 # -------------------------------------------------------------
 # Inputs
 #   input_defs       : List of input descriptions, each with:

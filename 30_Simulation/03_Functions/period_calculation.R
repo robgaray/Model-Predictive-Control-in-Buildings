@@ -33,8 +33,9 @@
 #                        SolarR      - Numeric. Solar radiation (W/m²).
 #                        Text        - Numeric. External air temperature (°C).
 #                        T_ext_24h   - Numeric. 24-hour running mean of external temperature (°C).
-#                        Act_vent    - Integer (0/1). Ventilation activation flag.
 #                        Occupancy   - Integer (0/1). Building occupancy flag.
+#                                      The C++ core runs daytime ventilation
+#                                      while it is 1.
 #                        MarketUTC   - POSIXct. Market period timestamps for setpoint lookup.
 #                        Ti          - Numeric. Initial internal temperature (°C) at row 1. (Prefix applies based on context)
 #                        Te          - Numeric. Initial envelope temperature (°C) at row 1. (Prefix applies based on context)
@@ -47,6 +48,12 @@
 #                                    band, required when calculation_context is
 #                                    "plan", "plan_flex_down" or
 #                                    "plan_flex_up".
+#                        For "plan_flex_down" and "plan_flex_up", also
+#                        Service_T_Low, Service_T_High and the phase column
+#                        of the leg (Flex_phase_down_plan or
+#                        Flex_phase_up_plan): on the rows of a flexibility
+#                        window (phase above 0) the occupancy band
+#                        Service_T_* is used instead of Scheduling_T_*.
 #                      If set_point_df is NULL, must ALSO contain (with context suffix):
 #                        - STP_heat_low
 #                        - STP_heat_high
@@ -332,16 +339,32 @@ period_calculation <- function(period_chunk,
         all(c("Service_T_Low", "Service_T_High") %in% names(period_chunk))) {
       comfort_low  <- period_chunk$Service_T_Low
       comfort_high <- period_chunk$Service_T_High
-    } else if (calculation_context %in% c("plan", "plan_flex_down", "plan_flex_up") &&
+    } else if (calculation_context == "plan" &&
                all(c("Scheduling_T_Low", "Scheduling_T_High") %in% names(period_chunk))) {
       comfort_low  <- period_chunk$Scheduling_T_Low
       comfort_high <- period_chunk$Scheduling_T_High
+    } else if (calculation_context %in% c("plan_flex_down", "plan_flex_up") &&
+               all(c("Scheduling_T_Low", "Scheduling_T_High",
+                     "Service_T_Low", "Service_T_High",
+                     paste0("Flex_phase_", sub("^plan_flex_", "", calculation_context), "_plan"))
+                   %in% names(period_chunk))) {
+      # A flexibility itinerary is measured against the occupancy band
+      # on the rows of its window (Commitment, Neutral and Recovery
+      # Phases), and against the plan band everywhere else.
+      in_window    <- period_chunk[[paste0("Flex_phase_",
+                                           sub("^plan_flex_", "", calculation_context),
+                                           "_plan")]] > 0
+      comfort_low  <- ifelse(in_window, period_chunk$Service_T_Low,  period_chunk$Scheduling_T_Low)
+      comfort_high <- ifelse(in_window, period_chunk$Service_T_High, period_chunk$Scheduling_T_High)
+      rm(in_window)
     } else {
       stop("Comfort temperature columns not found in period_chunk for the given calculation_context. Expected columns: ",
            if (calculation_context == "execution") {
              "Service_T_Low and Service_T_High"
-           } else {
+           } else if (calculation_context == "plan") {
              "Scheduling_T_Low and Scheduling_T_High"
+           } else {
+             "Scheduling_T_Low, Scheduling_T_High, Service_T_Low, Service_T_High and the Flex_phase_<leg>_plan column"
            })
     }
   }
@@ -359,7 +382,6 @@ period_calculation <- function(period_chunk,
         Text   <- period_chunk$Text_forec
       }	   
       
-      Act_vent      <- period_chunk$Act_vent
       T_ext_24h     <- period_chunk$T_ext_24h
       Occupancy     <- period_chunk$Occupancy
       time          <- period_chunk$time
@@ -568,7 +590,7 @@ period_calculation <- function(period_chunk,
       SolarR               = SolarR,
       Text                 = Text,
       T_ext_24h            = T_ext_24h,
-      Act_vent             = Act_vent,
+      Occupancy            = Occupancy,
       time                 = as.numeric(time),
       comfort_low          = comfort_low,
       comfort_high         = comfort_high,
@@ -660,7 +682,7 @@ period_calculation <- function(period_chunk,
       "Rvent01", "Rvent1", "Rvent2", "Rvent2_HR", "Setpoint_Rvent1",
       "inertial_fact", "comfort_low", "comfort_high",
       "col_sfx", "n",
-      "SolarR", "Text", "Act_vent", "T_ext_24h", "Occupancy", "time", "MarketUTC",
+      "SolarR", "Text", "T_ext_24h", "Occupancy", "time", "MarketUTC",
       "Ti", "Te", "Act_heat", "Act_cool",
       "col_Q_heat", "col_Q_cool", "col_Elec_heat", "col_Elec_cool",
       "Q_heat", "Q_cool", "Elec_heat", "Elec_cool",

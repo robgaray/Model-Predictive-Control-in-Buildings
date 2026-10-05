@@ -6,18 +6,16 @@
 # -------------------------------------------------------------
 # Overall description
 # Implements the Scheduling-only "echo" mechanism (advance/delay) of
-# 01_Agent_Comments/20260723_Plan_Generacion_Flexibilidad.md, Parte
-# B.4: given a not-yet-displaced Scheduling event whose forbidden zone
-# overlaps a new Scheduling market's horizon, independently rolls
-# P_advance/P_delay (tie-broken by an extra random number if both
-# roll), and - if a direction is chosen - shifts the event by a
-# market_resolution-aligned Delta (Parte B.0) and checks whether the
+# flexibility events: given a not-yet-displaced Scheduling event whose
+# forbidden zone overlaps a new Scheduling market's horizon,
+# independently rolls P_advance/P_delay (tie-broken by an extra random
+# number if both roll), and - if a direction is chosen - shifts the
+# event by a market_resolution-aligned Delta and checks whether the
 # shifted event still fits entirely within the horizon once every
 # *other* Scheduling event's forbidden zone has been removed. Does not
 # resample the shifted position: either the single deterministic shift
 # fits, or it does not (no second attempt within this call - a later
-# market may offer the event another echo, per Part B.4/D "until the
-# first success").
+# market may offer the event another echo, until the first success).
 # -------------------------------------------------------------
 # Inputs
 # event                  : List with t_start_sec, duration_sec (the
@@ -36,7 +34,7 @@
 #                          parameters$computing$flexibility_event_margin_sec.
 #                          The exclusion
 #                          margin used to build each event's forbidden
-#                          zone (3600*3 by default, see Parte B.1).
+#                          zone.
 # -------------------------------------------------------------
 # Outputs
 # List with:

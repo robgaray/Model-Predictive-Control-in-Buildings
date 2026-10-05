@@ -1,0 +1,13 @@
+# Control parameters
+# -------------------------------------------------------------
+# The parameters of the mode-based control: the deadband of the
+# hysteresis and the setpoints used where the plan carries none.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Hysteresis
+Deadband,0.5,degC
+#
+# Default setpoints
+set_point_default_heating,21,degC
+set_point_default_cooling,24,degC
