@@ -397,7 +397,7 @@ The first example studies how the building is operated in the day-ahead, intra-d
 
 # 18. Changes and version control
 
-The current version of this work is Version v5.1. It has the following changes from previous versions:
+The current version of this work is Version v6.1. It has the following changes from previous versions:
 
 ### Overall
 
