@@ -1,0 +1,36 @@
+# 17_Photovoltaic_parameters.csv
+# Configuration file: photovoltaic installation
+# -------------------------------------------------------------
+# The parameters of one photovoltaic installation. Its production is
+# computed from the solar radiation and the outdoor temperature of
+# the forecast, on the plane of its modules. The reference conditions
+# of the modules and the solar constant are common to every
+# installation, and are in 00_Inner_parameters/
+# 03_Physical_properties.csv.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Location
+Latitude,43.26,deg
+Longitude,-2.93,deg
+#
+# Solar radiation
+Irradiance_time_offset,-30,min
+Diffuse_threshold,150,W/m2
+Min_sun_elevation,5,deg
+#
+# Orientation
+Tilt,30,deg
+Azimuth,0,deg
+Albedo,0.2,-
+#
+# Generator
+Module_area,25,m2
+Module_efficiency,0.2,-
+DC_losses,0.14,-
+Temperature_coefficient,-0.4,%/K
+NOCT,45,degC
+#
+# Inverter
+Inverter_efficiency,0.96,-
+Inverter_power,4.5,kW

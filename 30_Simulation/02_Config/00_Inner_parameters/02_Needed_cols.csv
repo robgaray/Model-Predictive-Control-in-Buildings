@@ -1,154 +1,144 @@
-# Required columns for the MPC simulation data frame (Main_df)
-# One column name per line; lines starting with # are comments
-# Main_df is assembled by assemble_main_df.R from 2 real input
-# dataframes (Meteo_df, Energy_Prices_df) and 3 synthetic dataframes
-# (System_df, Flexibility_actions_df, Meteo_transformations_df).
-
+# 02_Needed_cols.csv
+# Inner configuration table: the columns of the simulation data
+# -------------------------------------------------------------
+# Every column of the simulation data, one row per column, in the
+# order of the output tables: Main_df_computed for the columns of
+# Main_df, and the table of each asset, after time, for its columns.
+# The data are held in two kinds of table:
+#   - Main_df, with what is common to every asset (the time grid, the
+#     weather, the prices, the market calendar) and the balances of
+#     the system. It is assembled by assemble_main_df.R from 2 real
+#     input dataframes (Meteo_df, Energy_Prices_df) and 3 synthetic
+#     dataframes (System_variables_df, Flexibility_actions_df,
+#     Meteo_transformations_df).
+#   - the table of each asset, assets[[asset_id]]$df, one row per row
+#     of Main_df, with the columns of the type of model of the asset.
+#     It holds the column time too, the key of its rows. For a
+#     building it is built from Building_variables_df, for a
+#     photovoltaic installation from Photovoltaic_variables_df and
+#     for a battery from Battery_variables_df.
+# The rest of the columns are added by the preparation of the run,
+# before the simulation loop.
+#   - column : the name of the column. The row
+#              @<type>_variables_df (for example
+#              @Building_variables_df) stands for every column of
+#              the variable registry of that type of model, in the
+#              order of its Simulation_Variables_<type>.txt
+#              (01_Model_Descriptions/<NN>_<type>/), and the row
+#              @System_variables_df for every column of
+#              System_variables_df, in the order of
+#              Simulation_Variables_System.txt
+#              (01_Model_Descriptions/00_System/). Those registries
+#              are the one place their columns are declared. A column
+#              both the system and a type declare (the net
+#              electricity of the system, the sum of that of the
+#              assets) is in both tables, and in both output tables:
+#              the sum in Main_df_computed, the column of each asset
+#              in its own table.
+#   - stage  : assembly, for a column the assembled table must hold
+#              (validate_Main_df() and validate_asset_df() check it),
+#              preparation, for a column added afterwards, or
+#              input, for a column of Main_df of which the table of
+#              every asset of the type holds a copy during the whole
+#              run (the weather the type reads). An input is a
+#              column of the system, declared again for the type.
+#   - table  : system, for a column of Main_df, or the type of model
+#              (for example Building) whose assets hold the column in
+#              their table. Each type has its own list of columns.
+# -------------------------------------------------------------
+column,stage,table
+text,text,text
+# -------------------------------------------------------------
 # Timestamp
-time
-
+time,assembly,system
+# -------------------------------------------------------------
 # Meteo_df
-Text
-SolarR
-
+Text,assembly,system
+SolarR,assembly,system
+# -------------------------------------------------------------
 # Energy_Prices_df (real input data)
-Elec_unit_cost_buy
-Elec_unit_cost_distribution
-Flex_unit_cost_down_com
-Flex_unit_cost_down_exec
-Flex_unit_cost_up_com
-Flex_unit_cost_up_exec
-Flex_Probab_down
-Flex_Probab_up
-
-# Energy and flexibility prices (buy/sell signals derived by
-# 10_energy_price_signals_setup.R; consumed by 11_full_market_information_setup.R
-# and the rest of the market/reward pipeline)
-Elec_unit_cost_import_buy
-Elec_unit_cost_import_sell
-Elec_unit_cost_export_buy
-Elec_unit_cost_export_sell
-Flex_unit_cost_down_com_buy
-Flex_unit_cost_down_com_sell
-Flex_unit_cost_down_exec_buy
-Flex_unit_cost_down_exec_sell
-Flex_unit_cost_up_com_buy
-Flex_unit_cost_up_com_sell
-Flex_unit_cost_up_exec_buy
-Flex_unit_cost_up_exec_sell
-
-# System_df (synthetic, generated from
-# 30_Simulation/02_Config/01_Model_Descriptions/01_Building/Simulation_Variables_Building.txt)
-Ti_exec
-Ti_plan
-Ti_plan_flex_down
-Ti_plan_flex_up
-Te_exec
-Te_plan
-Te_plan_flex_down
-Te_plan_flex_up
-Scheduling
-Occupancy
-STP_heat_exec
-STP_heat_plan
-STP_heat_plan_flex_down
-STP_heat_plan_flex_up
-STP_heat_high_exec
-STP_heat_high_plan
-STP_heat_high_plan_flex_down
-STP_heat_high_plan_flex_up
-STP_heat_low_exec
-STP_heat_low_plan
-STP_heat_low_plan_flex_down
-STP_heat_low_plan_flex_up
-STP_cool_exec
-STP_cool_plan
-STP_cool_plan_flex_down
-STP_cool_plan_flex_up
-STP_cool_high_exec
-STP_cool_high_plan
-STP_cool_high_plan_flex_down
-STP_cool_high_plan_flex_up
-STP_cool_low_exec
-STP_cool_low_plan
-STP_cool_low_plan_flex_down
-STP_cool_low_plan_flex_up
-Comfort_exec
-Comfort_plan
-Comfort_plan_flex_down
-Comfort_plan_flex_up
-Act_heat_exec
-Act_heat_plan
-Act_heat_plan_flex_down
-Act_heat_plan_flex_up
-Act_cool_exec
-Act_cool_plan
-Act_cool_plan_flex_down
-Act_cool_plan_flex_up
-Q_heat_exec
-Q_heat_plan
-Q_heat_plan_flex_down
-Q_heat_plan_flex_up
-Q_cool_exec
-Q_cool_plan
-Q_cool_plan_flex_down
-Q_cool_plan_flex_up
-Elec_heat_exec
-Elec_heat_plan
-Elec_heat_plan_flex_down
-Elec_heat_plan_flex_up
-Elec_cool_exec
-Elec_cool_plan
-Elec_cool_plan_flex_down
-Elec_cool_plan_flex_up
-Elec_total_exec
-Elec_total_plan
-Elec_total_plan_flex_down
-Elec_total_plan_flex_up
-Elec_total_no_flex
-Elec_flex_down_plan
-Elec_flex_up_plan
-Flex_phase_down_plan
-Flex_phase_up_plan
-Elec_purchase_cost_market
-Elec_sell_revenue_market
-Elec_flex_sell_revenue_market
-Elec_flex_purchase_cost_market
-Elec_market_net_cost_h
-Elec_deviations_net_cost_h
-Elec_net_cost_h
-Elec_flex_commitment_revenue_h
-Elec_flex_execution_revenue_h
-Elec_flex_deviations_net_cost_h
-Elec_cost_distr_h
-Reward
-
+Elec_unit_cost_buy,assembly,system
+Elec_unit_cost_distribution,assembly,system
+Flex_unit_cost_down_com,assembly,system
+Flex_unit_cost_down_exec,assembly,system
+Flex_unit_cost_up_com,assembly,system
+Flex_unit_cost_up_exec,assembly,system
+Flex_Probab_down,assembly,system
+Flex_Probab_up,assembly,system
+# -------------------------------------------------------------
+# Building_variables_df (synthetic), the table of a building
+@Building_variables_df,assembly,Building
+# -------------------------------------------------------------
+# Photovoltaic_variables_df (synthetic), the table of a photovoltaic
+# installation
+@Photovoltaic_variables_df,assembly,Photovoltaic
+# -------------------------------------------------------------
+# Battery_variables_df (synthetic), the table of a battery
+@Battery_variables_df,assembly,Battery
+# -------------------------------------------------------------
+# System_variables_df (synthetic), the balances of the system
+@System_variables_df,assembly,system
+# -------------------------------------------------------------
 # Flexibility_actions_df (synthetic)
-Flex_Act
-
+Flex_Act,assembly,system
+# -------------------------------------------------------------
 # Meteo_transformations_df (synthetic)
-T_ext_24h
-Text_forec
-SolarR_forec
-
-# Derived variables from external conditions (market/climate setup)
-Overall_Climate
-Service_T_Low
-Service_T_High
-Scheduling_T_Low
-Scheduling_T_High
-
-# Added during simulation
-MarketUTC
-Pilot_Market_Aim
-Pilot_Market_Bid_time
-Pilot_Market_Name
-Pilot_Market_Period_Begin
-Pilot_Market_Period_End
-Pilot_Optimization_Horizon
-Sched_Market_Aim
-Sched_Market_Bid_time
-Sched_Market_Name
-Sched_Market_Period_Begin
-Sched_Market_Period_End
-Sched_Optimization_Horizon
+T_ext_24h,assembly,system
+Text_forec,assembly,system
+SolarR_forec,assembly,system
+T_ext_24h_forec,assembly,system
+# -------------------------------------------------------------
+# Inputs of the assets: copies of columns of Main_df
+Text,input,Building
+SolarR,input,Building
+T_ext_24h,input,Building
+Text_forec,input,Building
+SolarR_forec,input,Building
+T_ext_24h_forec,input,Building
+Text,input,Photovoltaic
+SolarR,input,Photovoltaic
+Text_forec,input,Photovoltaic
+SolarR_forec,input,Photovoltaic
+# -------------------------------------------------------------
+# Derived variables of a building, from its climate, its occupancy
+# and its scheduling
+Overall_Climate,preparation,Building
+Service_T_Low,preparation,Building
+Service_T_High,preparation,Building
+Scheduling_T_Low,preparation,Building
+Scheduling_T_High,preparation,Building
+# -------------------------------------------------------------
+# Geometry of the sun of a photovoltaic installation, from its
+# location and its orientation
+Sun_elevation,preparation,Photovoltaic
+Sun_azimuth,preparation,Photovoltaic
+Cos_incidence,preparation,Photovoltaic
+# -------------------------------------------------------------
+# Added during the preparation of the markets
+MarketUTC,preparation,system
+Sched_Market_Name,preparation,system
+Sched_Market_Bid_time,preparation,system
+Sched_Market_Period_Begin,preparation,system
+Sched_Market_Period_End,preparation,system
+Sched_Optimization_Horizon,preparation,system
+Sched_Market_Aim,preparation,system
+Pilot_Market_Name,preparation,system
+Pilot_Market_Bid_time,preparation,system
+Pilot_Market_Period_Begin,preparation,system
+Pilot_Market_Period_End,preparation,system
+Pilot_Optimization_Horizon,preparation,system
+Pilot_Market_Aim,preparation,system
+# -------------------------------------------------------------
+# Energy and flexibility price signals, derived by prepare_energy_prices()
+Elec_unit_cost_import_buy,preparation,system
+Elec_unit_cost_import_sell,preparation,system
+Elec_unit_cost_export_buy,preparation,system
+Elec_unit_cost_export_sell,preparation,system
+Flex_unit_cost_down_com_buy,preparation,system
+Flex_unit_cost_down_com_sell,preparation,system
+Flex_unit_cost_down_exec_buy,preparation,system
+Flex_unit_cost_down_exec_sell,preparation,system
+Flex_unit_cost_up_com_buy,preparation,system
+Flex_unit_cost_up_com_sell,preparation,system
+Flex_unit_cost_up_exec_buy,preparation,system
+Flex_unit_cost_up_exec_sell,preparation,system

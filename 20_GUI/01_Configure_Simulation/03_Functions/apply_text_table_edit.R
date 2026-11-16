@@ -29,12 +29,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   apply_text_table_edit(df, edit_info)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R, flush_table_edits()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 apply_text_table_edit <- function(df, edit_info) {
   if (is.null(edit_info)) {

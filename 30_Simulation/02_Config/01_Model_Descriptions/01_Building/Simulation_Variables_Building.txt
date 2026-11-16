@@ -3,25 +3,42 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# Declarative registry of System_df's state/control/economic variables
-# for this building model. Read by generate_system_df.R (sourced from
-# assemble_main_df.R) to build System_df's column set automatically,
-# so that a different building model (different period_calculation
-# logic, different physical properties) can define its own variable
-# set here without any change to the loading code.
+# Declarative registry of the state/control/energy variables of a
+# building. Read by variable_registry_columns() (called from
+# load_all_parameters()) to build the columns of the table of each
+# building of the asset registry, assets[[asset_id]]$df, so that a
+# different building model (different period_calculation logic,
+# different physical properties) can define its own variable set
+# here without any change to the loading code.
+# The variables of the whole system (its net electricity, its
+# commitments and its cash flows) are declared in
+# 00_System/Simulation_Variables_System.txt and live in Main_df.
+# Elec_total is declared in both: the table of a building holds its
+# own electricity, and Main_df the sum over the assets.
 #
 # Columns:
 #   variable      : base variable name.
 #   type          : semantic category (state | context | action | energy |
-#                   economic | evaluation | optimization). Documentation
-#                   only, not used to drive any logic.
+#                   evaluation). Documentation only, not used to drive
+#                   any logic.
 #   initial_value : generic value used to initialize the variable at
 #                   row 1 when no other source of a real initial
 #                   condition exists. Ti and Te are the documented
 #                   exception: their row-1 value is overwritten by
-#                   parameters$model$Ti_0/Te_0 in 14_simulation.R
+#                   Ti_0/Te_0 of the model of the building in simulate()
 #                   (Model initialization block), regardless of the
 #                   generic value declared here.
+#                   The six setpoints (STP_*) start at NA, which
+#                   marks a row that no market has planned yet. A
+#                   setpoint of 0 degC is a valid setpoint.
+#                   Act_heat and Act_cool report what each system does
+#                   in the step: 0 off, 1 on by the thermostat, 2
+#                   imposed (heat or cold imposed from outside the
+#                   thermostat, as in the Commitment and Neutral Phases
+#                   of a flexibility window). Thermostat_heat and
+#                   Thermostat_cool hold the state of each thermostat
+#                   (0/1), also while the heat is imposed: the
+#                   hysteresis of the next step starts from it.
 #   scenario      : yes -> the variable is expanded into 4 columns,
 #                   <variable>_exec, <variable>_plan,
 #                   <variable>_plan_flex_down and <variable>_plan_flex_up.
@@ -35,34 +52,19 @@ Ti	state	0	yes
 Te	state	0	yes
 Scheduling	context	0	no
 Occupancy	context	0	no
-STP_heat	action	0	yes
-STP_heat_high	context	0	yes
-STP_heat_low	context	0	yes
-STP_cool	action	0	yes
-STP_cool_high	context	0	yes
-STP_cool_low	context	0	yes
+STP_heat	action	NA	yes
+STP_heat_high	context	NA	yes
+STP_heat_low	context	NA	yes
+STP_cool	action	NA	yes
+STP_cool_high	context	NA	yes
+STP_cool_low	context	NA	yes
 Comfort	evaluation	0	yes
 Act_heat	action	0	yes
 Act_cool	action	0	yes
+Thermostat_heat	state	0	yes
+Thermostat_cool	state	0	yes
 Q_heat	action	0	yes
 Q_cool	action	0	yes
 Elec_heat	energy	0	yes
 Elec_cool	energy	0	yes
 Elec_total	energy	0	yes
-Elec_total_no_flex	energy	0	no
-Elec_flex_down_plan	energy	0	no
-Elec_flex_up_plan	energy	0	no
-Flex_phase_down_plan	evaluation	0	no
-Flex_phase_up_plan	evaluation	0	no
-Elec_purchase_cost_market	economic	0	no
-Elec_sell_revenue_market	economic	0	no
-Elec_flex_sell_revenue_market	economic	0	no
-Elec_flex_purchase_cost_market	economic	0	no
-Elec_market_net_cost_h	economic	0	no
-Elec_deviations_net_cost_h	economic	0	no
-Elec_net_cost_h	economic	0	no
-Elec_flex_commitment_revenue_h	economic	0	no
-Elec_flex_execution_revenue_h	economic	0	no
-Elec_flex_deviations_net_cost_h	economic	0	no
-Elec_cost_distr_h	economic	0	no
-Reward	optimization	0	no

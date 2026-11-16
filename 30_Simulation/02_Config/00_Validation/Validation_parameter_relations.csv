@@ -1,0 +1,78 @@
+# Parameter relations validation file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Relations that two parameters have to keep with each other, which
+# the range of each one in the parameter catalogue cannot express. Each
+# row reads:
+#   left_parameter (+ gap_parameter) relation right_parameter
+# A parameter is named by its file and its name. When it is a column
+# of a table (13_Modes_setpoints.csv), the relation is checked on
+# every row of the table.
+# The simulation applies them when every parameter has been loaded
+# (validate_parameter_relations()), and stops on any that fails. The
+# GUI applies the same rows before saving, to the files it edits, and
+# saves nothing when one fails.
+# -------------------------------------------------------------
+# Structure:
+#   left_file, left_parameter   : the parameter on the left.
+#   relation                    : <, <=, > or >=.
+#   right_file, right_parameter : the parameter on the right.
+#   gap_file, gap_parameter     : a parameter added to the left one
+#                                 before comparing, or - when there is
+#                                 none.
+#   asset_type                  : the type of model whose assets the
+#                                 relation applies to, or - for a
+#                                 relation between parameters of the
+#                                 system, which applies to every asset.
+# -------------------------------------------------------------
+left_file,left_parameter,relation,right_file,right_parameter,gap_file,gap_parameter,asset_type
+text,text,text,text,text,text,text,text
+#
+# -------------------------------------------------------------
+# Comfort bands: each band has its low end below its high end.
+# -------------------------------------------------------------
+18_Comfort_parameters.csv,Service_T_Low,<,18_Comfort_parameters.csv,Service_T_High,-,-,Building
+18_Comfort_parameters.csv,Setback_T_Low,<,18_Comfort_parameters.csv,Setback_T_High,-,-,Building
+#
+# -------------------------------------------------------------
+# Modes: the heating band and the cooling band of a mode do not
+# overlap. Each is Deadband wide, centred on its setpoint, so the
+# setpoints are at least Deadband apart.
+# -------------------------------------------------------------
+13_Modes_setpoints.csv,heating,<=,13_Modes_setpoints.csv,cooling,13_Modes_setpoints.csv,Deadband,Building
+#
+# -------------------------------------------------------------
+# Heat pump: the two operating points are in order.
+# -------------------------------------------------------------
+11_Model_parameters.csv,AT_hp_heat_1,<,11_Model_parameters.csv,AT_hp_heat_2,-,-,Building
+11_Model_parameters.csv,Q_hp_heat_1,<=,11_Model_parameters.csv,Q_hp_heat_2,-,-,Building
+#
+# -------------------------------------------------------------
+# System of an upward window: the short horizon is shorter.
+# -------------------------------------------------------------
+08_Flexibility_Event_Configuration.csv,flex_up_horizon_short,<,08_Flexibility_Event_Configuration.csv,flex_up_horizon_long,-,-,-
+#
+# -------------------------------------------------------------
+# Market horizons: what is implemented fits in what is optimized, and
+# the anticipation is shorter than what is implemented.
+# -------------------------------------------------------------
+03_Market_config.csv,Implementation_horizon_scheduling,<=,03_Market_config.csv,Optimization_horizon_scheduling,-,-,-
+03_Market_config.csv,Anticipation_scheduling,<,03_Market_config.csv,Implementation_horizon_scheduling,-,-,-
+03_Market_config.csv,Implementation_horizon_piloting,<=,03_Market_config.csv,Optimization_horizon_piloting,-,-,-
+03_Market_config.csv,Anticipation_piloting,<,03_Market_config.csv,Implementation_horizon_piloting,-,-,-
+#
+# -------------------------------------------------------------
+# Price lead bands: the edges decrease, or a band would be empty.
+# -------------------------------------------------------------
+01_computing_parameters.csv,price_lead_5h_h,<,01_computing_parameters.csv,price_lead_day_ahead_h,-,-,-
+01_computing_parameters.csv,price_lead_1h_h,<,01_computing_parameters.csv,price_lead_5h_h,-,-,-
+#
+# -------------------------------------------------------------
+# State of charge of a battery: the lowest is below the highest,
+# and the battery starts between them.
+# -------------------------------------------------------------
+19_Battery_parameters.csv,SOC_min,<,19_Battery_parameters.csv,SOC_max,-,-,Battery
+19_Battery_parameters.csv,SOC_min,<=,19_Battery_parameters.csv,SOC_initial,-,-,Battery
+19_Battery_parameters.csv,SOC_initial,<=,19_Battery_parameters.csv,SOC_max,-,-,Battery

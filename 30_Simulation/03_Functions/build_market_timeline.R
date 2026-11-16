@@ -15,7 +15,11 @@
 #     the role's market-config table. The optimization horizon is
 #     computed from end_optimization.
 # This is the logic shared by the Scheduling and Piloting blocks of
-# 08_market_columns_setup.R, parametrized by role.
+# prepare_market_calendar(), parametrized by role.
+# Every time is clipped to the simulation range. A market whose
+# control period is left with no length, because it falls at the
+# edge of the simulation or outside it, controls no time step and
+# trades nothing, so it is not placed.
 # -------------------------------------------------------------
 # Inputs
 # role                   : Character. Column prefix for this market
@@ -55,24 +59,25 @@
 # -------------------------------------------------------------
 # Code outline
 # 1. Build the role's market timeline (basic or complex mode)
-# 2. Write the timeline into Main_df at each market's bid time
+# 2. Leave out the markets whose control period has no length
+# 3. Write the timeline into Main_df at each market's bid time
 # -------------------------------------------------------------
 # Usage instructions
-# Main_df <- build_market_timeline(role = "Sched", config_table = parameters$market_config_scheduling,
-#   implementation_horizon = parameters$market$Implementation_horizon_scheduling,
+# Main_df <- build_market_timeline(
+#   role                   = "Sched",
+#   config_table           = parameters$market_config_scheduling,
+#   implementation_horizon =
+#     parameters$market$Implementation_horizon_scheduling,
 #   optimization_horizon   = parameters$market$Optimization_horizon_scheduling,
 #   anticipation           = parameters$market$Anticipation_scheduling,
 #   optimization_aim       = parameters$market$optimization_aim_scheduling,
-#   aim_label_energy = "E", aim_label_flex = "E+F",
-#   complex_market_config = complex_market_config, time_min = time_min, time_max = time_max,
-#   Main_df = Main_df)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by 08_market_columns_setup.R once for Scheduling and once for
-# Piloting.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
+#   aim_label_energy       = "E",
+#   aim_label_flex         = "E+F",
+#   complex_market_config  = complex_market_config,
+#   time_min               = time_min,
+#   time_max               = time_max,
+#   Main_df                = Main_df
+# )
 # -------------------------------------------------------------
 
 build_market_timeline <- function(role,
@@ -125,7 +130,7 @@ build_market_timeline <- function(role,
         markets_in_time$Market_Aim <- aim_label_energy
       }
 
-      rm(begin_seq)
+      rm(list = "begin_seq")
 
     } else {
       markets_in_time <- data.frame(
@@ -172,13 +177,27 @@ build_market_timeline <- function(role,
 
         markets_in_time <- rbind(markets_in_time, new_rows)
       }
-      rm(CONT_001, market_name, begin_hour, closure_hour, end_hour, end_optimization, market_aim,
-         market_period_begin_seq, market_period_end_seq, optimization_horizon_seq,
-         market_bid_time_seq, new_rows, time_min_day, time_max_day, days_sequence)
+      rm(list = c("CONT_001", "market_name", "begin_hour", "closure_hour",
+                  "end_hour", "end_optimization", "market_aim",
+                  "market_period_begin_seq", "market_period_end_seq",
+                  "optimization_horizon_seq", "market_bid_time_seq", "new_rows",
+                  "time_min_day", "time_max_day", "days_sequence"))
     }
   }
 
-  # 2. Write the timeline into Main_df at each market's bid time
+  # 2. Leave out the markets whose control period has no length
+  # A row holds the energy of the time step that ends at it, so a
+  # market controls the time steps after Period_Begin up to
+  # Period_End. When clipping leaves both at the same instant, there
+  # is no time step to control.
+  {
+    has_length <- markets_in_time$Market_Period_End >
+      markets_in_time$Market_Period_Begin
+    markets_in_time <- markets_in_time[has_length, , drop = FALSE]
+    rm(list = "has_length")
+  }
+
+  # 3. Write the timeline into Main_df at each market's bid time
   {
     name_col     <- paste0(role, "_Market_Name")
     bid_time_col <- paste0(role, "_Market_Bid_time")
@@ -194,7 +213,8 @@ build_market_timeline <- function(role,
           role, " market '", markets_in_time$Market_Name[CONT_002],
           "' bid time not found in Main_df$time: ",
           format(markets_in_time$Market_Bid_time[CONT_002], "%Y-%m-%d %H:%M:%S"),
-          " - this market event is skipped."
+          " - this market event is skipped.",
+          call. = FALSE
         )
         next
       }
@@ -206,8 +226,9 @@ build_market_timeline <- function(role,
       Main_df[[aim_col]][idx]          <- markets_in_time$Market_Aim[CONT_002]
     }
 
-    rm(name_col, bid_time_col, period_begin_col, period_end_col, horizon_col, aim_col,
-       CONT_002, idx, markets_in_time)
+    rm(list = c("name_col", "bid_time_col", "period_begin_col",
+                "period_end_col", "horizon_col", "aim_col", "CONT_002", "idx",
+                "markets_in_time"))
   }
 
   return(Main_df)

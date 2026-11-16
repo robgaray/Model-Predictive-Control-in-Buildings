@@ -35,12 +35,6 @@
 #    parent and the other child from the other, with equal
 #    probability, so every gene stays a whole mode number.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by ga() as the crossover argument in optimize_modes().
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none - uses only base R)
-# -------------------------------------------------------------
 ga_crossover_int <- function(object, parents, ...) {
   
   # Extract parent chromosomes from current GA population

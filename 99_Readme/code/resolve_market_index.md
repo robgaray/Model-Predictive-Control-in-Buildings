@@ -8,7 +8,7 @@ Converts a market timestamp to its index position in a reference time vector.
 
 ## Called by
 
-- [14_simulation.R](14_simulation.md)
+- [run_market_role.R](run_market_role.md)
 
 ## What it calls, in order of appearance
 

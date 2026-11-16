@@ -5,16 +5,18 @@
 ## Function
 
 Values the energy a flexibility event would move during its Recovery Phase, weighted by the probability that the event is actually called, for one leg of the service.
-Every row of the window is valued, inside the market horizon or not The energy the building moves while recovering is bought or sold whenever it happens. A flexibility window is longer than the stretch of time a single market trades, so part of it falls beyond that market's target intervals; valuing only the part inside would leave a real cost of executing the service unseen, and would make the reward depend on where the window happens to fall relative to the market grid. Every Recovery Phase row is therefore valued, with the market's prices where the market has a view and with the row's own prices where it does not. That second case reads the true future prices rather than a forecast, which is a known limitation of the model - see the Known Issues section of README.md.
+Every row of the window is valued, inside the market horizon or not The energy the building moves while recovering is bought or sold whenever it happens. A flexibility window is longer than the stretch of time a single market trades, so part of it falls beyond that market's target intervals; valuing only the part inside would leave a real cost of executing the service unseen, and would make the reward depend on where the window happens to fall relative to the market grid. Every Recovery Phase row is therefore valued, with the market's prices where the market has a view and with the row's own prices where it does not. The market's target intervals cover every row of the optimization chunk except the first, which is the initial condition and holds an energy the market does not decide. The row's own prices are therefore a guard for that row, not a way of valuing the future.
 
 The baseline is the plan, not the market position The deviation is measured against the building's own plan, not against what was committed in an earlier market. This is a conditional scenario - "if I am called, my profile would be this one instead of that one" - rather than a change of commitment towards the market. Being a differential against the plan, it does not double count with the base-energy term of the reward, which values Elec_total_plan against the previous commitment.
 
 ## Called by
 
-- [reward_function.R](reward_function.md)
+- [flex_leg_reward_terms.R](flex_leg_reward_terms.md)
 
 ## What it calls, in order of appearance
 
+- [market_slot_index.R](market_slot_index.md)
+- [aggregate_by_market_slot.R](aggregate_by_market_slot.md) &nbsp;(2 call sites)
 - [calc_differential_cost.R](calc_differential_cost.md)
 - [apply_revenue_discount.R](apply_revenue_discount.md)
 
@@ -41,7 +43,11 @@ The baseline is the plan, not the market position The deviation is measured agai
 
 ### Why this term exists
 
-Executing a flexibility commitment is not free for the building. Once the event and the recovery are over, the thermostat takes over again and the building spends the Recovery Phase returning to the state it would have been in, buying or selling energy it had not planned to. That deviation was not valued anywhere: the effective flexibility price bundles the commitment payment with the expected execution payment into a single number and says nothing about energy. Only the Recovery Phase is valued, and not by convention: the Commitment Phase's own energy is assumed to be already remunerated by the execution price, and during the Neutral Phase the deviation is exactly zero by construction. The Neutral Phase is simulated in calculation_mode 2, which reads the power of every step from the Q_* columns, and those columns still hold the copy of the _plan itinerary that initialize_plan_flex_columns() made, since the flexibility evaluation only overwrites the rows of the Commitment Phase. As the simulation loop derives electricity from Q and the outdoor temperature alone, the flexibility itinerary and the plan spend exactly the same in every Neutral Phase row.
+Executing a flexibility commitment is not free for the building. Once the event and the recovery are over, the thermostat takes over again and the building spends the Recovery Phase returning to the state it would have been in, buying or selling energy it had not planned to. That deviation was not valued anywhere: the effective flexibility price bundles the commitment payment with the expected execution payment into a single number and says nothing about energy. Only the Recovery Phase is valued, and not by convention: the Commitment Phase's own energy is assumed to be already remunerated by the execution price, and during the Neutral Phase the deviation is exactly zero by construction. The Neutral Phase is simulated in calculation_mode 2, which reads the power of every step from the Q_* columns, and those columns still hold the copy of the _plan itinerary that derive_flex_itineraries() made, since the flexibility evaluation only overwrites the rows of the Commitment Phase. As the simulation loop derives electricity from Q and the outdoor temperature alone, the flexibility itinerary and the plan spend exactly the same in every Neutral Phase row.
+
+### The energy a battery does not recover
+
+What this function values is the electricity the leg moves over the rows of the Recovery Phase. A battery that does not bring its stored energy back to the plan in the Recovery Phase moves no electricity for it, so the difference is not seen here: it is valued as stored energy, for the whole leg, by flex_leg_reward_terms().
 
 ### Code outline
 

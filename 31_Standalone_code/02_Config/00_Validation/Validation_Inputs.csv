@@ -3,59 +3,83 @@
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
-# Type and range validation of the inputs of optimize_market(),
-# applied by validate_inputs(). The scalars of the market block are
-# checked by validate_parameter_config(); the vectors of the context,
-# prices and itineraries blocks by validate_dataframe_config().
-# Structure: same convention as Parameter_config.csv
-#   file_name      : input block (market, context, prices, itinerary)
-#   parameter_name : name of the scalar or vector to validate
+# Type and range validation of the vectors of the inputs of
+# optimize_market(), applied by validate_inputs() through
+# validate_dataframe_config(). The scalars of the market block are
+# rules of Parameter_catalogue.csv.
+# The rules also say which vectors each block holds: a block holds
+# the vectors that have a rule for its scope and its name.
+# Structure: one rule per row, with the columns
+#   scope          : "system" for the blocks of the system, or the
+#                    type of model (for example Building) for the
+#                    blocks of each asset of that type
+#   file_name      : input block. For the system: context, prices,
+#                    system_itinerary (the net electricity of the
+#                    system in each itinerary) or system_commitments
+#                    (the flexibility already sold). For a type:
+#                    context or itinerary
+#   parameter_name : name of the vector to validate
 #   type           : Integer | Real | Options
 #   output         : Error (stops execution) | Warning (issues a warning)
 #   options        : for Integer/Real: "min,max", an empty side means
 #                    unbounded on that side; for Options: "opt1,opt2,..."
 # -------------------------------------------------------------
-file_name,parameter_name,type,output,options
+scope,file_name,parameter_name,type,output,options
 #
-# Market block (scalars)
-market,aim,Options,Error,"E,E+F,O,O+F"
-market,T_ext_24h,Real,Warning,"-50,60"
-market,Overall_Climate,Options,Error,"Heating,Cooling,Intermediate"
-market,random_seed,Integer,Error,"0,2147483647"
+# System, weather block (one value per market interval)
+system,context,Text,Real,Warning,"-50,60"
+system,context,SolarR,Real,Error,"0,1500"
 #
-# Context block (one value per market interval)
-context,Text,Real,Warning,"-50,60"
-context,SolarR,Real,Error,"0,1500"
-context,Occupancy,Integer,Error,"0,1"
+# System, prices block (one value per market interval)
+system,prices,Elec_unit_cost_import_buy,Real,Warning,"-1,5"
+system,prices,Elec_unit_cost_import_sell,Real,Warning,"-1,5"
+system,prices,Elec_unit_cost_export_buy,Real,Warning,"-1,5"
+system,prices,Elec_unit_cost_export_sell,Real,Warning,"-1,5"
+system,prices,Elec_unit_cost_distribution,Real,Warning,"-1,1"
+system,prices,Flex_unit_cost_down_com_buy,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_down_com_sell,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_down_exec_buy,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_down_exec_sell,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_up_com_buy,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_up_com_sell,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_up_exec_buy,Real,Warning,"-1,5"
+system,prices,Flex_unit_cost_up_exec_sell,Real,Warning,"-1,5"
+system,prices,Flex_Probab_down,Real,Error,"0,1"
+system,prices,Flex_Probab_up,Real,Error,"0,1"
 #
-# Prices block (one value per market interval)
-prices,Elec_unit_cost_import_buy,Real,Warning,"-1,5"
-prices,Elec_unit_cost_import_sell,Real,Warning,"-1,5"
-prices,Elec_unit_cost_export_buy,Real,Warning,"-1,5"
-prices,Elec_unit_cost_export_sell,Real,Warning,"-1,5"
-prices,Elec_unit_cost_distribution,Real,Warning,"-1,1"
-prices,Flex_unit_cost_down_com_buy,Real,Warning,"-1,5"
-prices,Flex_unit_cost_down_com_sell,Real,Warning,"-1,5"
-prices,Flex_unit_cost_down_exec_buy,Real,Warning,"-1,5"
-prices,Flex_unit_cost_down_exec_sell,Real,Warning,"-1,5"
-prices,Flex_unit_cost_up_com_buy,Real,Warning,"-1,5"
-prices,Flex_unit_cost_up_com_sell,Real,Warning,"-1,5"
-prices,Flex_unit_cost_up_exec_buy,Real,Warning,"-1,5"
-prices,Flex_unit_cost_up_exec_sell,Real,Warning,"-1,5"
-prices,Flex_Probab_down,Real,Error,"0,1"
-prices,Flex_Probab_up,Real,Error,"0,1"
+# System, net electricity of each itinerary (one value per market
+# interval, kWh)
+system,system_itinerary,Elec_total,Real,Warning,"-1000,1000"
 #
-# Itineraries (one value per market interval, every itinerary)
-itinerary,Ti,Real,Error,"-20,60"
-itinerary,Te,Real,Error,"-30,60"
-itinerary,STP_heat,Real,Error,"-20,80"
-itinerary,STP_heat_low,Real,Error,"-20,80"
-itinerary,STP_heat_high,Real,Error,"-20,80"
-itinerary,STP_cool,Real,Error,"-20,80"
-itinerary,STP_cool_low,Real,Error,"-20,80"
-itinerary,STP_cool_high,Real,Error,"-20,80"
-itinerary,Elec_total,Real,Warning,"-1000,1000"
+# System, flexibility already sold on the plan (one value per
+# market interval, kWh)
+system,system_commitments,Elec_flex_down,Real,Error,"0,"
+system,system_commitments,Elec_flex_up,Real,Error,"0,"
 #
-# Commitments of the plan itinerary (one value per market interval)
-plan_commitments,Elec_flex_down,Real,Error,"0,"
-plan_commitments,Elec_flex_up,Real,Error,"0,"
+# Building, occupancy of the building (one value per market interval)
+Building,context,Occupancy,Integer,Error,"0,1"
+#
+# Building, itineraries (one value per market interval, every itinerary)
+Building,itinerary,Ti,Real,Error,"-20,60"
+Building,itinerary,Te,Real,Error,"-30,60"
+Building,itinerary,STP_heat,Real,Error,"-20,80"
+Building,itinerary,STP_heat_low,Real,Error,"-20,80"
+Building,itinerary,STP_heat_high,Real,Error,"-20,80"
+Building,itinerary,STP_cool,Real,Error,"-20,80"
+Building,itinerary,STP_cool_low,Real,Error,"-20,80"
+Building,itinerary,STP_cool_high,Real,Error,"-20,80"
+Building,itinerary,Elec_total,Real,Warning,"-1000,1000"
+#
+# Photovoltaic, itineraries (one value per market interval, every
+# itinerary, kWh)
+Photovoltaic,itinerary,Elec_PV,Real,Warning,"0,1000"
+Photovoltaic,itinerary,Elec_total,Real,Warning,"-1000,1000"
+#
+# Battery, itineraries (one value per market interval, every
+# itinerary): mode, stored energy at the start of the interval (kWh)
+# and electricity taken, given and net in the interval (kWh)
+Battery,itinerary,Mode,Integer,Error,"1,"
+Battery,itinerary,Stored_energy,Real,Error,"0,"
+Battery,itinerary,Elec_charge,Real,Warning,"0,1000"
+Battery,itinerary,Elec_discharge,Real,Warning,"0,1000"
+Battery,itinerary,Elec_total,Real,Warning,"-1000,1000"

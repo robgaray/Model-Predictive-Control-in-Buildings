@@ -4,24 +4,12 @@
 
 ## Function
 
-Reads a simple parameter/value CSV configuration file and validates its raw values against Parameter_config.csv. This is the common first step shared by every load_XX_*.R script that reads a plain parameter/value file (as opposed to a multi-column table such as 14_Use_Patterns.csv or the market config tables).
+Reads a simple parameter/value CSV configuration file and validates its raw values against the parameter catalogue. This is the common first step shared by every load_XX_*.R script that reads a plain parameter/value file (as opposed to a multi-column table such as 14_Use_Patterns.csv or the market config tables).
 
 ## Called by
 
-- [load_01_computing_parameters.R](load_01_computing_parameters.md)
-- [load_01_optimization_parameters.R](load_01_optimization_parameters.md)
-- [load_02_control.R](load_02_control.md)
-- [load_03_market_config.R](load_03_market_config.md)
-- [load_03_physical_properties.R](load_03_physical_properties.md)
-- [load_06_energy_price_parameters.R](load_06_energy_price_parameters.md)
-- [load_07_flexibility_price_emulation.R](load_07_flexibility_price_emulation.md)
-- [load_08_flexibility_event_configuration.R](load_08_flexibility_event_configuration.md)
-- [load_09_reward_parameters.R](load_09_reward_parameters.md)
-- [load_10_operational_temperature_corrections.R](load_10_operational_temperature_corrections.md)
-- [load_11_model_parameters.R](load_11_model_parameters.md)
-- [load_12_temperature_setpoints.R](load_12_temperature_setpoints.md)
-- [load_15_forecast_parameters.R](load_15_forecast_parameters.md)
-- [load_16_debug_and_config.R](load_16_debug_and_config.md)
+- [load_parameter_catalogue.R](load_parameter_catalogue.md)
+- [load_parameter_file.R](load_parameter_file.md)
 
 ## What it calls, in order of appearance
 
@@ -31,7 +19,7 @@ Reads a simple parameter/value CSV configuration file and validates its raw valu
 
 - path              : Character. Path to the parameter/value CSV file.
 - file_name         : Character. Base name of the config file, used to look up its validation rules (e.g. "09_Reward_parameters.csv").
-- validation_config : Data frame. Content of Parameter_config.csv.
+- validation_config : Named list. The parameter catalogue, as load_parameter_catalogue() returns it.
 
 ## Output data
 
@@ -48,7 +36,8 @@ Reads a simple parameter/value CSV configuration file and validates its raw valu
 ### Usage instructions
 
 ```r
-raw_values <- read_and_validate_parameter_csv(paths$reward_file, "09_Reward_parameters.csv", validation_config)
+raw_values <- read_and_validate_parameter_csv(paths$reward_file,
+  "09_Reward_parameters.csv", validation_config)
 ```
 
 ## Diagram

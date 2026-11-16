@@ -16,17 +16,15 @@
 # it values two independent down/up legs rather than a single
 # import/export transition, so it resolves its own net cash flow via
 # value_flex_operation() and calls propagate_unit_value() directly -
-# see integrate_market_process.R.
+# see settle_market.R.
 # -------------------------------------------------------------
 # Inputs
 # Same meaning as in propagate_unit_value():
 #   - row_m
 #   - col_j
-#   - mkt_target
 #   - cost_df
-#   - Main_df
-#   - weight_col
-#   - target_col
+#   - rows_ts
+#   - weight_ts
 # Numeric scalars, passed straight through to calc_differential_cost()
 # (see that function's header for their meaning):
 #   - E_orig
@@ -37,31 +35,27 @@
 #   - P_export_sell
 # -------------------------------------------------------------
 # Outputs
-# Named list with:
-#   Main_df : Data frame. Updated in place at target_col for the
-#             5-minute rows of the target interval.
-#   cost_df : Data frame. Updated in place at [row_m, col_j].
+# Named list, as returned by propagate_unit_value():
+#   - cost_df : Data frame. cost_df with the cash flow added at
+#               [row_m, col_j], added in place, so the cost_df passed
+#               in holds it too.
+#   - rows    : Integer vector. The rows of Main_df to write.
+#   - delta   : Numeric vector. Amount to add to each of those rows.
 # -------------------------------------------------------------
 # Code outline
 # 1. Net cash flow of this transition
 # 2. Accumulation and propagation via propagate_unit_value()
 # -------------------------------------------------------------
 # Usage instructions
-# result  <- propagate_differential_cost(row_m, col_j, mkt_target, E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell, cost_df, Main_df, weight_col, target_col)
-# Main_df <- result$Main_df
+# result  <- propagate_differential_cost(row_m, col_j, E_orig,
+# E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell, cost_df,
+# rows_ts, weight_ts)
 # cost_df <- result$cost_df
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by integrate_market_process.R for the base energy cost
-# (Scheduling) and the flex-adjusted energy cost (Piloting).
-# -------------------------------------------------------------
-# functions/scripts called
-# calc_differential_cost(), propagate_unit_value()
+# The caller adds result$delta to its target column at result$rows.
 # -------------------------------------------------------------
 
 propagate_differential_cost <- function(row_m,
                                         col_j,
-                                        mkt_target,
                                         E_orig,
                                         E_new,
                                         P_import_buy,
@@ -69,9 +63,8 @@ propagate_differential_cost <- function(row_m,
                                         P_export_buy,
                                         P_export_sell,
                                         cost_df,
-                                        Main_df,
-                                        weight_col,
-                                        target_col) {
+                                        rows_ts,
+                                        weight_ts) {
 
   # 1. Net cash flow of this transition
   # -------------------------------------------------------------
@@ -86,17 +79,15 @@ propagate_differential_cost <- function(row_m,
   # 2. Accumulation and propagation
   # -------------------------------------------------------------
   # propagate_unit_value is called to accumulate delta_C into cost_df
-  # and spread its unit value across Main_df's rows for this target
-  # interval, weighted by weight_col.
+  # and spread its unit value across the rows of this target
+  # interval, weighted by weight_ts.
   # -------------------------------------------------------------
   return(propagate_unit_value(
     row_m      = row_m,
     col_j      = col_j,
-    mkt_target = mkt_target,
     delta_C    = delta_C,
     cost_df    = cost_df,
-    Main_df    = Main_df,
-    weight_col = weight_col,
-    target_col = target_col
+    rows_ts    = rows_ts,
+    weight_ts  = weight_ts
   ))
 }

@@ -6,10 +6,11 @@
 # -------------------------------------------------------------
 # Overall description
 # Validates the columns of a data frame (e.g. Meteo_df, Energy_Prices_df)
-# against the rules defined in a Validation_<name>.csv file, following
-# the same file_name/parameter_name/type/output/options convention as
-# Parameter_config.csv (see validate_parameter_config()), but applied to
-# every value of a column vector instead of a single scalar.
+# against the rules defined in a Validation_<name>.csv file, one rule
+# per row with the columns file_name, parameter_name, type, output and
+# options (the range, as "min,max"). The checks are those of
+# validate_parameter_config(), applied to every value of a column
+# vector instead of a single scalar.
 # For each matching rule the function checks:
 #   - Integer : column is numeric and every value is within [min, max]
 #   - Real    : column is numeric and every value is within [min, max]
@@ -24,7 +25,8 @@
 #                     to look up its validation rules (e.g.
 #                     "Meteo_df.rds").
 #   validation_config Data frame. Content of a Validation_<name>.csv
-#                     file (same columns as Parameter_config.csv).
+#                     file (columns file_name, parameter_name, type,
+#                     output and options).
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
@@ -52,12 +54,6 @@
 # Usage instructions
 #   validate_dataframe_config(Meteo_df, "Meteo_df.csv", rules)
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by load_meteo_df.R and load_energy_prices_df.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
-# -------------------------------------------------------------
 
 validate_dataframe_config <- function(df, file_name, validation_config) {
 
@@ -76,7 +72,7 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
 
     if (!col_name %in% names(df)) {
       msg <- paste0("Column '", col_name, "' not found in ", file_name)
-      if (output == "Error") stop(msg) else warning(msg)
+      if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
       next
     }
 
@@ -84,7 +80,7 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
 
     if (!is.numeric(col_values)) {
       msg <- paste0("Column '", col_name, "' must be numeric in ", file_name)
-      if (output == "Error") stop(msg) else warning(msg)
+      if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
       next
     }
 
@@ -103,12 +99,12 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
           msg <- paste0("Column '", col_name, "' has ", sum(out_of_range, na.rm = TRUE),
                         " value(s) outside [", range_vals[1], ", ", range_vals[2],
                         "] in ", file_name)
-          if (output == "Error") stop(msg) else warning(msg)
+          if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
         }
       }
     }
   }
 
-  rm(CONT_001)
+  rm(list = "CONT_001")
   invisible(TRUE)
 }

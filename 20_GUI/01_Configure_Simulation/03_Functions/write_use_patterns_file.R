@@ -35,12 +35,6 @@
 #     day_types_df,
 #     month_profiles_df)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 write_use_patterns_file <- function(
     filename,
@@ -63,7 +57,8 @@ write_use_patterns_file <- function(
     rbind(
       setNames(
         as.data.frame(
-          as.list(c("text", rep("0/1", max(0, ncol(day_types_df) - 1)))),
+          as.list(c("text", rep("-(boolean 0/1)",
+                                 max(0, ncol(day_types_df) - 1)))),
           stringsAsFactors = FALSE
         ),
         names(day_types_df)
@@ -88,7 +83,7 @@ write_use_patterns_file <- function(
     rbind(
       setNames(
         as.data.frame(
-          as.list(c("text", rep("profile",
+          as.list(c("text", rep("text",
                                  max(0, ncol(month_profiles_df) - 1)))),
           stringsAsFactors = FALSE
         ),

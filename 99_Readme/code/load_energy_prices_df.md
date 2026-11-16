@@ -29,7 +29,7 @@ Loads Energy_Prices_df (energy and flexibility market price input data) from dis
 
 ### Code outline
 
-1. Read Energy_Prices_df.rds
+1. Check that Energy_Prices_df.rds exists and read it
 2. Validate required columns are present and numeric
 3. Validate the time grid (equispaced, compatible with Main_df's resolution)
 4. Validate column ranges against Validation_Energy_Prices_df.csv

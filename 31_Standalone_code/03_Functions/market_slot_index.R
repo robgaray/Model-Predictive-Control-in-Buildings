@@ -8,9 +8,11 @@
 # Says which market slot each timestep of a candidate belongs to, as a
 # factor whose levels are the target slots in their own order.
 #
-# With this index, aggregate_by_market_slot() adds a candidate up per
-# slot in a single split, instead of comparing the candidate's
-# MarketUTC with every target slot in turn.
+# It exists so that the answer is worked out once and not once per
+# candidate. The slots a decision targets and the instants of its
+# period do not change while the optimizer searches, so this index is
+# constant over the whole search, while the quantity aggregated on it
+# changes with every candidate.
 # -------------------------------------------------------------
 # Inputs
 # candidate_market_utc : POSIXct vector. The market slot of each
@@ -22,21 +24,13 @@
 # Factor, the same length as candidate_market_utc, with one level per
 # entry of market_utc. A timestep whose slot is not among the targets
 # comes back as NA, and aggregate_by_market_slot() then leaves it out
-# of every total.
+# of every total, which is what the masking walk did.
 # -------------------------------------------------------------
 # Code outline
 # 1. Match each timestep against the target slots.
 # -------------------------------------------------------------
 # Usage instructions
 # slot_index <- market_slot_index(period_chunk$MarketUTC, market_utc)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - compute_marginal_distribution_cost()
-#   - compute_marginal_energy_cost()
-#   - compute_marginal_flex_revenue()
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
 # -------------------------------------------------------------
 
 market_slot_index <- function(candidate_market_utc, market_utc) {

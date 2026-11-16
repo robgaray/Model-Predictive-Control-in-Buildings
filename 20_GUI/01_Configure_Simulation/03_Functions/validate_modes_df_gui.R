@@ -25,12 +25,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   validate_modes_df_gui(df)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 validate_modes_df_gui <- function(df) {
   errors <- character(0)

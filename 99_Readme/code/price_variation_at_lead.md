@@ -14,11 +14,11 @@ The energy price moves with how far ahead it is quoted, in four bands, each with
 - lead >  price_lead_1h_h                 Price_variation_1_5h
 - otherwise                               Price_variation_below_1h
 
-The edges (24, 5 and 1 h in production) live in 01_computing_parameters.csv. They have to decrease in that order, or a band would be empty; the function stops when they do not.
+The edges (24, 5 and 1 h in production) live in 01_computing_parameters.csv. They have to decrease in that order, or a band would be empty; a relation of Validation_parameter_relations.csv checks it when the parameters are loaded.
 
 ## Called by
 
-- [11_full_market_information_setup.R](11_full_market_information_setup.md)
+- [prepare_market_information.R](prepare_market_information.md)
 
 ## What it calls, in order of appearance
 
@@ -38,8 +38,7 @@ The edges (24, 5 and 1 h in production) live in 01_computing_parameters.csv. The
 
 ### Code outline
 
-1. Check that the edges decrease.
-2. Return the variation of the band the lead falls in.
+1. Return the variation of the band the lead falls in.
 
 ### Usage instructions
 

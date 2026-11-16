@@ -36,12 +36,6 @@
 #     defaulted_rows,
 #     readonly_cols)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# add_row_controls(), escape_html_attr()
-# -------------------------------------------------------------
 
 build_table_cell_inputs <- function(df, prefix, defaulted_rows = integer(0),
                                      readonly_cols = character(0)) {

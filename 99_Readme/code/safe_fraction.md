@@ -10,7 +10,7 @@ A fraction whose denominator is zero is reported as NA rather than as 0: with no
 
 ## Called by
 
-- [15_economic_analysis_finalize.R](15_economic_analysis_finalize.md)
+- [finalize.R](finalize.md)
 
 ## What it calls, in order of appearance
 

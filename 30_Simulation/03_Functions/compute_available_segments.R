@@ -37,12 +37,6 @@
 #    that fall outside it.
 # 3. Merge what overlaps and return the gaps left between them.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by generate_flexibility_events.R and try_flex_echo.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
-# -------------------------------------------------------------
 
 compute_available_segments <- function(horizon_begin, horizon_end, forbidden_intervals) {
 

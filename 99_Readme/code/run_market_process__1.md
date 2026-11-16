@@ -1,15 +1,15 @@
-# run_market_process.R &mdash; Called items, block 1 of 2
+# run_market_process.R &mdash; Called items, block 1 of 4
 
-Block 1 of 2 of [run_market_process.R](run_market_process.md).
+Block 1 of 4 of [run_market_process.R](run_market_process.md).
 
 ## What it calls, in this block
 
 - [map_optimization_aim.R](map_optimization_aim.md)
+- [model_type_contract.R](model_type_contract.md)
+- [piece_asset_view.R](piece_asset_view.md)
+- [piece_absorb_asset.R](piece_absorb_asset.md)
 - [pre_horizon_window_tails.R](pre_horizon_window_tails.md)
-- [implement_control_step.R](implement_control_step.md)
-- [derive_flex_itineraries.R](derive_flex_itineraries.md)
-- [hand_over_window_tail.R](hand_over_window_tail.md)
-- [optimize_control_step.R](optimize_control_step.md)
+- [piece_rows.R](piece_rows.md)
 
 ## Diagram
 

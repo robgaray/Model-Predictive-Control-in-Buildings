@@ -1,13 +1,20 @@
 # apply_commitment_margin.R
 
-**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/apply_commitment_margin.R`
+**Function** &nbsp;·&nbsp; `30_Simulation/05_Models/01_Building/03_Functions/apply_commitment_margin.R`
 
 ## Function
 
-Keeps an electrical headroom on a flexibility itinerary, so that a later re-optimization still has room to move the operation without breaking a commitment that was already sold.
+Keeps an electrical headroom on the flexibility itinerary of a building, so that a later re-optimization still has room to move the operation without breaking a commitment that was already sold. It fits the itinerary inside the band the system gives when the building is the only asset that contributes to the window.
 
 Why the headroom exists
 A flexibility window is sold against a concrete itinerary. Every market that clears afterwards derives that itinerary again, and if the new one can no longer sustain what was sold, the run is penalised as technically infeasible. The itinerary that leaves no room at all - the upward one pinned at the system's limit, the downward one pinned at zero - is the one that cannot absorb any change, however small. Leaving flexibility_commitment_margin of electricity unused on both sides is what gives the next market something to work with.
+
+The asset and the system
+
+The headroom is a commercial rule on energy, and the itinerary it acts on is a physical profile of heat. The two are kept apart:
+
+- The margin is one, of the set of assets that contribute to the window. system_commitment_margin() is the side of the system: from the electricity of the set at the limit of the leg, the market interval of each row and the margin, it asks commitment_margin_bound() for the band every interval must keep, on the net. It knows nothing of heat, systems or COP.
+- This function and apply_commitment_margin_cpp() are the side of the building. When the building is the only asset that contributes to the window, the system hands it the band, and the building fits the heat of its itinerary inside it. It is the operation margin_fit of the type of model Building (model_type_contract()).
 
 Where the headroom is measured
 
@@ -15,52 +22,55 @@ On the market slot, which is the unit that is traded and settled, and not on the
 
 The two rules
 
-Upward: the electricity of the slot must stay below what the system would draw at the ceiling the window is built against, by at least the margin. When the plan itself is already above that threshold the slot has no upward service to offer and its itinerary is left equal to the plan.
+Upward: the electricity of the slot must stay below what the building would draw at the ceiling the window is built against, by at least the margin. When the plan itself is already above that threshold the slot has no upward service to offer and its itinerary is left equal to the plan.
 
-Downward: the electricity of the slot must stay above the margin. When the plan itself is already below it the slot has no downward service to offer and its itinerary is left equal to the plan.
+Downward: the electricity of the slot must stay above what the building draws at its floor, nothing, by at least the margin. When the plan itself is already below it the slot has no downward service to offer and its itinerary is left equal to the plan.
 
 How a slot is brought back inside the band
 
-By scaling that slot's whole departure from the plan by a single factor between 0 and 1, on both systems at once, so the itinerary keeps its shape and only its depth changes. The electricity of a step is a monotone, piecewise linear function of the heat of that step - see elec_from_heat() below, which mirrors period_simulation_cpp.cpp - so the electricity of the slot is monotone in the factor and a bisection on the closed form finds it without simulating anything.
+By scaling that slot's whole departure from the plan by a single factor between 0 and 1, on both systems at once, so the itinerary keeps its shape and only its depth changes. The electricity of a step is a monotone, piecewise linear function of the heat of that step, so the electricity of the slot is monotone in the factor and a bisection on the closed form finds it without simulating anything. The bisection runs flexibility_commitment_bisection_steps halvings. The minimum flexibility of each slot is applied afterwards by the system, on the net (system_commitment_margin()).
+
+Where the bisection runs
+
+In compiled code, in apply_commitment_margin_cpp(), with the electrical model the period simulation uses (heat_pump_cop_cpp() and heat_pump_electricity_step()). The margin is applied to every window built, and the bisection evaluates the electricity of a slot many times, so running it in R would be several times slower. This function hands the margin data of the building and the band over.
 
 ## Called by
 
-- [flex_evaluation_down.R](flex_evaluation_down.md)
-- [flex_evaluation_up.R](flex_evaluation_up.md)
+- [building_model_contract.R](building_model_contract.md)
 
 ## What it calls, in order of appearance
 
-- Nothing: this piece calls no other piece of the project.
+- [apply_commitment_margin_cpp.h](apply_commitment_margin_cpp.md)
 
 ## Input data
 
-- All the vectors are the same length, one entry per row of the Commitment Phase, and all the heat quantities are energies in kWh.
-- Q_heat_flex    : Numeric vector. Heating of the itinerary the caller built, before the margin.
-- Q_heat_plan    : Numeric vector. Heating of the plan on those rows.
-- Q_cool_flex    : Numeric vector. Cooling of the itinerary.
-- Q_cool_plan    : Numeric vector. Cooling of the plan.
-- Q_heat_ceiling : Numeric vector. Heating the window is built against at its ceiling, zero when the window does not use the heating system. Only read when leg is "up".
-- Q_cool_ceiling : Numeric vector. The same for cooling.
-- market_slot    : Vector. The market slot each row belongs to.
-- Text           : Numeric vector. Outdoor temperature, for the COP.
-- delta_t_h      : Numeric vector. Timestep in hours.
-- leg            : Character, "up" or "down".
-- parameters     : Named list. Reads parameters$model for the heat pump and parameters$control$flexibility_commitment_margin.
+- margin     : Named list. The margin data of the building on the rows of the guard zone, as building_margin_data() gives it. Reads plan and profile (the heating and cooling of the plan and of the itinerary before the margin, in kWh), Text and delta_t_h.
+- band       : Named list. The band of the system, as commitment_margin_bound() gives it. Reads slot_id and bound.
+- leg        : Character, "up" or "down".
+- parameters : Named list. Reads parameters$control$flexibility_commitment_bisection_steps.
+- asset      : Named list. The parameters of the building, its entry of parameters$assets. Reads asset$model, for the heat pump.
 
 ## Output data
 
-- Named list with two numeric vectors the length of the inputs: Q_heat : heating of the itinerary after the margin Q_cool : cooling of the itinerary after the margin A slot that has no service to offer comes back equal to the plan on both.
+- Named list with two numeric vectors, one entry per row of the margin data: Q_heat : heating of the itinerary after the margin Q_cool : cooling of the itinerary after the margin A slot that has no service to offer comes back equal to the plan on both.
 
 ## Other notes from the file header
 
 ### Code outline
 
-1. The margin, and the electricity of a candidate heat pair.
-2. One slot at a time, find the deepest factor that meets the rule.
+1. One slot at a time, find the deepest factor that keeps the itinerary inside the band, in compiled code.
 
 ### Usage instructions
 
-Called from inside flex_evaluation_up() and flex_evaluation_down(), on the rows of the Commitment Phase, right after the heat of the itinerary has been imposed and before the phases are marked.
+Needs period_simulation_cpp.cpp compiled with Rcpp::sourceCpp(), which exports apply_commitment_margin_cpp(). Called by system_commitment_margin(), through the operation margin_fit of the model of the building:
+
+```r
+margined <- apply_commitment_margin(margin     = margin,
+  band       = band,
+  leg        = "up",
+  parameters = parameters,
+  asset      = asset)
+```
 
 ## Diagram
 

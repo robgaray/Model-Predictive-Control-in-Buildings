@@ -13,7 +13,7 @@
 #       - Meteo_df
 #       - Energy_Prices_df
 #   - 3 synthetic dataframes:
-#       - System_df
+#       - System_variables_df
 #       - Flexibility_actions_df
 #       - Meteo_transformations_df
 # It checks the following aspects:
@@ -22,57 +22,49 @@
 #   3. That the 'time' column is POSIXct, contains no NAs, and is
 #      strictly increasing.
 #   4. That all non-time required columns are numeric.
-#   5. That Occupancy and Scheduling are integer 0/1 flags and
-#      that the remaining binary flag columns contain only 0/1 values.
-#   6. Soft physical range checks on Text and Elec_unit_cost_buy (warnings).
-#   7. That SolarR contains no negative values (hard check).
+#   5. Soft physical range check on Elec_unit_cost_buy (warning).
+#   6. That SolarR contains no negative values (hard check).
+# The table of each asset, with its own columns, is checked by
+# validate_asset_df().
 # -------------------------------------------------------------
 # Inputs
 #   Main_df : Data frame. The main simulation data frame. It must
-#             contain every column of required_cols, the vector declared
-#             in block "Required columns (contractual interface)" of the
-#             body, which is the only list of them. By origin:
+#             contain every column of required_cols. By origin:
 #               - time
 #               - Meteo_df: the weather series
 #               - Energy_Prices_df: the energy and flexibility prices and
 #                 the flexibility probabilities
-#               - System_df, with the columns of:
-#                   - the thermal state (Ti, Te)
-#                   - the context (Occupancy and Scheduling)
-#                   - the setpoints and comfort
-#                   - the heating and cooling actions
-#                   - the thermal energy and the electricity
-#                   - the flexibility commitment and phases
-#                   - the economic results and the Reward
-#                 Most of them come in four versions:
-#                   - _exec: what was executed
-#                   - _plan: the plan
-#                   - _plan_flex_down: the downward flexibility itinerary
-#                   - _plan_flex_up: the upward flexibility itinerary
+#               - System_variables_df, with the columns of:
+#                   - the net electricity of the system, in four
+#                     versions: _exec (what was executed), _plan (the
+#                     plan), _plan_flex_down and _plan_flex_up (the
+#                     downward and upward flexibility itineraries)
+#                   - the flexibility committed on each leg
+#                   - the cash flows of the system
 #               - Flexibility_actions_df: Flex_Act
 #               - Meteo_transformations_df: T_ext_24h and the forecasts
 #             Output columns are present from the start, to be filled
 #             during the simulation run.
 #   bounding_validation_config : Data frame. The plausibility bounds of
 #             the columns, from Validation_bounding_simulation.csv.
+#   required_cols : Character vector. The columns the assembled Main_df
+#             must hold: those of stage assembly in 02_Needed_cols.csv,
+#             as load_needed_columns() returns them.
 # -------------------------------------------------------------
 # Outputs
 #   Invisibly returns TRUE if all checks pass.
-#   Prints a summary message with the number of rows and time span.
+#   Nothing is written to the console when all checks pass.
 # -------------------------------------------------------------
 # Code outline
 # 1. Check data frame structure
 # 2. Check required columns
 # 3. Validate time column
 # 4. Validate numeric columns
-# 5. Validate binary flag columns
-# 6. Plausibility range checks
+# 5. Plausibility range checks
 # -------------------------------------------------------------
 # Usage instructions
-# validate_Main_df(Main_df, bounding_validation_config)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by 02_load_all_parameters.R after assembling Main_df.
+# validate_Main_df(Main_df, bounding_validation_config,
+#                  parameters$needed_cols_assembly)
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - If Main_df is not a data frame, an error is raised via stop().
@@ -83,15 +75,9 @@
 #     increasing, an error is raised via stop().
 #   - If any non-time required column is not numeric, an error is raised
 #     listing the offending column names.
-#   - If Occupancy or Scheduling are not integer 0/1 columns, an error is
-#     raised via stop().
-#   - If a binary column contains values other than 0 or 1, an error
-#     is raised via stop(). The binary columns are:
-#       - Act_heat_exec
-#       - Act_cool_exec
-#   - If Text is outside its plausibility bounds, a warning() is issued
-#     (soft check, simulation continues). The bounds are those of
-#     Validation_bounding_simulation.csv, not of this function.
+#   - Text is not checked here: it is the weather input itself,
+#     interpolated, so the range of Validation_Meteo_df.csv, checked
+#     when the weather is read, already covers it.
 #   - If Elec_unit_cost_buy falls below its plausibility bound, a
 #     warning() is issued (soft check, simulation continues). The bound
 #     is that of Validation_bounding_simulation.csv.
@@ -99,11 +85,9 @@
 #     Validation_bounding_simulation.csv is not checked on that side.
 #   - If SolarR contains any negative value, an error is raised via stop().
 # -------------------------------------------------------------
-# functions/scripts called
-#   get_validation_bounds()
-# -------------------------------------------------------------
 
-validate_Main_df <- function(Main_df, bounding_validation_config) {
+validate_Main_df <- function(Main_df, bounding_validation_config,
+                             required_cols) {
 
   # ---------------------------------------------------------
   # Basic structural checks
@@ -119,62 +103,6 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
   # ---------------------------------------------------------
   # Required columns (contractual interface)
   # ---------------------------------------------------------
-  required_cols <- c(
-    # Timestamp
-    "time",
-    # Meteo_df
-    "Text",
-    "SolarR",
-    # Energy_Prices_df
-    "Elec_unit_cost_buy",
-    "Elec_unit_cost_distribution",
-    "Flex_unit_cost_down_com",
-    "Flex_unit_cost_down_exec",
-    "Flex_unit_cost_up_com",
-    "Flex_unit_cost_up_exec",
-    "Flex_Probab_down", "Flex_Probab_up",
-    # System_df - state
-    "Ti_exec", "Ti_plan", "Ti_plan_flex_down", "Ti_plan_flex_up",
-    "Te_exec", "Te_plan", "Te_plan_flex_down", "Te_plan_flex_up",
-    # System_df - context
-    "Scheduling",
-    "Occupancy",
-    "STP_heat_exec", "STP_heat_plan", "STP_heat_plan_flex_down", "STP_heat_plan_flex_up",
-    "STP_heat_high_exec", "STP_heat_high_plan", "STP_heat_high_plan_flex_down", "STP_heat_high_plan_flex_up",
-    "STP_heat_low_exec", "STP_heat_low_plan", "STP_heat_low_plan_flex_down", "STP_heat_low_plan_flex_up",
-    "STP_cool_exec", "STP_cool_plan", "STP_cool_plan_flex_down", "STP_cool_plan_flex_up",
-    "STP_cool_high_exec", "STP_cool_high_plan", "STP_cool_high_plan_flex_down", "STP_cool_high_plan_flex_up",
-    "STP_cool_low_exec", "STP_cool_low_plan", "STP_cool_low_plan_flex_down", "STP_cool_low_plan_flex_up",
-    # System_df - evaluation
-    "Comfort_exec", "Comfort_plan", "Comfort_plan_flex_down", "Comfort_plan_flex_up",
-    # System_df - action
-    "Act_heat_exec", "Act_heat_plan", "Act_heat_plan_flex_down", "Act_heat_plan_flex_up",
-    "Act_cool_exec", "Act_cool_plan", "Act_cool_plan_flex_down", "Act_cool_plan_flex_up",
-    "Q_heat_exec", "Q_heat_plan", "Q_heat_plan_flex_down", "Q_heat_plan_flex_up",
-    "Q_cool_exec", "Q_cool_plan", "Q_cool_plan_flex_down", "Q_cool_plan_flex_up",
-    # System_df - energy
-    "Elec_heat_exec", "Elec_heat_plan", "Elec_heat_plan_flex_down", "Elec_heat_plan_flex_up",
-    "Elec_cool_exec", "Elec_cool_plan", "Elec_cool_plan_flex_down", "Elec_cool_plan_flex_up",
-    "Elec_total_exec", "Elec_total_plan", "Elec_total_plan_flex_down", "Elec_total_plan_flex_up",
-    "Elec_total_no_flex",
-    "Elec_flex_down_plan", "Elec_flex_up_plan",
-    "Flex_phase_down_plan", "Flex_phase_up_plan",
-    # System_df - economic
-    "Elec_purchase_cost_market", "Elec_sell_revenue_market",
-    "Elec_flex_sell_revenue_market", "Elec_flex_purchase_cost_market",
-    "Elec_market_net_cost_h", "Elec_deviations_net_cost_h", "Elec_net_cost_h",
-    "Elec_flex_commitment_revenue_h", "Elec_flex_execution_revenue_h",
-    "Elec_flex_deviations_net_cost_h", "Elec_cost_distr_h",
-    # System_df - optimization
-    "Reward",
-    # Flexibility_actions_df
-    "Flex_Act",
-    # Meteo_transformations_df
-    "T_ext_24h",
-    "Text_forec",
-    "SolarR_forec"
-    )
-
   missing_cols <- setdiff(required_cols, names(Main_df))
 
   if (length(missing_cols) > 0) {
@@ -214,28 +142,6 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
   }
 
   # ---------------------------------------------------------
-  # Binary flag checks (0/1 expected)
-  # ---------------------------------------------------------
-  integer_binary_cols <- c("Occupancy", "Scheduling")
-  for (CONT_001 in integer_binary_cols) {
-    if (!is.integer(Main_df[[CONT_001]])) {
-      stop("Column ", CONT_001, " must be of type integer")
-    }
-    vals <- unique(na.omit(Main_df[[CONT_001]]))
-    if (!all(vals %in% c(0, 1))) {
-      stop(paste("Column", CONT_001, "contains values other than 0/1"))
-    }
-  }
-
-  binary_cols <- c("Act_heat_exec", "Act_cool_exec")
-  for (CONT_001 in binary_cols) {
-    vals <- unique(na.omit(Main_df[[CONT_001]]))
-    if (!all(vals %in% c(0, 1))) {
-      stop(paste("Column", CONT_001, "contains values other than 0/1"))
-    }
-  }
-
-  # ---------------------------------------------------------
   # Categorical variable checks (currently none required)
   # ---------------------------------------------------------
 
@@ -256,23 +162,8 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
   # that no limit is written twice.
   # ---------------------------------------------------------
   {
-    # get_validation_bounds is called to read the bounds of the outdoor
-    # temperature out of the validation table, so this function holds
-    # no temperature limit of its own.
-    text_bounds <- get_validation_bounds(
-      bounding_validation_config, "Main_df", "Text"
-    )
-
-    if ((!is.na(text_bounds$min) &&
-         min(Main_df$Text, na.rm = TRUE) < text_bounds$min) ||
-        (!is.na(text_bounds$max) &&
-         max(Main_df$Text, na.rm = TRUE) > text_bounds$max)) {
-      warning("Text outside expected physical range [",
-              text_bounds$min, ", ", text_bounds$max, "]")
-    }
-
-    # get_validation_bounds is called again for the purchase price,
-    # whose validation rule only bounds it from below.
+    # get_validation_bounds is called for the purchase price, whose
+    # validation rule only bounds it from below.
     price_bounds <- get_validation_bounds(
       bounding_validation_config, "Main_df", "Elec_unit_cost_buy"
     )
@@ -282,26 +173,16 @@ validate_Main_df <- function(Main_df, bounding_validation_config) {
         (!is.na(price_bounds$max) &&
          max(Main_df$Elec_unit_cost_buy, na.rm = TRUE) > price_bounds$max)) {
       warning("Elec_unit_cost_buy outside expected range [",
-              price_bounds$min, ", ", price_bounds$max, "]")
+              price_bounds$min, ", ", price_bounds$max, "]",
+              call. = FALSE)
     }
 
-    rm(text_bounds, price_bounds)
+    rm(list = "price_bounds")
   }
 
   if (min(Main_df$SolarR, na.rm = TRUE) < 0) {
     stop("SolarR contains negative values")
   }
-
-  # ---------------------------------------------------------
-  # Successful validation
-  # ---------------------------------------------------------
-  cat(
-    "Main_df validated successfully\n",
-    "Rows:", nrow(Main_df), "\n",
-    "Time span:",
-    format(min(Main_df$time)), "→",
-    format(max(Main_df$time)), "\n"
-  )
 
   invisible(TRUE)
 }

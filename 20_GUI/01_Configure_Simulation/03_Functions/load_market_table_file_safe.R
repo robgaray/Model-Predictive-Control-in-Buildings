@@ -8,9 +8,10 @@
 # Loads a market table (scheduling or piloting) without ever
 # stopping the app. An invalid row takes the defaults of its
 # market; a market with no default takes a generic configuration
-# with the aim given by the caller; a market missing from the
-# file is added from the defaults. A message is collected for
-# each case.
+# with the aim given by the caller. The markets are the ones of
+# the file: a market of the defaults that the file does not hold
+# is not added, because the user may run fewer markets than the
+# defaults. A message is collected for each replaced row.
 # The generic row is read from 02_Config/GUI_fallback_values.csv
 # (gui_fallback, loaded by GUI_config.R).
 # -------------------------------------------------------------
@@ -39,7 +40,6 @@
 # 2. When the file is unusable, return the defaults.
 # 3. Take each market from the file when valid, from the defaults
 #    otherwise.
-# 4. Add the markets that are only in the defaults.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
@@ -48,12 +48,6 @@
 #     filename,
 #     default_filename,
 #     fallback_aim)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# market_table_row_valid(), read_table_file()
 # -------------------------------------------------------------
 
 load_market_table_file_safe <- function(filename, default_filename, fallback_aim) {
@@ -102,9 +96,17 @@ load_market_table_file_safe <- function(filename, default_filename, fallback_aim
 
   for (CONT_203 in seq_len(nrow(df))) {
     market_name <- df$Market[CONT_203]
-    if (market_table_row_valid(df$closure[CONT_203], df$begin[CONT_203],
-                               df$end[CONT_203], df$end_optimization[CONT_203],
-                               df$aim[CONT_203])) {
+    # market_table_row_valid is called to check the row against the
+    # catalogue rules of this table, found by the file name.
+    row_ok <- market_table_row_valid(
+      closure          = df$closure[CONT_203],
+      begin            = df$begin[CONT_203],
+      end              = df$end[CONT_203],
+      end_optimization = df$end_optimization[CONT_203],
+      aim              = df$aim[CONT_203],
+      file_label       = basename(filename)
+    )
+    if (row_ok) {
       result_rows[[market_name]] <- df[CONT_203, req_cols]
     } else {
       default_match <- defaults_df[defaults_df$Market == market_name, ]
@@ -131,16 +133,6 @@ load_market_table_file_safe <- function(filename, default_filename, fallback_aim
       }
       defaulted_markets <- c(defaulted_markets, market_name)
     }
-  }
-
-  missing_markets <- setdiff(defaults_df$Market, names(result_rows))
-  for (market_name in missing_markets) {
-    result_rows[[market_name]] <- defaults_df[defaults_df$Market == market_name, ]
-    defaulted_markets <- c(defaulted_markets, market_name)
-    messages <- c(messages, sprintf(
-      "%s: market '%s' is missing. Adding it with its default configuration.",
-      filename, market_name
-    ))
   }
 
   result_df <- do.call(rbind, result_rows)

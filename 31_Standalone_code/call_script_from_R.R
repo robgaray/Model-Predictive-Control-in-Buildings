@@ -12,22 +12,31 @@
 #      first time is it really needed; later runs find everything in
 #      place and end quickly.
 #   2. Call through the console: it runs call_script_console.R with
-#      Rscript, on 01_Input/example_first_call.json, and reads the
-#      output JSON file.
+#      Rscript, on 01_Input/example_first_call.json (a building) and
+#      on 01_Input/example_building_and_photovoltaic.json (a building
+#      and a photovoltaic installation), and reads the output JSON
+#      files.
 #   3. Call in memory: it prepares the R session with
 #      initialize_standalone() and calls optimize_market() directly,
 #      first on a first market, then on a chained one. The plan
 #      returned by the first market, a day-ahead market, becomes the
 #      plan of a later market with the "O+F" aim, which keeps the
-#      plan and only searches flexibility over it.
+#      plan and only searches flexibility over it. The chained call
+#      is built from the "system" block (net energy of the plan and
+#      of its flexibility itineraries) and the "assets" block (the
+#      itineraries of every asset) of the first output.
 # -------------------------------------------------------------
 # Inputs
 #   01_Input/example_first_call.json
+#   01_Input/example_building_and_photovoltaic.json
 #   01_Input/example_chained_call.json: prices of the chained market
 # -------------------------------------------------------------
 # Outputs
 #   90_Output/call_script_from_R_console_output.json: the output of
-#   the call through the console.
+#   the call through the console on the first example.
+#   90_Output/call_script_from_R_console_pv_output.json: the output
+#   of the call through the console on the building and photovoltaic
+#   example.
 #   90_Output/call_script_from_R_output.rds: the results of both
 #   markets of the call in memory.
 #   Printed summaries of every market.
@@ -45,15 +54,6 @@
 # From any folder:
 #   Rscript 31_Standalone_code/call_script_from_R.R
 # or source it from RStudio.
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - Run by hand, as an example.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - setup.R: run with Rscript, through system2()
-#   - call_script_console.R: run with Rscript, through system2()
-#   - initialize_standalone(): prepares the session
-#   - optimize_market(): optimizes each market
 # -------------------------------------------------------------
 
 # -------------------------------------------------------------
@@ -76,7 +76,7 @@
 
   rscript <- file.path(R.home("bin"), "Rscript")
 
-  rm(source_files, script_argument)
+  rm(list = c("source_files", "script_argument"))
 }
 
 # -------------------------------------------------------------
@@ -92,7 +92,7 @@
   if (setup_status != 0) {
     stop("setup.R failed. Read its messages above.")
   }
-  rm(setup_status)
+  rm(list = "setup_status")
 }
 
 # -------------------------------------------------------------
@@ -102,25 +102,37 @@
 # JSON file out, exit status 0 on success and 1 on any error.
 # -------------------------------------------------------------
 {
-  console_input  <- file.path(standalone_path, "01_Input", "example_first_call.json")
-  console_output <- file.path(standalone_path, "90_Output",
-                              "call_script_from_R_console_output.json")
+  console_inputs  <- c(file.path(standalone_path, "01_Input", "example_first_call.json"),
+                       file.path(standalone_path, "01_Input",
+                                 "example_building_and_photovoltaic.json"))
+  console_outputs <- c(file.path(standalone_path, "90_Output",
+                                 "call_script_from_R_console_output.json"),
+                       file.path(standalone_path, "90_Output",
+                                 "call_script_from_R_console_pv_output.json"))
 
-  # call_script_console.R is run to optimize the market of the input
-  # file and write the result to the output file.
-  console_status <- system2(rscript,
-                            shQuote(c(file.path(standalone_path, "call_script_console.R"),
-                                      console_input,
-                                      console_output)))
-  if (console_status != 0) {
-    stop("call_script_console.R failed. Read its messages above.")
+  for (CONT_001 in seq_along(console_inputs)) {
+    {
+      # call_script_console.R is run to optimize the market of the
+      # input file and write the result to the output file.
+      console_status <- system2(rscript,
+                                shQuote(c(file.path(standalone_path, "call_script_console.R"),
+                                          console_inputs[CONT_001],
+                                          console_outputs[CONT_001])))
+      if (console_status != 0) {
+        stop("call_script_console.R failed. Read its messages above.")
+      }
+
+      console_result <- jsonlite::read_json(console_outputs[CONT_001], simplifyVector = TRUE)
+      cat("Console call ", basename(console_inputs[CONT_001]), ": ",
+          length(console_result$operations$time),
+          " committed intervals, assets: ",
+          paste(names(console_result$assets), collapse = ", "), "\n", sep = "")
+
+      rm(list = c("console_status", "console_result"))
+    }
   }
 
-  console_result <- jsonlite::read_json(console_output, simplifyVector = TRUE)
-  cat("Console call: ", length(console_result$operations$time),
-      " committed intervals\n", sep = "")
-
-  rm(console_input, console_output, console_status, console_result)
+  rm(list = c("console_inputs", "console_outputs", "CONT_001"))
 }
 
 # -------------------------------------------------------------
@@ -161,10 +173,12 @@
 # 4.3. Chained market
 # -------------------------------------------------------------
 # The second market is called at 05:00 of the committed day, optimizes
-# from 06:00 to 18:00 and commits from 06:00 to 12:00. Its inputs are
-# those of the first market over its own intervals, except the prices,
-# read from 01_Input/example_chained_call.json, and the plan, which is
-# the one the first market returned.
+# from 06:00 to 18:00 and commits from 06:00 to 12:00. Its weather and
+# building use are those of the first market over its own intervals.
+# Its prices are its own. The system and the assets come from the
+# output of the first market: the net energy of the system and the
+# itineraries of every asset, cut to the intervals of the second
+# market.
 # -------------------------------------------------------------
 {
   # The prices of the chained market are its own: they are read from
@@ -180,20 +194,44 @@
   slots    <- seq(i0, as.POSIXct("2024-01-16 18:00:00", tz = "UTC") - slot_sec, by = slot_sec)
   as_text  <- function(x) format(x, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 
+  # take cuts a block of the input of the first market to the
+  # intervals of the chained market.
   take <- function(block, columns) {
     rows <- match(as_text(slots), as_text(as.POSIXct(block$time, tz = "UTC",
                                                      format = "%Y-%m-%dT%H:%M:%SZ")))
     c(list(time = as_text(slots)), lapply(block[columns], function(v) v[rows]))
   }
-  take_output <- function(block, columns) {
+
+  # take_output cuts a block of the output of the first market to the
+  # intervals of the chained market, with every column it holds.
+  take_output <- function(block) {
     rows <- match(as.numeric(slots), as.numeric(block$time))
+    columns <- setdiff(names(block), "time")
     c(list(time = as_text(slots)), lapply(block[columns], function(v) v[rows]))
   }
 
-  itinerary_columns <- c("Ti", "Te",
-                         "STP_heat", "STP_heat_low", "STP_heat_high",
-                         "STP_cool", "STP_cool_low", "STP_cool_high",
-                         "Elec_total")
+  take_itineraries <- function(itineraries) {
+    lapply(itineraries, take_output)
+  }
+
+  # The asset blocks carry what each asset needs from the caller:
+  # its itineraries from the first output and, for a building, its
+  # use and its climate mode from the first input.
+  chained_assets <- lapply(
+    names(first_result$assets),
+    function(asset_id) {
+      asset <- list(itineraries = take_itineraries(first_result$assets[[asset_id]]$itineraries))
+      first_asset <- first_inputs$assets[[asset_id]]
+      if (!is.null(first_asset$Overall_Climate)) {
+        asset$Overall_Climate <- first_asset$Overall_Climate
+      }
+      if (!is.null(first_asset$context)) {
+        asset$context <- take(first_asset$context, setdiff(names(first_asset$context), "time"))
+      }
+      asset
+    }
+  )
+  names(chained_assets) <- names(first_result$assets)
 
   chained_inputs <- list(
     market = list(aim             = "O+F",
@@ -202,16 +240,11 @@
                   i_end_control   = "2024-01-16T12:00:00Z",
                   i_end_horizon   = "2024-01-16T18:00:00Z",
                   T_ext_24h       = first_inputs$market$T_ext_24h,
-                  Overall_Climate = first_inputs$market$Overall_Climate,
                   random_seed     = 2),
-    context = take(first_inputs$context, c("Text", "SolarR", "Occupancy")),
+    context = take(first_inputs$context, c("Text", "SolarR")),
     prices  = chained_prices,
-    itineraries = list(
-      plan           = take_output(first_result$itineraries$plan,
-                                   c(itinerary_columns, "Elec_flex_down", "Elec_flex_up")),
-      plan_flex_down = take_output(first_result$itineraries$plan_flex_down, itinerary_columns),
-      plan_flex_up   = take_output(first_result$itineraries$plan_flex_up, itinerary_columns)
-    )
+    system  = list(itineraries = take_itineraries(first_result$system$itineraries)),
+    assets  = chained_assets
   )
 
   # optimize_market is called again, now for the chained later
@@ -223,4 +256,9 @@
 
   saveRDS(list(first = first_result, chained = chained_result),
           file.path(standalone_path, "90_Output", "call_script_from_R_output.rds"))
+
+  # close_standalone is called to stop the worker cluster of the
+  # session, which both markets used when the optimizer runs in
+  # parallel.
+  close_standalone(paths)
 }

@@ -4,7 +4,7 @@
 
 ## Function
 
-This function is the fitness function used by the Genetic Algorithm in optimize_modes(). It converts an integer mode vector (one mode index per market period) into a structured setpoint data frame, evaluates the building simulation, and returns the resulting scalar reward.
+This function is the fitness function used by the Genetic Algorithm in optimize_modes(). It decodes a chromosome, made of one block of genes per asset with genes (chromosome_layout()), into the control of each asset, through the operation decode_genes of the type of model of each asset (decode_chromosome()). For a building, its block holds one mode index per market period and becomes its setpoints. It then evaluates the simulation, and returns the resulting scalar reward.
 
 ## Called by
 
@@ -12,18 +12,16 @@ This function is the fitness function used by the Genetic Algorithm in optimize_
 
 ## What it calls, in order of appearance
 
-- [maxmode.R](maxmode.md)
-- [convert_modes_to_setpoints.R](convert_modes_to_setpoints.md)
+- [decode_chromosome.R](decode_chromosome.md)
 - [evaluate_control.R](evaluate_control.md)
 
 ## Input data
 
-- x            : Integer vector of length n_periods. Each element is a mode index (integer value from 1 to n_modes) representing the active mode for that market period.
-- n_modes      : Integer scalar. Number of available control modes.
-- n_periods    : Integer scalar. Number of market periods in the optimization horizon.
+- x            : Integer vector of length layout$n_genes, the chromosome. Each block of it holds one gene per market period for one asset: for a building, a mode index (integer value from 1 to its number of modes) representing the active mode for that market period.
+- layout       : Named list. The layout of the chromosome, as chromosome_layout() returns it: the asset of each block and the positions of its genes.
 - timestamps   : Named list. Timestamp metadata. Must contain: timestamps$target_periods : POSIXct vector of market period timestamps.
-- parameters   : Named list. Model and control parameters. Must contain: parameters$setpoint_modes : Data frame mapping mode indices to setpoint values. parameters$control$Deadband : Numeric. Deadband. All other sub-elements required by evaluate_control().
-- period_chunk : Data frame. Simulation data for the optimization horizon, as passed from optimize_modes(). Must contain all columns required by period_calculation() (called inside evaluate_control()).
+- parameters   : Named list. Model and control parameters. Must contain: parameters$assets : the asset registry. A building holds its setpoint_modes: Data frame mapping mode indices to setpoint values, and its control$Deadband [degC]. All other sub-elements required by evaluate_control().
+- piece        : List. The piece of the optimization horizon, as passed from optimize_modes(): the table of the system and the table of each asset. Together the tables hold all columns required by period_calculation() (called inside evaluate_control()).
 - simulation_control : Named list. Simulation control object passed through to evaluate_control().
 - marginal_context   : Named list or NULL. Passed through to evaluate_control().
 
@@ -35,18 +33,20 @@ This function is the fitness function used by the Genetic Algorithm in optimize_
 
 ### A candidate that cannot be evaluated
 
-A chromosome carrying NA is not a building operation: it cannot be turned into setpoints and there is nothing to simulate. It is scored with a penalty large enough to be worse than any reachable reward, so the optimizer discards it, instead of being allowed to stop the run inside convert_modes_to_setpoints(). The chromosome should never arrive in that state - optimize_modes() sizes the elitism so that ga() cannot build one - and this is the net under that.
+A chromosome carrying NA is not an operation of the assets: it cannot be turned into setpoints and there is nothing to simulate. It is scored with a penalty large enough to be worse than any reachable reward, so the optimizer discards it, instead of being allowed to stop the run inside convert_modes_to_setpoints(). The chromosome should never arrive in that state - optimize_modes() sizes the elitism so that ga() cannot build one - and this is the net under that.
 
 ### Code outline
 
-1. Create mode data frame from integer vector
-2. Convert modes to setpoints
-3. Evaluate control and compute reward
+1. Decode the chromosome into the control of each asset
+2. Evaluate control and compute reward
 
 ### Usage instructions
 
 ```r
-fitness <- fitness_funct_optimize_mode(x, n_modes, n_periods, timestamps, parameters, period_chunk)
+fitness <- fitness_funct_optimize_mode(x, layout, timestamps,
+  parameters, piece,
+  simulation_control,
+  marginal_context)
 ```
 
 ## Diagram

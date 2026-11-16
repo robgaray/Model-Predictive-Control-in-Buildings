@@ -28,12 +28,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   validate_occupancy_dfs_gui(day_types_df, month_profiles_df)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# day_type_row_valid()
-# -------------------------------------------------------------
 
 validate_occupancy_dfs_gui <- function(day_types_df, month_profiles_df) {
   errors        <- character(0)

@@ -1,0 +1,23 @@
+# 18_Comfort_parameters.csv
+# Configuration file: comfort of a building
+# -------------------------------------------------------------
+# The comfort parameters of the building: the weight of its comfort
+# in the reward, the comfort band while the building is in service
+# and the comfort band in setback. Each building weighs its own
+# comfort and holds its own bands.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Weight of comfort
+alpha_comfort,50,1/h
+#
+# Comfort band while in service
+Service_T_Low,20,degC
+Service_T_High,25,degC
+#
+# Comfort band in setback
+# The band checked outside occupancy. It is not a comfort target:
+# it keeps the building out of regions of undesired behavior, for
+# the integrity of the system.
+Setback_T_Low,5,degC
+Setback_T_High,45,degC

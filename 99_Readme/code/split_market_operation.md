@@ -29,9 +29,9 @@ For each of the four, both the quantity (always >= 0, in the units of E_orig/E_n
 
 ## Called by
 
-- [15_economic_analysis_finalize.R](15_economic_analysis_finalize.md)
 - [calc_differential_cost.R](calc_differential_cost.md)
-- [integrate_market_process.R](integrate_market_process.md)
+- [finalize.R](finalize.md)
+- [settle_market.R](settle_market.md)
 
 ## What it calls, in order of appearance
 
@@ -67,12 +67,15 @@ calc_differential_cost() is in fact implemented as a thin wrapper over this func
 
 ### Code outline
 
-1. Loop over slots, mirroring calc_differential_cost()'s six branches, and assign each branch's magnitude and value to the corresponding elementary operation.
+1. Check the inputs
+2. Place every slot in one of the six branches
+3. Quantity and value of each elementary operation
 
 ### Usage instructions
 
 ```r
-op <- split_market_operation(E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell)
+op <- split_market_operation(E_orig, E_new, P_import_buy, P_import_sell,
+  P_export_buy, P_export_sell)
 ```
 
 energy_bought   <- op$qty_buy_new energy_resold   <- op$qty_sell_back

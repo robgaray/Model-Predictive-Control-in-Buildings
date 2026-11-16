@@ -22,12 +22,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   escape_html_attr(value)
 # -------------------------------------------------------------
-# Where this function/script is used
-# build_table_cell_inputs()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 escape_html_attr <- function(value) {
   value <- as.character(value)

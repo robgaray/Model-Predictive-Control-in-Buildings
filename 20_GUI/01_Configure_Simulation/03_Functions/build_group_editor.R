@@ -5,16 +5,19 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Builds a titled panel with the inputs of a chosen group of
-# parameters of a file, four per row, so a long file can be shown
-# as several groups.
+# Builds a panel with the inputs of a chosen group of parameters of
+# a file, so a long file can be shown as several groups. The panel
+# carries a title, or none when the title is NULL. The labels take
+# their units from the catalogue, and the parameters with a list of
+# options are dropdowns.
 # -------------------------------------------------------------
 # Inputs
 #   df               : Data frame. The table the function works
 #                      on (see above).
 #   prefix           : Character. Prefix of the input ids of the
 #                      table or tab.
-#   title            : Character. Title of the panel.
+#   title            : Character. Title of the panel, or NULL for a
+#                      panel with no title.
 #   parameters       : Character vector. The parameters shown in
 #                      the group, in order.
 #   options_list     : Named list. Allowed options of each
@@ -27,15 +30,18 @@
 #                      than once in the file. Default
 #                      character(0).
 #   file_key         : Character. File name of the configuration
-#                      file, as Parameter_Units.csv names it;
-#                      NULL shows no units. Default NULL.
+#                      file, as the catalogue names it; NULL shows
+#                      no units. Default NULL.
+#   max_per_row      : Integer. Number of inputs on each row.
 # -------------------------------------------------------------
 # Outputs
-#   A wellPanel with the title and the grid of inputs.
+#   A wellPanel with the title, when there is one, and the grid of
+#   inputs.
 # -------------------------------------------------------------
 # Code outline
 # 1. Describe one input per parameter of the group.
-# 2. Lay them out with build_input_grid() under the title.
+# 2. Lay them out with build_input_grid() under the title, when
+#    there is one.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
@@ -48,18 +54,13 @@
 #     options_list,
 #     defaulted,
 #     duplicated,
-#     file_key)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# label_with_unit(), get_param_value(), build_input_grid()
+#     file_key,
+#     max_per_row)
 # -------------------------------------------------------------
 
 build_group_editor <- function(df, prefix, title, parameters, options_list = list(),
                                 defaulted = character(0), duplicated = character(0),
-                                file_key = NULL) {
+                                file_key = NULL, max_per_row) {
   input_defs <- lapply(
     parameters,
     function(CONT_003) {
@@ -75,7 +76,7 @@ build_group_editor <- function(df, prefix, title, parameters, options_list = lis
   )
 
   wellPanel(
-    h4(title),
-    build_input_grid(input_defs, max_per_row = 4)
+    if (!is.null(title)) h4(title),
+    build_input_grid(input_defs, max_per_row = max_per_row)
   )
 }

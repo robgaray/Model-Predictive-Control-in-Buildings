@@ -26,12 +26,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   add_row_controls(df, prefix)
 # -------------------------------------------------------------
-# Where this function/script is used
-# build_table_cell_inputs()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 add_row_controls <- function(df, prefix) {
   if (nrow(df) == 0) {

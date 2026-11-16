@@ -9,18 +9,21 @@
 # vectors, ready to be written as JSON or handed to another language:
 #   - every data frame becomes a named list of its columns
 #   - every time becomes ISO 8601 UTC text (2024-01-15T12:00:00Z)
-# The structure is the same as the input of the script: an
-# itineraries block with plan, plan_flex_down and plan_flex_up, and an
-# operations block.
+# The structure follows the input of the script: a system block and
+# an assets block, each with its itineraries (plan, plan_flex_down and
+# plan_flex_up), and an operations block.
 # -------------------------------------------------------------
 # Inputs
 #   result : Named list, as returned by optimize_market().
 # -------------------------------------------------------------
 # Outputs
 #   Named list:
-#     - itineraries : list of plan, plan_flex_down, plan_flex_up, each
-#                     a named list of vectors
-#     - operations  : named list of vectors
+#     - system     : list with itineraries, a list of plan,
+#                    plan_flex_down and plan_flex_up, each a named
+#                    list of vectors
+#     - assets     : list with one entry per asset of the call, each
+#                    with itineraries, as for the system
+#     - operations : named list of vectors
 # -------------------------------------------------------------
 # Code outline
 # 1. Conversion of one data frame
@@ -28,14 +31,6 @@
 # -------------------------------------------------------------
 # Usage instructions
 # output <- format_market_output(optimize_market(inputs, paths))
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - call_script_console.R: before writing the output JSON file.
-#   - call_script_from_Python_rpy2.py: before handing the result to
-#     Python.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 format_market_output <- function(result) {
@@ -62,12 +57,17 @@ format_market_output <- function(result) {
   # -------------------------------------------------------------
   {
     output <- list(
-      itineraries = lapply(result$itineraries, as_vector_list),
-      operations  = as_vector_list(result$operations)
+      system     = list(
+        itineraries = lapply(result$system$itineraries, as_vector_list)
+      ),
+      assets     = lapply(result$assets, function(CONT_002) {
+        list(itineraries = lapply(CONT_002$itineraries, as_vector_list))
+      }),
+      operations = as_vector_list(result$operations)
     )
   }
 
-  rm(as_vector_list)
+  rm(list = "as_vector_list")
 
   return(output)
 }

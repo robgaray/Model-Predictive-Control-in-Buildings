@@ -4,20 +4,19 @@
 
 ## Function
 
-Loads debug and configuration parameters from 16_Debug_and_config.csv, validates raw values against Parameter_config.csv, calls load_debug_and_config_parameters() for structured loading, and stores the result in parameters$debug_and_config. Sourced from 02_load_all_parameters.R.
+Loads debug and configuration parameters from 16_Debug_and_config.csv, validates them against the parameter catalogue, turns verbose into a logical switch, and stores the result in parameters$debug_and_config. Sourced from load_all_parameters().
 
 ## Called by
 
-- [02_load_all_parameters.R](02_load_all_parameters.md)
+- [load_internal_parameters.R](load_internal_parameters.md)
 
 ## What it calls, in order of appearance
 
-- [read_and_validate_parameter_csv.R](read_and_validate_parameter_csv.md)
-- [load_debug_and_config_parameters.R](load_debug_and_config_parameters.md)
+- [load_parameter_file.R](load_parameter_file.md)
 
 ## Input data
 
-- paths$debug_and_config_file : path of 16_Debug_and_config.csv, resolved by 01_initialization.R.
+- paths$debug_and_config_file : path of 16_Debug_and_config.csv, resolved by initialize_simulator().
 - parameters : the list being assembled, to which this script adds one sub-list.
 
 ## Output data
@@ -29,12 +28,12 @@ Loads debug and configuration parameters from 16_Debug_and_config.csv, validates
 ### Code outline
 
 1. Read the file and validate every value.
-2. Turn the raw values into the debug sub-list.
+2. Turn verbose into a logical switch.
 3. Store the result in parameters$debug_and_config.
 
 ### Usage instructions
 
-Not called: sourced by 02_load_all_parameters.R, which supplies paths and parameters and takes the updated parameters back.
+Not called: sourced by load_all_parameters(), which supplies paths and parameters and takes the updated parameters back.
 
 ## Diagram
 

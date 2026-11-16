@@ -32,12 +32,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   build_input_grid(input_defs, max_per_row)
 # -------------------------------------------------------------
-# Where this function/script is used
-# build_group_editor(), build_param_editor()
-# -------------------------------------------------------------
-# functions/scripts called
-# render_label()
-# -------------------------------------------------------------
 
 build_input_grid <- function(input_defs, max_per_row = 4) {
   if (length(input_defs) == 0) {

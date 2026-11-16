@@ -6,23 +6,65 @@
 # -------------------------------------------------------------
 # Overall description
 # Shiny interface for editing and saving simulation
-# configuration files in 30_Simulation/02_Config.
+# configuration files in 30_Simulation/02_Config: the files of the
+# system, the asset registry and the files of each asset, which are
+# in its own folder, 30_Simulation/02_Config/20_Assets/<asset_id>/.
+# The first tab, Assets, has one selector for each type of model, with
+# the number of assets of that type, and the read-only list of the
+# registry. Raising a number adds assets with the lowest free numbers
+# of their type: an asset takes the values of its folder when the
+# folder exists, and the default values, in red, otherwise. Lowering
+# a number removes the assets with the highest numbers, after a
+# confirmation. A number cannot leave the system with no asset, and
+# nothing is written until a save button is pressed. The folder of an
+# asset that leaves stays on disk. Changing a number never changes
+# the tab the user is in: the tab of a new asset is not opened.
+# A tab is titled in red while it has something pending: values that
+# took a default, parameters found twice, or edits that are not saved
+# (its content differs from what was last read from disk or saved).
+# The tab of an asset is red while the asset is not in the registry
+# on disk or while any of its inner tabs is red, the Assets tab while
+# the registry differs from the one on disk, and the Reward Function
+# tab also while any of its boxes for the assets is pending. The red
+# goes when the configuration is saved.
+# Each asset of the registry has a tab titled with its id, with one
+# tab inside it for each file of its type of model.
+# The Reward Function tab holds the parameters of the reward of the
+# system, and below them the parameters of the assets that the
+# system weighs together: one input for each asset of the type, such
+# as the weight of comfort of each building, labelled with the id of
+# the asset. Which parameters of an asset file go there is read from
+# 02_Config/GUI_reward_asset_parameters.csv. Each value is saved in
+# the file of its asset, and the tab of the asset does not show it.
+# The inputs follow the assets as they are added and removed.
+# The configuration is read from disk each time the page is opened or
+# reloaded, so a reload shows the files as they are on disk at that
+# moment, and drops the edits that were not saved.
 # The interface reads parameter files and editable tables,
 # keeps the reactive state synchronized with user edits,
 # and writes all configuration files when the save button
-# of any tab is pressed.
+# of any tab is pressed: every save button checks and writes the
+# whole configuration, and writes nothing if any value is invalid.
 # -------------------------------------------------------------
 # File paths: the file names of every configuration file are read
-# from 30_Simulation/02_Config/00_Inner_parameters/04_File_paths.csv (falls back to a
-# hard-coded default list if that file is missing/unreadable), so
-# this app no longer keeps its own separate copy of that list.
+# from 30_Simulation/02_Config/00_Inner_parameters/04_File_paths.csv.
+# The rows of scope system are the files of the system, and the rows
+# whose scope is a type of model are the files of each asset of that
+# type, found in its folder. When the file is missing or lacks a key,
+# the default paths of the repository are used
+# (00_Validation/Default_04_File_paths.csv), and when the registry
+# holds no valid asset, the default registry
+# (00_Validation/Default_12_Asset_registry.csv), so this app keeps no
+# list of its own.
 # -------------------------------------------------------------
 # Loading safety: every configuration file is loaded through a
 # "safe loader" that tolerates a missing file, a missing parameter,
 # a duplicated parameter, or an invalid value. Whatever loads and
 # validates correctly is kept; anything missing or invalid is
-# replaced by the matching entry from a Default_ file in
-# 30_Simulation/02_Config/00_Validation/ (default values are never
+# replaced by the default value of the parameter catalogue,
+# 30_Simulation/02_Config/00_Validation/Parameter_catalogue.csv, for
+# the flat files, and by the matching entry from a Default_ file in
+# the same folder for the tables (default values are never
 # hard-coded in this script); a duplicated parameter keeps its first
 # value. Every such case is collected as a warning, and the affected
 # input/row is rendered in red so the user can see at a glance what
@@ -30,58 +72,71 @@
 # as-is from the file on disk. All loading/saving notices are shown
 # in English.
 # -------------------------------------------------------------
-# Validation: values are validated against
-# 30_Simulation/02_Config/00_Validation/Parameter_config.csv (the
-# same rules used by the real simulation pipeline) both when loading
-# (to decide what counts as valid) and again right before saving (to
-# refuse to write anything if any field is currently invalid).
+# The parameter catalogue: the parameters of each flat file and their
+# order, the blocks that group them in their tab, their units, the
+# options of the closed-list parameters and the rules their values
+# are validated against all come from the rows of
+# 30_Simulation/02_Config/00_Validation/Parameter_catalogue.csv, the
+# same rules the real simulation pipeline applies. The integer
+# tolerance comes from the file of the tolerances of the validation
+# (Validation_tolerances.csv). Values are validated both when
+# loading (to decide what counts as valid) and again right before
+# saving (to refuse to write anything if any field is currently
+# invalid). The tabs of the tables (the modes, the two market
+# schedules and the occupancy profiles) keep their own editors, and
+# take their units, and for the market tables the allowed values,
+# from the same catalogue. The modes file holds a block of parameters
+# (the deadband of the hysteresis) above its table of modes: its tab
+# shows the block as an input above the table, and the file is
+# written as the block, one blank line, and the table. Whatever is
+# missing or invalid in the block takes its default from the
+# catalogue, as in a flat file.
 # -------------------------------------------------------------
 # Inputs
-#   30_Simulation/02_Config/*.csv : the configuration files, with their
-#     names read from 04_File_paths.csv.
-#   30_Simulation/02_Config/00_Validation/ : Parameter_config.csv and
-#     the Default_ files that fill whatever is missing or invalid.
+#   30_Simulation/02_Config/*.csv : the configuration files of the
+#     system, with their names read from 04_File_paths.csv.
+#   30_Simulation/02_Config/12_Asset_registry.csv : the assets.
+#   30_Simulation/02_Config/20_Assets/<asset_id>/*.csv : the
+#     configuration files of each asset.
+#   30_Simulation/02_Config/00_Validation/ : Parameter_catalogue.csv,
+#     the parameter catalogue with the rules, units, blocks and
+#     default values of the flat files and of the block of the modes
+#     file; Validation_tolerances.csv, the
+#     tolerances of the validation; and the Default_ files of the
+#     tables, which fill whatever is missing or invalid.
 #   20_GUI/01_Configure_Simulation/02_Config/GUI_fallback_values.csv :
 #     the values used when a row has no default either.
+#   20_GUI/01_Configure_Simulation/02_Config/
+#     GUI_reward_asset_parameters.csv : the parameters of the assets
+#     that the Reward Function tab shows.
 #   The user's edits in the browser.
 # -------------------------------------------------------------
 # Outputs
-#   The same configuration files under 30_Simulation/02_Config/,
-#   rewritten when a save button is pressed and every value is valid.
+#   The same configuration files under 30_Simulation/02_Config/ and
+#   in the folder of each asset, rewritten when a save button is
+#   pressed and every value is valid. The folder of an asset is
+#   created if it does not exist.
 # -------------------------------------------------------------
 # Code outline
 # Libraries and paths of the app and of the repository, then:
-# 1. File paths (04_File_paths.csv)
-# 2. Validation rules (Parameter_config.csv), 2.1 parameter units and
-#    2.2 the fallback values of the GUI (02_Config/)
-# 3. Helper functions, sourced from 03_Functions/, and 3.1 the
-#    options of the closed-list parameters
-# 4. Initial (safe) loading of every configuration file
-# Then the user interface, one tab per group of configuration files;
-# the server, which keeps the edits in reactive state, validates and
-# saves; and shinyApp(ui, server).
+# 1. The fallback values of the GUI and the parameters of the assets
+#    that the Reward Function tab shows (02_Config/)
+# 2. Helper functions, sourced from 03_Functions/
+# 3. The page, a function that Shiny calls each time the page is
+#    opened or reloaded. It reads the whole configuration from disk
+#    with 04_Scripts/load_gui_configuration.R, and builds:
+#      - the Assets tab;
+#      - one tab per asset;
+#      - one tab per group of configuration files of the system.
+# Then the server, which takes its initial state from what the page
+# has just read, keeps the edits in reactive state, adds and removes
+# the tabs of the assets, validates and saves; and
+# shinyApp(ui, server).
 # -------------------------------------------------------------
 # Usage instructions
 # From the repository root, or from this folder:
 #   Rscript -e 'shiny::runApp("20_GUI/01_Configure_Simulation/GUI_config.R")'
 # or source it from RStudio. It needs shiny, shinyjs and DT.
-# -------------------------------------------------------------
-# Where this function/script is used
-# Run by hand. Nothing in the repository calls it.
-# -------------------------------------------------------------
-# functions/scripts called
-# The helpers of 20_GUI/01_Configure_Simulation/03_Functions/, one per
-# file:
-#   - validity checks
-#   - readers
-#   - safe loaders
-#   - writers
-#   - editor builders
-# and those of these packages:
-#   - shiny
-#   - shinyjs
-#   - DT
-# It calls no function or script of 30_Simulation/.
 # -------------------------------------------------------------
 
 library(shiny)
@@ -123,142 +178,16 @@ input_path <- "30_Simulation/02_Config"
   )
 }
 
-# Collects every loading warning/notice generated below, shown to the
-# user in a banner at the top of the app.
-all_load_messages <- character(0)
-
 # -------------------------------------------------------------
-# 1. File paths (30_Simulation/02_Config/00_Inner_parameters/04_File_paths.csv)
-# -------------------------------------------------------------
-{
-  default_file_names <- list(
-    library_file                             = "00_Inner_parameters/00_Libraries.txt",
-    needed_cols_file                         = "00_Inner_parameters/02_Needed_cols.csv",
-    parameter_validation_file                = "00_Validation/Parameter_config.csv",
-    physical_properties_file                 = "00_Inner_parameters/03_Physical_properties.csv",
-    optimization_file                        = "01_Optimization_parameters.csv",
-    control_file                             = "02_Control.csv",
-    market_file                              = "03_Market_config.csv",
-    market_config_scheduling_file            = "04_Market_config_scheduling.csv",
-    market_config_piloting_file              = "05_Market_config_piloting.csv",
-    energy_price_file                        = "06_Energy_price_parameters.csv",
-    flexibility_price_emulation_file         = "07_Flexibility_price_emulation_parameters.csv",
-    flexibility_events_file                  = "08_Flexibility_Event_Configuration.csv",
-    reward_file                              = "09_Reward_parameters.csv",
-    operational_temperature_corrections_file = "10_Operational_temperature_corrections.csv",
-    model_file                               = "11_Model_parameters.csv",
-    temperature_setpoints_file               = "12_Temperature_Setpoints.csv",
-    setpoint_mode_file                       = "13_Modes_setpoints.csv",
-    use_patterns_file                        = "14_Use_Patterns.csv",
-    forecast_file                            = "15_Forecast_parameters.csv",
-    debug_and_config_file                    = "16_Debug_and_config.csv"
-  )
-
-  paths_file_name <- "00_Inner_parameters/04_File_paths.csv"
-  paths_table <- tryCatch(
-    suppressWarnings(read.csv(file.path(config_path, paths_file_name), comment.char = "#",
-                              stringsAsFactors = FALSE, strip.white = TRUE)),
-    error = function(e) NULL
-  )
-
-  if (is.null(paths_table) ||
-      !all(c("key", "filename") %in% names(paths_table)) ||
-      nrow(paths_table) == 0) {
-    all_load_messages <- c(all_load_messages, sprintf(
-      "Could not read '%s' (missing file or invalid columns). Using the default file paths.",
-      paths_file_name
-    ))
-    paths <- default_file_names
-  } else {
-    loaded_paths <- setNames(
-      as.list(trimws(as.character(paths_table$filename))),
-      trimws(as.character(paths_table$key))
-    )
-    paths <- default_file_names
-    for (key in names(default_file_names)) {
-      if (!is.null(loaded_paths[[key]]) && nzchar(loaded_paths[[key]])) {
-        paths[[key]] <- loaded_paths[[key]]
-      } else {
-        all_load_messages <- c(all_load_messages, sprintf(
-          "'%s' is missing from %s. Using the default path '%s'.",
-          key, paths_file_name, default_file_names[[key]]
-        ))
-      }
-    }
-  }
-
-  file_names <- list(
-    model        = paths$model_file,
-    occupancy    = paths$use_patterns_file,
-    control      = paths$control_file,
-    temperature_setpoints = paths$temperature_setpoints_file,
-    flexibility_events    = paths$flexibility_events_file,
-    modes        = paths$setpoint_mode_file,
-    optimization = paths$optimization_file,
-    market       = paths$market_file,
-    sched        = paths$market_config_scheduling_file,
-    pilot        = paths$market_config_piloting_file,
-    reward       = paths$reward_file,
-    operational_temperature_corrections = paths$operational_temperature_corrections_file,
-    forecast     = paths$forecast_file,
-    energy_price = paths$energy_price_file,
-    flex_generation = paths$flexibility_price_emulation_file,
-    debug        = paths$debug_and_config_file
-  )
-
-  rm(default_file_names, paths_file_name, paths_table)
-}
-
-# -------------------------------------------------------------
-# 2. Validation rules (00_Validation/Parameter_config.csv).
-# -------------------------------------------------------------
-{
-  validation_config <- tryCatch(
-    suppressWarnings(read.csv(file.path(config_path, paths$parameter_validation_file),
-                              comment.char = "#", stringsAsFactors = FALSE)),
-    error = function(e) NULL
-  )
-
-  required_cols <- c("file_name", "parameter_name", "type", "output", "options")
-  if (is.null(validation_config) || !all(required_cols %in% names(validation_config))) {
-    all_load_messages <- c(all_load_messages, sprintf(
-      "Could not read '%s'. Value validation is limited to basic checks.",
-      paths$parameter_validation_file
-    ))
-    validation_config <- data.frame(
-      file_name = character(0), parameter_name = character(0),
-      type = character(0), output = character(0), options = character(0),
-      stringsAsFactors = FALSE
-    )
-  }
-
-  rm(required_cols)
-}
-
-# -------------------------------------------------------------
-# 2.1. Parameter units (90_Structure/Parameter_Units.csv).
-# -------------------------------------------------------------
-# get_param_unit()/label_with_unit() (03_Functions/) read this table
-# for build_param_editor() and build_group_editor(), to append
-# "[unit]" to every parameter label.
-# -------------------------------------------------------------
-{
-  param_units_table <- tryCatch(
-    suppressWarnings(read.csv(file.path(repo_root, "90_Structure", "Parameter_Units.csv"),
-                              stringsAsFactors = FALSE)),
-    error = function(e) NULL
-  )
-}
-
-# -------------------------------------------------------------
-# 2.2. Fallback values of the GUI (02_Config/GUI_fallback_values.csv)
+# 1. Fallback values of the GUI (02_Config/GUI_fallback_values.csv)
+# and parameters of the assets that the Reward Function tab shows
+# (02_Config/GUI_reward_asset_parameters.csv)
 # -------------------------------------------------------------
 # The values the safe loaders use when a row is invalid in its file
-# and missing from its Default_ file too, and the tolerance of the
-# Integer check. They live in this app's own configuration folder,
-# never in the code. Without them the loaders would have nothing to
-# fall back on, so a missing or invalid file stops the app with a
-# message saying which file and which value.
+# and has no default value either. They live in this app's own
+# configuration folder, never in the code. Without them the loaders
+# would have nothing to fall back on, so a missing or invalid file
+# stops the app with a message saying which file and which value.
 # -------------------------------------------------------------
 {
   fallback_file <- file.path(app_dir, "02_Config", "GUI_fallback_values.csv")
@@ -269,8 +198,7 @@ all_load_messages <- character(0)
   )
   numeric_names <- c("mode_heating_setpoint", "mode_cooling_setpoint",
                      "market_closure", "market_begin", "market_end",
-                     "market_end_optimization", "occupancy_hour_value",
-                     "integer_tolerance")
+                     "market_end_optimization", "occupancy_hour_value")
   text_names    <- c("market_aim_scheduling", "market_aim_piloting")
   if (is.null(fallback_table) ||
       !all(c("parameter", "value") %in% names(fallback_table))) {
@@ -293,19 +221,38 @@ all_load_messages <- character(0)
 
   rm(fallback_file, fallback_table, numeric_names, text_names, fallback_values,
      invalid_fallback)
+
+  # The parameters of the assets that the Reward Function tab shows,
+  # one input for each asset, instead of the tab of the asset.
+  reward_asset_file  <- file.path(app_dir, "02_Config",
+                                  "GUI_reward_asset_parameters.csv")
+  reward_asset_table <- tryCatch(
+    suppressWarnings(read.csv(reward_asset_file, comment.char = "#",
+                              stringsAsFactors = FALSE, strip.white = TRUE)),
+    error = function(e) NULL
+  )
+  if (is.null(reward_asset_table) ||
+      !all(c("asset_type", "file_key", "parameter") %in%
+             names(reward_asset_table))) {
+    stop("GUI_config.R: cannot read ", reward_asset_file)
+  }
+  # The unit row of the file is skipped.
+  reward_asset_table <- reward_asset_table[-1, , drop = FALSE]
+  rownames(reward_asset_table) <- NULL
+  rm(reward_asset_file)
 }
 
 # -------------------------------------------------------------
-# 3. Helper functions (03_Functions/)
+# 2. Helper functions (03_Functions/)
 # -------------------------------------------------------------
 # Every helper of the app lives in its own file under 03_Functions/:
 # the validity checks, the raw readers, the safe loaders with their
 # defaults, the writers and the builders of the editors. They are
 # sourced into this environment rather than the global one, because
-# the readers and writers use config_path, and get_param_unit() uses
-# param_units_table, both resolved above; so they behave exactly as
-# if they were written here, whether the app is started with runApp()
-# or sourced.
+# the readers and writers use config_path, and the checks, the units
+# and the writers use validation_config, all resolved here; so they
+# behave exactly as if they were written here, whether the app is
+# started with runApp() or sourced.
 # -------------------------------------------------------------
 {
   for (CONT_001 in list.files(file.path(app_dir, "03_Functions"),
@@ -314,24 +261,6 @@ all_load_messages <- character(0)
     source(CONT_001, local = TRUE)
   }
   rm(CONT_001)
-}
-
-# -------------------------------------------------------------
-# 3.1. Options of the closed-list parameters
-# -------------------------------------------------------------
-# validation_options() is called to take the allowed aims of a
-# market, and the 0/1 flags of 16_Debug_and_config.csv, from
-# Parameter_config.csv, the one place they are declared. The market
-# tables have no rule of their own for their aim column, so they
-# check it against the aims of 03_Market_config.csv.
-# -------------------------------------------------------------
-{
-  market_aim_options <- validation_options(validation_config, "03_Market_config.csv",
-                                           "optimization_aim_scheduling")
-  debug_flag_options <- lapply(
-    setNames(nm = c("verbose", "parallel", "Price_emulation")),
-    function(name) validation_options(validation_config, "16_Debug_and_config.csv", name)
-  )
 }
 
 # The browser side of the editable tables: every change of a cell
@@ -350,626 +279,381 @@ table_input_callback <- JS(
 )
 
 # -------------------------------------------------------------
-# 4. Initial (safe) loading of every configuration file.
+# 3. The configuration read from disk, and the page built from it
 # -------------------------------------------------------------
-# load_param_file_safe() is called once per flat "parameter,value"
-# configuration file, reconciling it against its Default_<file>
-# counterpart so a missing/invalid entry never stops the app - the
-# same call pattern repeats for every tab below.
-model_load        <- load_param_file_safe(file_names$model, "11_Model_parameters.csv",
-                                          default_file_for(file_names$model), validation_config)
-control_load      <- load_param_file_safe(file_names$control, "02_Control.csv",
-                                          default_file_for(file_names$control), validation_config)
-setpoints_load    <- load_param_file_safe(file_names$temperature_setpoints,
-                                          "12_Temperature_Setpoints.csv",
-                                          default_file_for(file_names$temperature_setpoints),
-                                          validation_config)
-flex_events_load  <- load_param_file_safe(file_names$flexibility_events,
-                                          "08_Flexibility_Event_Configuration.csv",
-                                          default_file_for(file_names$flexibility_events),
-                                          validation_config)
-optimization_load <- load_param_file_safe(file_names$optimization, "01_Optimization_parameters.csv",
-                                          default_file_for(file_names$optimization), validation_config)
-market_load       <- load_param_file_safe(file_names$market, "03_Market_config.csv",
-                                          default_file_for(file_names$market), validation_config)
-reward_load       <- load_param_file_safe(file_names$reward, "09_Reward_parameters.csv",
-                                          default_file_for(file_names$reward), validation_config)
-op_temp_corr_load <- load_param_file_safe(file_names$operational_temperature_corrections,
-                                          "10_Operational_temperature_corrections.csv",
-                                          default_file_for(file_names$operational_temperature_corrections),
-                                          validation_config)
-forecast_load     <- load_param_file_safe(file_names$forecast, "15_Forecast_parameters.csv",
-                                          default_file_for(file_names$forecast), validation_config)
-energy_price_load <- load_param_file_safe(file_names$energy_price, "06_Energy_price_parameters.csv",
-                                          default_file_for(file_names$energy_price), validation_config)
-flex_generation_load <- load_param_file_safe(file_names$flex_generation,
-                                          "07_Flexibility_price_emulation_parameters.csv",
-                                          default_file_for(file_names$flex_generation), validation_config)
-debug_load        <- load_param_file_safe(file_names$debug, "16_Debug_and_config.csv",
-                                          default_file_for(file_names$debug), validation_config)
-# The four remaining tables (modes, the two market schedules, and
-# occupancy) each have their own row-level safe loader instead of
-# load_param_file_safe(), since a row (not a single value) is the
-# reconciliation unit for these.
-modes_load        <- load_modes_file_safe(file_names$modes, default_file_for(file_names$modes))
-sched_load        <- load_market_table_file_safe(file_names$sched, default_file_for(file_names$sched),
-                                                 gui_fallback$market_aim_scheduling)
-pilot_load        <- load_market_table_file_safe(file_names$pilot, default_file_for(file_names$pilot),
-                                                 gui_fallback$market_aim_piloting)
-occupancy_load    <- load_occupancy_file_safe(file_names$occupancy, default_file_for(file_names$occupancy))
+# The page is a function, which Shiny calls each time the page is
+# opened or reloaded. It reads the whole configuration from disk
+# again, into the environment of the app, and builds the page from
+# it. The server of that page, which starts right after, takes its
+# initial state from the same objects. A page opened or reloaded
+# therefore always shows what is on disk at that moment: the values
+# of the files, the defaults that replaced what is missing or
+# invalid, in red, and the notices of the loading.
+# -------------------------------------------------------------
+app_env <- environment()
 
-model_df           <- model_load$df
-control_df         <- control_load$df
-setpoints_df       <- setpoints_load$df
-flex_events_df     <- flex_events_load$df
-optimization_df    <- optimization_load$df
-market_df          <- market_load$df
-reward_df          <- reward_load$df
-op_temp_corr_df    <- op_temp_corr_load$df
-forecast_df        <- forecast_load$df
-energy_price_df    <- energy_price_load$df
-flex_generation_df <- flex_generation_load$df
-debug_df           <- debug_load$df
-modes_df           <- modes_load$df
-sched_df           <- sched_load$df
-pilot_df           <- pilot_load$df
-occupancy_type_df  <- occupancy_load$day_types
-occupancy_month_df <- occupancy_load$month_profiles
+ui <- function(request) {
 
-all_load_messages <- c(
-  all_load_messages,
-  model_load$messages, control_load$messages, setpoints_load$messages,
-  flex_events_load$messages, optimization_load$messages,
-  market_load$messages, reward_load$messages, op_temp_corr_load$messages,
-  forecast_load$messages,
-  energy_price_load$messages,
-  flex_generation_load$messages, debug_load$messages, modes_load$messages,
-  sched_load$messages, pilot_load$messages, occupancy_load$messages
-)
+  # load_gui_configuration.R is sourced to read every configuration
+  # file from disk again, with the defaults of the repository for
+  # whatever is missing or invalid, into the environment of the app.
+  source(file.path(app_dir, "04_Scripts", "load_gui_configuration.R"),
+         local = app_env)
 
-load_warning_banner <- if (length(all_load_messages) > 0) {
-  tags$div(
-    style = paste(
-      "background:#fff3cd; border:1px solid #ffeeba; color:#856404;",
-      "padding:12px 15px; margin-bottom:15px; border-radius:4px;"
-    ),
-    tags$strong("Configuration loading notice:"),
-    tags$ul(lapply(all_load_messages, function(m) tags$li(m)))
+  load_warning_banner <- if (length(all_load_messages) > 0) {
+    tags$div(
+      style = paste(
+        "background:#fff3cd; border:1px solid #ffeeba; color:#856404;",
+        "padding:12px 15px; margin-bottom:15px; border-radius:4px;"
+      ),
+      tags$strong("Configuration loading notice:"),
+      tags$ul(lapply(all_load_messages, function(m) tags$li(m)))
+    )
+  } else {
+    NULL
+  }
+
+  # build_asset_tab is called for each asset of the registry, to build
+  # its tab with one inner tab for each file of its type of model.
+  asset_tabs <- lapply(
+    registry_df$asset_id,
+    function(asset_id) {
+      build_asset_tab(
+        asset_id    = asset_id,
+        files       = asset_files[[asset_id]],
+        save_prefix = asset_save_prefix
+      )
+    }
   )
-} else {
-  NULL
-}
 
-ui <- fluidPage(
-  useShinyjs(),
-  # Fields the simulation will not read with the current
-  # Complex_Market_Config are shaded; the classes are switched by the
-  # server as the value changes.
-  tags$head(tags$style(HTML(paste(
-    ".gui-unused input, .gui-unused .selectize-input {",
-    "  background-color: #e9ecef !important; color: #868e96 !important; }",
-    ".gui-basic input.table-cell-input[data-col='Market'],",
-    ".gui-basic input.table-cell-input[data-col='begin'],",
-    ".gui-basic input.table-cell-input[data-col='aim'] {",
-    "  background-color: #e9ecef !important; color: #868e96 !important; }",
-    ".gui-note { color: #6c757d; font-style: italic; margin-bottom: 8px; }"
-  )))),
-  titlePanel("MPC simulation configuration"),
-  load_warning_banner,
-  tabsetPanel(
-    tabPanel(
-      "Optimization",
-      uiOutput("optimization_ui"),
-      actionButton("save_optimization", "save", class = "btn-primary")
+  # The Assets tab holds one selector for each type of model, with the
+  # number of assets of that type, and the read-only list of the
+  # registry. The server creates and removes the tabs of the assets as
+  # the numbers change.
+  assets_tab <- tabPanel(
+    "Assets",
+    tags$p(
+      class = "gui-note",
+      paste("Change the number of assets of a type to add or remove assets.",
+            "New assets take the lowest free number of their type, and the",
+            "assets with the highest numbers leave first. Nothing is written",
+            "until a save button is pressed.")
     ),
-    tabPanel(
-      "Control",
-      build_group_editor(
-        control_df,
-        "control__",
-        "Control Approach",
-        c("control_type"),
-        options_list = list(
-          control_type = validation_options(validation_config, "02_Control.csv", "control_type")
-        ),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "02_Control.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Hysteresis",
-        c("Deadband"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "02_Control.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Default Setpoints",
-        c("set_point_default_heating", "set_point_default_cooling"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "02_Control.csv"
-      ),
-      build_group_editor(
-        control_df,
-        "control__",
-        "Setpoints Beyond the Optimized Horizon",
-        c("pad_heating", "pad_cooling"),
-        defaulted = control_load$defaulted,
-        duplicated = control_load$duplicated,
-        file_key = "02_Control.csv"
-      ),
-      actionButton("save_control", "save", class = "btn-primary")
+    lapply(
+      asset_types,
+      function(asset_type) {
+        numericInput(
+          inputId = paste0("count_", asset_type),
+          label   = paste0(asset_type, " assets [count]"),
+          value   = sum(registry_df$asset_type == asset_type),
+          min     = 0,
+          step    = 1
+        )
+      }
     ),
-    tabPanel(
-      "Market",
-      build_group_editor(
-        market_df,
-        "market__",
-        "Market definition",
-        c("market_resolution", "Complex_Market_Config"),
-        options_list = list(
-          Complex_Market_Config = validation_options(
-            validation_config, "03_Market_config.csv", "Complex_Market_Config"
-          )
-        ),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "03_Market_config.csv"
+    uiOutput("assets_notice"),
+    h4("Assets of the registry"),
+    uiOutput("assets_registry"),
+    actionButton("save_assets", "save all", class = "btn-primary")
+  )
+
+  fluidPage(
+    useShinyjs(),
+    # Fields the simulation will not read with the current
+    # Complex_Market_Config are shaded; the classes are switched by the
+    # server as the value changes.
+    tags$head(tags$style(HTML(paste(
+      ".gui-unused input, .gui-unused .selectize-input {",
+      "  background-color: #e9ecef !important; color: #868e96 !important; }",
+      ".gui-basic input.table-cell-input[data-col='Market'],",
+      ".gui-basic input.table-cell-input[data-col='begin'],",
+      ".gui-basic input.table-cell-input[data-col='aim'] {",
+      "  background-color: #e9ecef !important; color: #868e96 !important; }",
+      ".gui-note { color: #6c757d; font-style: italic; margin-bottom: 8px; }",
+      ".nav-tabs > li > a.gui-tab-pending {",
+      "  color: #c0392b !important; font-weight: 600; }"
+    )))),
+    titlePanel("MPC simulation configuration"),
+    load_warning_banner,
+    tags$p(
+      class = "gui-note",
+      paste("Every save button checks and writes the whole configuration:",
+            "the files of the system, the asset registry and the files of",
+            "every asset.")
+    ),
+    # The Assets tab comes first, then the tabs of the assets, one for
+    # each asset of the registry, and then the tabs of the system.
+    do.call(tabsetPanel, c(list(id = "main_tabs"), list(assets_tab), asset_tabs, list(
+      tabPanel(
+        "Optimization",
+        uiOutput("optimization_ui"),
+        actionButton("save_optimization", "save all", class = "btn-primary")
       ),
-      tags$div(
-        id = "market_basic_only",
+      tabPanel(
+        "Market",
         tags$p(
           class = "gui-note",
-          paste("Scheduling and Piloting markets: read only when Complex_Market_Config",
-                "is no. With yes, the markets, their horizons and their aims come from",
-                "the Market Schedules tabs, and these fields are shaded.")
+          paste("Scheduling and Piloting markets (the parameters ending in",
+                "_scheduling or _piloting): read only when Complex_Market_Config",
+                "is no. With yes, the markets, their horizons and their aims come",
+                "from the Market Schedules tabs, and these fields are shaded.")
         ),
-        build_group_editor(
-          market_df,
-          "market__",
-          "Scheduling Markets",
-          c("Optimization_horizon_scheduling",
-            "Implementation_horizon_scheduling",
-            "Anticipation_scheduling", "optimization_aim_scheduling"),
-          options_list = list(
-            optimization_aim_scheduling = validation_options(
-              validation_config, "03_Market_config.csv", "optimization_aim_scheduling"
-            )
-          ),
-          defaulted = market_load$defaulted,
-          duplicated = market_load$duplicated,
-          file_key = "03_Market_config.csv"
+        # build_file_editor is called to build the groups of the market
+        # file from its rows of the catalogue.
+        build_file_editor(
+          df                = market_df,
+          prefix            = "market__",
+          file_label        = file_labels$market,
+          validation_config = validation_config,
+          defaulted         = market_load$defaulted,
+          duplicated        = market_load$duplicated,
+          max_per_row       = 4,
+          hidden            = character(0)
         ),
-        build_group_editor(
-          market_df,
-          "market__",
-          "Piloting Markets",
-          c("Optimization_horizon_piloting",
-            "Implementation_horizon_piloting",
-            "Anticipation_piloting", "optimization_aim_piloting"),
-          options_list = list(
-            optimization_aim_piloting = validation_options(
-              validation_config, "03_Market_config.csv", "optimization_aim_piloting"
-            )
-          ),
-          defaulted = market_load$defaulted,
-          duplicated = market_load$duplicated,
-          file_key = "03_Market_config.csv"
+        actionButton("save_market", "save all", class = "btn-primary")
+      ),
+      tabPanel(
+        "Market Schedules (Scheduling)",
+        tags$p(
+          class = "gui-note",
+          paste("With Complex_Market_Config = yes the whole table is read. With no,",
+                "only closure, end and end_optimization are read: they set how far",
+                "ahead the price and commitment matrices reach. Market, begin and aim",
+                "are then shaded.")
         ),
+        tags$div(id = "sched_wrap", DTOutput("sched_table")),
+        actionButton("save_sched", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        market_df,
-        "market__",
-        "Flexibility Price Emulation",
-        c("Max_flex_periods_day", "Max_flex_com_price", "Max_flex_exec_price",
-          "Max_flex_period_duration", "Max_flex_probability_down",
-          "Max_flex_probability_up"),
-        defaulted = market_load$defaulted,
-        duplicated = market_load$duplicated,
-        file_key = "03_Market_config.csv"
-      ),
-      actionButton("save_market", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Market Schedules (Scheduling)",
-      tags$p(
-        class = "gui-note",
-        paste("With Complex_Market_Config = yes the whole table is read. With no,",
-              "only closure, end and end_optimization are read: they set how far",
-              "ahead the price and commitment matrices reach. Market, begin and aim",
-              "are then shaded.")
-      ),
-      tags$div(id = "sched_wrap", DTOutput("sched_table")),
-      actionButton("save_sched", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Market Schedules (Piloting)",
-      tags$p(
-        class = "gui-note",
-        paste("With Complex_Market_Config = yes the whole table is read. With no,",
-              "only closure, end and end_optimization are read: they set how far",
-              "ahead the price and commitment matrices reach. Market, begin and aim",
-              "are then shaded.")
-      ),
-      tags$div(id = "pilot_wrap", DTOutput("pilot_table")),
-      actionButton("save_pilot", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Full Market Emulation. Energy",
-      uiOutput("energy_price_ui"),
-      actionButton("save_energy_price", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Full Market Emulation. Flexibility Price",
-      uiOutput("flex_generation_ui"),
-      actionButton("save_flex_generation", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Full Market Emulation. Flexibility Events",
-      build_group_editor(
-        flex_events_df,
-        "flexev__",
-        "Phases of an Event",
-        c("commitment_phase_length_max", "neutral_phase_timespan",
-          "recovery_phase_timespan", "minimum_flexibility"),
-        defaulted = flex_events_load$defaulted,
-        duplicated = flex_events_load$duplicated,
-        file_key = "08_Flexibility_Event_Configuration.csv"
-      ),
-      build_group_editor(
-        flex_events_df,
-        "flexev__",
-        "Convergence of the Recovery Phase",
-        c("recovery_convergence_window", "recovery_convergence_tol_rel",
-          "recovery_convergence_tol_abs"),
-        defaulted = flex_events_load$defaulted,
-        duplicated = flex_events_load$duplicated,
-        file_key = "08_Flexibility_Event_Configuration.csv"
-      ),
-      build_group_editor(
-        flex_events_df,
-        "flexev__",
-        "System of an Upward Event",
-        c("flex_up_horizon_long", "flex_up_horizon_short",
-          "flex_up_dominance_threshold", "flex_up_max_power_heating"),
-        options_list = list(
-          flex_up_max_power_heating = validation_options(
-            validation_config, "08_Flexibility_Event_Configuration.csv",
-            "flex_up_max_power_heating"
-          )
+      tabPanel(
+        "Market Schedules (Piloting)",
+        tags$p(
+          class = "gui-note",
+          paste("With Complex_Market_Config = yes the whole table is read. With no,",
+                "only closure, end and end_optimization are read: they set how far",
+                "ahead the price and commitment matrices reach. Market, begin and aim",
+                "are then shaded.")
         ),
-        defaulted = flex_events_load$defaulted,
-        duplicated = flex_events_load$duplicated,
-        file_key = "08_Flexibility_Event_Configuration.csv"
+        tags$div(id = "pilot_wrap", DTOutput("pilot_table")),
+        actionButton("save_pilot", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        flex_events_df,
-        "flexev__",
-        "Feasibility of a Window and Commitment",
-        c("flex_feasibility_tolerance", "flex_feasibility_floor",
-          "flex_restatement_tol", "flexibility_commitment_margin"),
-        defaulted = flex_events_load$defaulted,
-        duplicated = flex_events_load$duplicated,
-        file_key = "08_Flexibility_Event_Configuration.csv"
+      tabPanel(
+        "Full Market Emulation. Energy",
+        uiOutput("energy_price_ui"),
+        actionButton("save_energy_price", "save all", class = "btn-primary")
       ),
-      actionButton("save_flexibility_events", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Reward Function",
-      uiOutput("reward_ui"),
-      actionButton("save_reward", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Operational Temperature Corrections",
-      uiOutput("operational_temperature_corrections_ui"),
-      actionButton("save_operational_temperature_corrections", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Model",
-      build_group_editor(
-        model_df,
-        "model__",
-        "Building Inertia",
-        c("Ci", "Ce", "Rie", "Rea", "Aw", "Ae"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
+      tabPanel(
+        "Full Market Emulation. Flexibility Price",
+        uiOutput("flex_generation_ui"),
+        actionButton("save_flex_generation", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        model_df,
-        "model__",
-        "Shading",
-        c("Shading_0", "Shading_1", "Setpoint_Shading1"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
+      tabPanel(
+        "Full Market Emulation. Flexibility Events",
+        # build_file_editor is called to build the groups of the
+        # flexibility event file from its rows of the catalogue.
+        build_file_editor(
+          df                = flex_events_df,
+          prefix            = "flexev__",
+          file_label        = file_labels$flexibility_events,
+          validation_config = validation_config,
+          defaulted         = flex_events_load$defaulted,
+          duplicated        = flex_events_load$duplicated,
+          max_per_row       = 4,
+          hidden            = character(0)
+        ),
+        actionButton("save_flexibility_events", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        model_df,
-        "model__",
-        "Heat Pump",
-        c("AT_hp_heat_1", "AT_hp_heat_2", "Q_hp_heat_1", "Q_hp_heat_2",
-          "COP_hp_heat_1_coef1", "COP_hp_heat_1_coef2",
-          "COP_hp_heat_1_coef3", "Tsup_hp_heat",
-          "Text_ref_hp_heat", "Tsup_ref_hp_heat", "Q_hp_cool",
-          "COP_hp_cool"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
+      tabPanel(
+        "Reward Function",
+        uiOutput("reward_ui"),
+        uiOutput("reward_asset_ui"),
+        actionButton("save_reward", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        model_df,
-        "model__",
-        "Ventilation",
-        c("RENvent01", "RENvent1", "RENvent2",
-          "Setpoint_Rvent1", "Volume", "Efi_Vent_Rec"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
+      tabPanel(
+        "Forecasting",
+        uiOutput("forecast_ui"),
+        actionButton("save_forecast", "save all", class = "btn-primary")
       ),
-      build_group_editor(
-        model_df,
-        "model__",
-        "Initialization",
-        c("Ti_0", "Te_0", "Qh_0", "Qc_0"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
-      ),
-      build_group_editor(
-        model_df,
-        "model__",
-        "Heat Distribution",
-        c("inertial_fact"),
-        defaulted = model_load$defaulted,
-        duplicated = model_load$duplicated,
-        file_key = "11_Model_parameters.csv"
-      ),
-      actionButton("save_model", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Temperature Setpoints",
-      build_group_editor(
-        setpoints_df,
-        "setpoints__",
-        "Acceptable Setpoint Range (setpoints control only)",
-        c("set_point_range_heating_low", "set_point_range_heating_high",
-          "set_point_range_cooling_low", "set_point_range_cooling_high"),
-        defaulted = setpoints_load$defaulted,
-        duplicated = setpoints_load$duplicated,
-        file_key = "12_Temperature_Setpoints.csv"
-      ),
-      actionButton("save_temperature_setpoints", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Modes",
-      DTOutput("modes_table"),
-      actionButton("save_modes", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Occupancy",
-      h4("Day Type Profiles [0/1 per hour]"),
-      DTOutput("occupancy_type_table"),
-      h4("Monthly Weekday Mapping [TYPE reference per weekday]"),
-      DTOutput("occupancy_month_table"),
-      actionButton("save_occupancy", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Forecasting",
-      uiOutput("forecast_ui"),
-      actionButton("save_forecast", "save", class = "btn-primary")
-    ),
-    tabPanel(
-      "Configuration and Debug",
-      uiOutput("debug_ui"),
-      actionButton("save_debug", "save", class = "btn-primary")
-    )
-  ),
-  br(),
-  uiOutput("msg_save")
-)
+      tabPanel(
+        "Configuration and Debug",
+        uiOutput("debug_ui"),
+        actionButton("save_debug", "save all", class = "btn-primary")
+      )
+    ))),
+    br(),
+    uiOutput("msg_save")
+  )
+}
 
 server <- function(input, output, session) {
 
   rv <- reactiveValues(
-    model           = model_df,
-    occupancy_type  = occupancy_type_df,
-    occupancy_month = occupancy_month_df,
-    control         = control_df,
-    setpoints       = setpoints_df,
     flex_events     = flex_events_df,
-    modes           = modes_df,
     optimization    = optimization_df,
     market          = market_df,
     sched           = sched_df,
     pilot           = pilot_df,
     reward          = reward_df,
-    op_temp_corr    = op_temp_corr_df,
     forecast        = forecast_df,
     energy_price    = energy_price_df,
     flex_generation = flex_generation_df,
     debug           = debug_df,
 
-    model_defaulted        = model_load$defaulted,
-    control_defaulted      = control_load$defaulted,
-    setpoints_defaulted    = setpoints_load$defaulted,
     flex_events_defaulted  = flex_events_load$defaulted,
     optimization_defaulted = optimization_load$defaulted,
     market_defaulted       = market_load$defaulted,
     reward_defaulted       = reward_load$defaulted,
-    op_temp_corr_defaulted = op_temp_corr_load$defaulted,
     forecast_defaulted     = forecast_load$defaulted,
     energy_price_defaulted = energy_price_load$defaulted,
     flex_generation_defaulted = flex_generation_load$defaulted,
     debug_defaulted        = debug_load$defaulted,
 
-    model_duplicated        = model_load$duplicated,
-    control_duplicated      = control_load$duplicated,
-    setpoints_duplicated    = setpoints_load$duplicated,
     flex_events_duplicated  = flex_events_load$duplicated,
     optimization_duplicated = optimization_load$duplicated,
     market_duplicated       = market_load$duplicated,
     reward_duplicated       = reward_load$duplicated,
-    op_temp_corr_duplicated = op_temp_corr_load$duplicated,
     forecast_duplicated     = forecast_load$duplicated,
     energy_price_duplicated = energy_price_load$duplicated,
     flex_generation_duplicated = flex_generation_load$duplicated,
     debug_duplicated        = debug_load$duplicated,
 
-    modes_defaulted_rows           = modes_load$defaulted_rows,
     sched_defaulted_rows           = sched_load$defaulted_rows,
     pilot_defaulted_rows           = pilot_load$defaulted_rows,
-    occupancy_type_defaulted_rows  = occupancy_load$defaulted_type_rows,
-    occupancy_month_defaulted_rows = occupancy_load$defaulted_month_rows
+    registry        = registry_df,
+    asset_status    = asset_status,
+    registry_defaulted_rows = registry_defaulted_rows,
+    assets_notice   = character(0)
   )
 
-  output$optimization_ui <- renderUI({
-    build_param_editor(rv$optimization, "opt__", max_per_row = 4,
-                       defaulted = rv$optimization_defaulted,
-                       duplicated = rv$optimization_duplicated,
-                       file_key = "01_Optimization_parameters.csv")
-  })
+  # The state of each asset is its own reactiveValues object, so that
+  # an edit in one asset does not redraw the others. They are kept
+  # by asset id, with the observers that serve them.
+  asset_rvs      <- list()
+  asset_handlers <- list()
 
-  output$reward_ui <- renderUI({
-    tagList(
-      build_group_editor(
-        rv$reward,
-        "reward__",
-        "Weights",
-        c("alpha_comfort", "alpha_cost"),
-        defaulted = rv$reward_defaulted,
-        duplicated = rv$reward_duplicated,
-        file_key = "09_Reward_parameters.csv"
-      ),
-      build_group_editor(
-        rv$reward,
-        "reward__",
-        "Comfort Band",
-        c("Service_T_Low", "Service_T_High", "Setback_T_Low", "Setback_T_High"),
-        defaulted = rv$reward_defaulted,
-        duplicated = rv$reward_duplicated,
-        file_key = "09_Reward_parameters.csv"
-      ),
-      build_group_editor(
-        rv$reward,
-        "reward__",
-        "Revenue Discount",
-        c("Revenue_discount_per_hour"),
-        defaulted = rv$reward_defaulted,
-        duplicated = rv$reward_duplicated,
-        file_key = "09_Reward_parameters.csv"
-      )
+  # The parameters of each asset that the Reward Function tab holds,
+  # by asset id and key of file.
+  asset_hidden   <- list()
+
+  # The files of each asset are kept by asset id too. The server works
+  # on its own copy, so that the assets added or removed in one
+  # session do not reach the others.
+  asset_files <- asset_files
+
+  # What was last read from disk or saved, to tell the edits that are
+  # not saved: the data frames of the system and the registry under
+  # system, and the state of each asset under its id.
+  system_slots <- c("flex_events", "optimization", "market",
+                    "sched", "pilot", "reward", "forecast", "energy_price",
+                    "flex_generation", "debug", "registry")
+  baselines <- reactiveValues()
+  baselines$system <- isolate(reactiveValuesToList(rv))[system_slots]
+
+  # The assets that wait for the user to confirm that they leave.
+  pending_removal <- reactiveVal(NULL)
+
+  output$optimization_ui <- renderUI({
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$optimization,
+      prefix            = "opt__",
+      file_label        = file_labels$optimization,
+      validation_config = validation_config,
+      defaulted         = rv$optimization_defaulted,
+      duplicated        = rv$optimization_duplicated,
+      max_per_row       = 4,
+      hidden            = character(0)
     )
   })
 
-  output$operational_temperature_corrections_ui <- renderUI({
-    tagList(
-      build_group_editor(
-        rv$op_temp_corr,
-        "optempcorr__",
-        "Scheduling",
-        c("Service_Anticipation_Begin", "Service_Anticipation_End",
-          "Service_AT_Low_Sched_HDD", "Service_AT_High_Sched_CDD"),
-        defaulted = rv$op_temp_corr_defaulted,
-        duplicated = rv$op_temp_corr_duplicated,
-        file_key = "10_Operational_temperature_corrections.csv"
-      ),
-      build_group_editor(
-        rv$op_temp_corr,
-        "optempcorr__",
-        "Climate Correction for Scheduling",
-        c("T_ref_Heating_Season", "HDD_period", "T_ref_Cooling_Season", "CDD_period"),
-        defaulted = rv$op_temp_corr_defaulted,
-        duplicated = rv$op_temp_corr_duplicated,
-        file_key = "10_Operational_temperature_corrections.csv"
-      )
+  output$reward_ui <- renderUI({
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$reward,
+      prefix            = "reward__",
+      file_label        = file_labels$reward,
+      validation_config = validation_config,
+      defaulted         = rv$reward_defaulted,
+      duplicated        = rv$reward_duplicated,
+      max_per_row       = 4,
+      hidden            = character(0)
+    )
+  })
+
+  output$reward_asset_ui <- renderUI({
+    # build_reward_asset_inputs is called to build one input for each
+    # asset of the parameters that the Reward Function tab holds for
+    # the assets, such as the weight of comfort of each building. It
+    # is built again when an asset is added or removed.
+    build_reward_asset_inputs(
+      reward_table      = reward_asset_table,
+      registry          = rv$registry,
+      asset_files       = asset_files,
+      asset_rvs         = asset_rvs,
+      typed             = function(input_id) isolate(input[[input_id]]),
+      validation_config = validation_config,
+      max_per_row       = 4
     )
   })
 
   output$forecast_ui <- renderUI({
-    build_param_editor(
-      rv$forecast,
-      "forecast__",
-      options_list = list(
-        weather_forecast_type = c("accurate", "inaccurate"),
-        price_forecast_type   = c("accurate", "inaccurate")
-      ),
-      defaulted = rv$forecast_defaulted,
-      duplicated = rv$forecast_duplicated,
-      file_key = "15_Forecast_parameters.csv"
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$forecast,
+      prefix            = "forecast__",
+      file_label        = file_labels$forecast,
+      validation_config = validation_config,
+      defaulted         = rv$forecast_defaulted,
+      duplicated        = rv$forecast_duplicated,
+      max_per_row       = 1,
+      hidden            = character(0)
     )
   })
 
   output$energy_price_ui <- renderUI({
-    build_param_editor(rv$energy_price, "energyprice__", defaulted = rv$energy_price_defaulted,
-                       duplicated = rv$energy_price_duplicated,
-                       file_key = "06_Energy_price_parameters.csv")
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$energy_price,
+      prefix            = "energyprice__",
+      file_label        = file_labels$energy_price,
+      validation_config = validation_config,
+      defaulted         = rv$energy_price_defaulted,
+      duplicated        = rv$energy_price_duplicated,
+      max_per_row       = 1,
+      hidden            = character(0)
+    )
   })
 
   output$flex_generation_ui <- renderUI({
-    build_param_editor(rv$flex_generation, "flexgen__", defaulted = rv$flex_generation_defaulted,
-                       duplicated = rv$flex_generation_duplicated,
-                       file_key = "07_Flexibility_price_emulation_parameters.csv")
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$flex_generation,
+      prefix            = "flexgen__",
+      file_label        = file_labels$flex_generation,
+      validation_config = validation_config,
+      defaulted         = rv$flex_generation_defaulted,
+      duplicated        = rv$flex_generation_duplicated,
+      max_per_row       = 1,
+      hidden            = character(0)
+    )
   })
 
   output$debug_ui <- renderUI({
-    build_param_editor(
-      rv$debug,
-      "debug__",
-      options_list = debug_flag_options,
-      defaulted = rv$debug_defaulted,
-      duplicated = rv$debug_duplicated,
-      file_key = "16_Debug_and_config.csv"
-    )
-  })
-
-  output$modes_table <- renderDT({
-    display_df <- build_table_cell_inputs(rv$modes, "modes",
-                                          defaulted_rows = rv$modes_defaulted_rows,
-                                          readonly_cols = "mode")
-    datatable(
-      display_df,
-      rownames = FALSE,
-      escape   = FALSE,
-      editable = FALSE,
-      callback = table_input_callback,
-      colnames = sapply(names(display_df), label_with_unit,
-                        file_key = "13_Modes_setpoints.csv", USE.NAMES = FALSE),
-      options  = list(dom = "t", ordering = FALSE,
-                      pageLength = max(1, nrow(display_df)))
-    )
-  })
-
-  output$occupancy_type_table <- renderDT({
-    display_df <- build_table_cell_inputs(rv$occupancy_type, "occupancy_type",
-                                          defaulted_rows = rv$occupancy_type_defaulted_rows)
-    datatable(
-      display_df,
-      rownames = FALSE,
-      escape   = FALSE,
-      editable = FALSE,
-      callback = table_input_callback,
-      options  = list(dom = "t", ordering = FALSE,
-                      pageLength = max(1, nrow(display_df)))
-    )
-  })
-
-  output$occupancy_month_table <- renderDT({
-    display_df <- build_table_cell_inputs(rv$occupancy_month, "occupancy_month",
-                                          defaulted_rows = rv$occupancy_month_defaulted_rows)
-    datatable(
-      display_df,
-      rownames = FALSE,
-      escape   = FALSE,
-      editable = FALSE,
-      callback = table_input_callback,
-      options  = list(dom = "t", ordering = FALSE,
-                      pageLength = max(1, nrow(display_df)))
+    # build_file_editor is called to build the groups of the file from
+    # its rows of the catalogue, with the values of the reactive state.
+    build_file_editor(
+      df                = rv$debug,
+      prefix            = "debug__",
+      file_label        = file_labels$debug,
+      validation_config = validation_config,
+      defaulted         = rv$debug_defaulted,
+      duplicated        = rv$debug_duplicated,
+      max_per_row       = 1,
+      hidden            = character(0)
     )
   })
 
@@ -983,8 +667,13 @@ server <- function(input, output, session) {
       complex_now <- get_param_value(rv$market, "Complex_Market_Config")
     }
     complex_now <- tolower(trimws(as.character(complex_now)))
-    toggleClass(id = "market_basic_only", class = "gui-unused",
-                condition = identical(complex_now, "yes"))
+    for (CONT_005 in market_basic_only_params) {
+      toggleClass(
+        selector  = paste0(".shiny-input-container:has(#market__", CONT_005, ")"),
+        class     = "gui-unused",
+        condition = identical(complex_now, "yes")
+      )
+    }
     toggleClass(id = "sched_wrap", class = "gui-basic",
                 condition = identical(complex_now, "no"))
     toggleClass(id = "pilot_wrap", class = "gui-basic",
@@ -1001,7 +690,7 @@ server <- function(input, output, session) {
       editable = FALSE,
       callback = table_input_callback,
       colnames = sapply(names(display_df), label_with_unit,
-                        file_key = "04_Market_config_scheduling.csv", USE.NAMES = FALSE),
+                        file_key = file_labels$sched, USE.NAMES = FALSE),
       options  = list(dom = "t", ordering = FALSE,
                       pageLength = max(1, nrow(display_df)))
     )
@@ -1017,27 +706,9 @@ server <- function(input, output, session) {
       editable = FALSE,
       callback = table_input_callback,
       colnames = sapply(names(display_df), label_with_unit,
-                        file_key = "05_Market_config_piloting.csv", USE.NAMES = FALSE),
+                        file_key = file_labels$pilot, USE.NAMES = FALSE),
       options  = list(dom = "t", ordering = FALSE,
                       pageLength = max(1, nrow(display_df)))
-    )
-  })
-
-  observeEvent(input$modes_cell_text_edit, {
-    rv$modes <- apply_text_table_edit(rv$modes, input$modes_cell_text_edit)
-  })
-
-  observeEvent(input$occupancy_type_cell_text_edit, {
-    rv$occupancy_type <- apply_text_table_edit(
-      rv$occupancy_type,
-      input$occupancy_type_cell_text_edit
-    )
-  })
-
-  observeEvent(input$occupancy_month_cell_text_edit, {
-    rv$occupancy_month <- apply_text_table_edit(
-      rv$occupancy_month,
-      input$occupancy_month_cell_text_edit
     )
   })
 
@@ -1047,82 +718,6 @@ server <- function(input, output, session) {
 
   observeEvent(input$pilot_cell_text_edit, {
     rv$pilot <- apply_text_table_edit(rv$pilot, input$pilot_cell_text_edit)
-  })
-
-  observeEvent(input$modes_add_above, {
-    template <- rv$modes[max(1, input$modes_add_above), , drop = FALSE]
-    rv$modes <- insert_row(rv$modes, input$modes_add_above, template)
-    rv$modes$mode <- seq_len(nrow(rv$modes))
-  })
-
-  observeEvent(input$modes_add_below, {
-    template <- rv$modes[max(1, input$modes_add_below), , drop = FALSE]
-    rv$modes <- insert_row(rv$modes, input$modes_add_below + 1, template)
-    rv$modes$mode <- seq_len(nrow(rv$modes))
-  })
-
-  observeEvent(input$modes_delete, {
-    if (nrow(rv$modes) <= 1) {
-      return()
-    }
-    rv$modes <- rv$modes[-input$modes_delete, , drop = FALSE]
-    rv$modes$mode <- seq_len(nrow(rv$modes))
-  })
-
-  observeEvent(input$occupancy_type_add_above, {
-    template <- rv$occupancy_type[max(1, input$occupancy_type_add_above), ,
-                                  drop = FALSE]
-    rv$occupancy_type <- insert_row(
-      rv$occupancy_type,
-      input$occupancy_type_add_above,
-      template
-    )
-  })
-
-  observeEvent(input$occupancy_type_add_below, {
-    template <- rv$occupancy_type[max(1, input$occupancy_type_add_below), ,
-                                  drop = FALSE]
-    rv$occupancy_type <- insert_row(
-      rv$occupancy_type,
-      input$occupancy_type_add_below + 1,
-      template
-    )
-  })
-
-  observeEvent(input$occupancy_type_delete, {
-    if (nrow(rv$occupancy_type) <= 1) {
-      return()
-    }
-    rv$occupancy_type <- rv$occupancy_type[-input$occupancy_type_delete, ,
-                                           drop = FALSE]
-  })
-
-  observeEvent(input$occupancy_month_add_above, {
-    template <- rv$occupancy_month[max(1, input$occupancy_month_add_above), ,
-                                   drop = FALSE]
-    rv$occupancy_month <- insert_row(
-      rv$occupancy_month,
-      input$occupancy_month_add_above,
-      template
-    )
-  })
-
-  observeEvent(input$occupancy_month_add_below, {
-    template <- rv$occupancy_month[max(1, input$occupancy_month_add_below), ,
-                                   drop = FALSE]
-    rv$occupancy_month <- insert_row(
-      rv$occupancy_month,
-      input$occupancy_month_add_below + 1,
-      template
-    )
-  })
-
-  observeEvent(input$occupancy_month_delete, {
-    if (nrow(rv$occupancy_month) <= 1) {
-      return()
-    }
-    rv$occupancy_month <- rv$occupancy_month[-input$occupancy_month_delete, ,
-                                             drop = FALSE]
   })
 
   observeEvent(input$sched_add_above, {
@@ -1159,100 +754,517 @@ server <- function(input, output, session) {
     rv$pilot <- rv$pilot[-input$pilot_delete, , drop = FALSE]
   })
 
+  # -------------------------------------------------------------
+  # The assets of the registry: the state of each one, and its tab
+  # connected to it. The tabs of the assets of the registry were
+  # built with the interface. The tab of an asset that is added later
+  # is inserted when the number of assets of its type is raised, and
+  # removed when it is lowered and the user confirms.
+  # -------------------------------------------------------------
+  # connect_asset creates the state of an asset and the observers
+  # that serve its tab.
+  connect_asset <- function(asset_id, asset_type, state) {
+    asset_rvs[[asset_id]] <<- do.call(reactiveValues, state)
+
+    # asset_reward_parameters is called to find the parameters of the
+    # asset that the Reward Function tab shows, so that its own tab
+    # leaves them out.
+    reward_rows    <- asset_reward_parameters(reward_asset_table, asset_type)
+    hidden_by_file <- split(reward_rows$parameter, reward_rows$file_key)
+    rm(reward_rows)
+    asset_hidden[[asset_id]] <<- hidden_by_file
+
+    # The state read from the folder of the asset is what a pending
+    # edit is compared with, until the asset is saved.
+    baselines[[asset_id]] <- state
+
+    # register_asset_observers is called to fill the outputs of the
+    # tab of the asset, and to create the observers of its tables
+    # and of its save button. The save button calls save_all(),
+    # which is defined below.
+    asset_handlers[[asset_id]] <<- register_asset_observers(
+      asset_id          = asset_id,
+      files             = asset_files[[asset_id]],
+      asset_rv          = asset_rvs[[asset_id]],
+      input             = input,
+      output            = output,
+      save_prefix       = asset_save_prefix,
+      on_save           = function() save_all(),
+      validation_config = validation_config,
+      table_callback    = table_input_callback,
+      hidden_parameters = hidden_by_file
+    )
+    invisible(NULL)
+  }
+
+  for (CONT_006 in registry_df$asset_id) {
+    connect_asset(
+      CONT_006,
+      registry_df$asset_type[registry_df$asset_id == CONT_006],
+      asset_states[[CONT_006]]
+    )
+  }
+
+  # add_asset adds an asset of a type: its state is loaded from its
+  # folder when it exists, and from the defaults of the repository
+  # otherwise, nothing is written on disk, and its tab is inserted
+  # after the last asset.
+  add_asset <- function(asset_id, asset_type) {
+    asset_files[[asset_id]] <<- asset_type_files(paths_table, asset_type)
+
+    # load_asset_state is called to load the files of the asset from
+    # its folder, or from the defaults, which the interface paints in
+    # red until the asset is saved.
+    loaded <- load_asset_state(
+      asset_id          = asset_id,
+      files             = asset_files[[asset_id]],
+      asset_folder      = file.path(paths$asset_config_folder, asset_id),
+      validation_config = validation_config
+    )
+
+    # insertTab is called to put the tab of the asset after the last
+    # asset. The tab is not opened: the user stays in the tab where
+    # the number was changed.
+    insertTab(
+      inputId  = "main_tabs",
+      tab      = build_asset_tab(
+        asset_id    = asset_id,
+        files       = asset_files[[asset_id]],
+        save_prefix = asset_save_prefix
+      ),
+      target   = tail(isolate(rv$registry$asset_id), 1),
+      position = "after",
+      select   = FALSE
+    )
+    connect_asset(asset_id, asset_type, loaded$state)
+
+    status <- isolate(rv$asset_status)
+    status[[asset_id]] <- if (loaded$origin == "folder") {
+      "loaded from an existing folder"
+    } else {
+      "new, not saved"
+    }
+    rv$asset_status <- status
+    rv$registry <- rbind(
+      isolate(rv$registry),
+      data.frame(asset_id = asset_id, asset_type = asset_type,
+                 stringsAsFactors = FALSE)
+    )
+
+    if (loaded$origin == "folder") {
+      return(c(sprintf(
+        "%s: its folder already exists, so the asset takes the values of that folder.",
+        asset_id
+      ), loaded$messages))
+    }
+    sprintf(
+      "%s: new asset with the default values of the repository, shown in red until they are saved.",
+      asset_id
+    )
+  }
+
+  # remove_asset takes an asset out of the interface: its observers
+  # are destroyed, its tab and its state are removed, and the last
+  # values of its inputs are cleared so that they cannot reach a new
+  # asset that takes the same id. Its folder is not touched.
+  remove_asset <- function(asset_id) {
+    for (CONT_011 in asset_handlers[[asset_id]]) {
+      CONT_011$destroy()
+    }
+    removeTab(inputId = "main_tabs", target = asset_id)
+
+    input_names <- grep(
+      paste0("^(", asset_id, "__|", asset_save_prefix, asset_id, "$|tabs_",
+             asset_id, "$)"),
+      names(isolate(reactiveValuesToList(input))),
+      value = TRUE
+    )
+    runjs(sprintf(
+      "%s.forEach(function(name) { Shiny.setInputValue(name, null); });",
+      jsonlite::toJSON(input_names)
+    ))
+    for (CONT_012 in grep(paste0("^", asset_id, "__"), names(output),
+                          value = TRUE)) {
+      output[[CONT_012]] <- NULL
+    }
+
+    asset_rvs[[asset_id]]      <<- NULL
+    asset_handlers[[asset_id]] <<- NULL
+    asset_hidden[[asset_id]]   <<- NULL
+    baselines[[asset_id]]      <- NULL
+    asset_files[[asset_id]]    <<- NULL
+    registry_now <- isolate(rv$registry)
+    registry_now <- registry_now[registry_now$asset_id != asset_id, ,
+                                 drop = FALSE]
+    rownames(registry_now) <- NULL
+    rv$registry     <- registry_now
+    rv$asset_status <- isolate(rv$asset_status)[
+      names(isolate(rv$asset_status)) != asset_id
+    ]
+    invisible(NULL)
+  }
+
+  # restore_selector puts the selector of a type back to the number of
+  # assets of that type that the registry holds.
+  restore_selector <- function(asset_type) {
+    updateNumericInput(
+      session,
+      paste0("count_", asset_type),
+      value = sum(isolate(rv$registry$asset_type) == asset_type)
+    )
+  }
+
+  # change_count handles a new number of assets of a type: it adds
+  # the new assets, asks for confirmation before removing some, and
+  # refuses a number that is not valid or leaves the system with no
+  # asset.
+  change_count <- function(asset_type, count) {
+    current_ids <- isolate(rv$registry$asset_id[rv$registry$asset_type ==
+                                                  asset_type])
+
+    # asset_ids_after_count is called to find the ids that enter and
+    # the ids that leave for the number asked, and to refuse a number
+    # that is not valid.
+    change <- tryCatch(
+      asset_ids_after_count(current_ids, asset_type, count),
+      error = function(e) e
+    )
+    if (inherits(change, "error")) {
+      rv$assets_notice <- conditionMessage(change)
+      restore_selector(asset_type)
+      return(invisible(NULL))
+    }
+    if (length(change$add) == 0 && length(change$remove) == 0) {
+      return(invisible(NULL))
+    }
+
+    total_after <- nrow(isolate(rv$registry)) + length(change$add) -
+      length(change$remove)
+    if (total_after < 1) {
+      rv$assets_notice <- paste(
+        "The system needs at least one asset: the number of assets of",
+        "type", asset_type, "was not changed."
+      )
+      restore_selector(asset_type)
+      return(invisible(NULL))
+    }
+
+    rv$assets_notice <- character(0)
+    if (length(change$add) > 0) {
+      notices <- character(0)
+      for (CONT_013 in change$add) {
+        notices <- c(notices, add_asset(CONT_013, asset_type))
+      }
+      rv$assets_notice <- notices
+    }
+    if (length(change$remove) > 0) {
+      pending_removal(list(asset_type = asset_type, ids = change$remove))
+      showModal(modalDialog(
+        title = "Remove assets",
+        tags$p("These assets will leave the simulation:",
+               paste(change$remove, collapse = ", ")),
+        tags$p("Their unsaved changes are lost. Their folders stay on",
+               "disk, and the simulation does not read them."),
+        footer    = tagList(
+          actionButton("cancel_remove_assets", "cancel"),
+          actionButton("confirm_remove_assets", "remove",
+                       class = "btn-primary")
+        ),
+        easyClose = FALSE
+      ))
+    }
+    invisible(NULL)
+  }
+
+  for (CONT_014 in asset_types) {
+    local({
+      asset_type <- CONT_014
+      observeEvent(input[[paste0("count_", asset_type)]], {
+        change_count(asset_type, input[[paste0("count_", asset_type)]])
+      }, ignoreInit = TRUE, ignoreNULL = FALSE)
+    })
+  }
+
+  observeEvent(input$cancel_remove_assets, {
+    pending <- pending_removal()
+    if (!is.null(pending)) {
+      restore_selector(pending$asset_type)
+    }
+    pending_removal(NULL)
+    removeModal()
+  })
+
+  observeEvent(input$confirm_remove_assets, {
+    pending <- pending_removal()
+    removeModal()
+    if (is.null(pending)) {
+      return()
+    }
+    for (CONT_015 in pending$ids) {
+      remove_asset(CONT_015)
+    }
+    rv$assets_notice <- paste(
+      paste(pending$ids, collapse = ", "),
+      "will leave the simulation when the configuration is saved."
+    )
+    pending_removal(NULL)
+  })
+
+  output$assets_notice <- renderUI({
+    if (length(rv$assets_notice) == 0) {
+      return(NULL)
+    }
+    tags$div(
+      class = "gui-note",
+      lapply(rv$assets_notice, function(m) tags$p(m))
+    )
+  })
+
+  output$assets_registry <- renderUI({
+    # build_assets_registry_table is called to list the assets of the
+    # registry with their status, read-only.
+    build_assets_registry_table(
+      registry_df    = rv$registry,
+      status         = rv$asset_status,
+      defaulted_rows = rv$registry_defaulted_rows,
+      file_label     = file_labels$asset_registry
+    )
+  })
+
+  # -------------------------------------------------------------
+  # The tabs with something pending: values that took a default,
+  # parameters found twice, edits that are not saved and assets that
+  # are not in the registry. The title of each of them is painted in
+  # red until it is saved.
+  # -------------------------------------------------------------
+  # The flat files of the system: tab, slot of the state and start
+  # of the id of its inputs.
+  system_flat_tabs <- list(
+    list(tab = "Optimization", slot = "optimization", prefix = "opt__"),
+    list(tab = "Market", slot = "market", prefix = "market__"),
+    list(tab = "Full Market Emulation. Energy", slot = "energy_price",
+         prefix = "energyprice__"),
+    list(tab = "Full Market Emulation. Flexibility Price",
+         slot = "flex_generation", prefix = "flexgen__"),
+    list(tab = "Full Market Emulation. Flexibility Events",
+         slot = "flex_events", prefix = "flexev__"),
+    list(tab = "Reward Function", slot = "reward", prefix = "reward__"),
+    list(tab = "Forecasting", slot = "forecast", prefix = "forecast__"),
+    list(tab = "Configuration and Debug", slot = "debug", prefix = "debug__")
+  )
+  # The tables of the system: tab and slot of the state.
+  system_table_tabs <- list(
+    list(tab = "Market Schedules (Scheduling)", slot = "sched"),
+    list(tab = "Market Schedules (Piloting)", slot = "pilot")
+  )
+
+  pending_tabs <- reactive({
+    base  <- baselines$system
+    flags <- list()
+    reward_assets <- FALSE
+
+    # asset_pending_tabs is called for each asset of the registry, to
+    # find which of its inner tabs have something pending.
+    for (CONT_017 in rv$registry$asset_id) {
+      if (is.null(asset_rvs[[CONT_017]]) || is.null(baselines[[CONT_017]])) {
+        next
+      }
+      asset_pending <- asset_pending_tabs(
+        asset_id          = CONT_017,
+        files             = asset_files[[CONT_017]],
+        asset_rv          = asset_rvs[[CONT_017]],
+        baseline          = baselines[[CONT_017]],
+        input             = input,
+        hidden_parameters = asset_hidden[[CONT_017]]
+      )
+      for (CONT_018 in names(asset_pending$tabs)) {
+        flags[[sprintf("#tabs_%s > li > a[data-value='%s']", CONT_017,
+                       CONT_018)]] <- asset_pending$tabs[[CONT_018]]
+      }
+      flags[[sprintf("#main_tabs > li > a[data-value='%s']", CONT_017)]] <-
+        any(asset_pending$tabs) ||
+        !identical(rv$asset_status[[CONT_017]], "in the registry")
+      reward_assets <- reward_assets || asset_pending$reward
+      rm(asset_pending)
+    }
+
+    for (CONT_019 in system_flat_tabs) {
+      # param_file_pending is called to compare the inputs of the file
+      # with what was last read from disk or saved.
+      flags[[sprintf("#main_tabs > li > a[data-value='%s']", CONT_019$tab)]] <-
+        param_file_pending(
+          df          = rv[[CONT_019$slot]],
+          baseline_df = base[[CONT_019$slot]],
+          prefix      = CONT_019$prefix,
+          input       = input,
+          flagged     = c(rv[[paste0(CONT_019$slot, "_defaulted")]],
+                          rv[[paste0(CONT_019$slot, "_duplicated")]]),
+          include     = as.character(rv[[CONT_019$slot]]$parameter)
+        ) || (CONT_019$slot == "reward" && reward_assets)
+    }
+    for (CONT_020 in system_table_tabs) {
+      # table_pending is called to compare the table with what was
+      # last read from disk or saved.
+      flags[[sprintf("#main_tabs > li > a[data-value='%s']", CONT_020$tab)]] <-
+        table_pending(
+          df             = rv[[CONT_020$slot]],
+          baseline_df    = base[[CONT_020$slot]],
+          defaulted_rows = rv[[paste0(CONT_020$slot, "_defaulted_rows")]]
+        )
+    }
+    # The Assets tab has something pending while the registry is not
+    # the one on disk.
+    flags[["#main_tabs > li > a[data-value='Assets']"]] <-
+      length(rv$registry_defaulted_rows) > 0 ||
+      any(rv$asset_status != "in the registry") ||
+      table_pending(rv$registry, base$registry, integer(0))
+    flags
+  })
+
+  observe({
+    flags <- pending_tabs()
+    # The classes are switched once the browser has received the
+    # output of this flush, so that the tab of a new asset exists
+    # when its class is set.
+    session$onFlushed(function() {
+      withReactiveDomain(session, {
+        for (CONT_021 in names(flags)) {
+          toggleClass(
+            selector  = CONT_021,
+            class     = "gui-tab-pending",
+            condition = isTRUE(flags[[CONT_021]])
+          )
+        }
+      })
+    }, once = TRUE)
+  })
+
   save_all <- function() {
     tryCatch(
       {
         # flush_table_edits() pulls in any pending cell edits from the
-        # DT tables (modes/occupancy) before the parameter tabs below
-        # are read from their individual Shiny inputs, so nothing
-        # entered by the user is lost regardless of which tab is
-        # currently open when "save" is pressed.
+        # DT tables of the system (the market schedules) before the
+        # parameter tabs below are read from their individual Shiny
+        # inputs, so nothing entered by the user is lost regardless of
+        # which tab is currently open when "save all" is pressed.
         flush_table_edits(rv, input)
 
         # update_df_from_inputs() re-reads every widget's current
         # value back into its reactive data frame - one call per tab,
         # all sharing the same pattern (widget input -> df$value).
-        rv$model        <- update_df_from_inputs(rv$model, "model__", input)
-        rv$control      <- update_df_from_inputs(rv$control, "control__", input)
-        rv$setpoints    <- update_df_from_inputs(rv$setpoints, "setpoints__", input)
         rv$flex_events  <- update_df_from_inputs(rv$flex_events, "flexev__", input)
         rv$optimization <- update_df_from_inputs(rv$optimization, "opt__", input)
         rv$market       <- update_df_from_inputs(rv$market, "market__", input)
         rv$reward       <- update_df_from_inputs(rv$reward, "reward__", input)
-        rv$op_temp_corr <- update_df_from_inputs(rv$op_temp_corr, "optempcorr__", input)
         rv$forecast     <- update_df_from_inputs(rv$forecast, "forecast__", input)
         rv$energy_price <- update_df_from_inputs(rv$energy_price, "energyprice__", input)
         rv$flex_generation <- update_df_from_inputs(rv$flex_generation, "flexgen__", input)
         rv$debug        <- update_df_from_inputs(rv$debug, "debug__", input)
 
-        rv$occupancy_type[]  <- lapply(rv$occupancy_type, as.character)
-        rv$occupancy_month[] <- lapply(rv$occupancy_month, as.character)
+        # update_asset_from_inputs() does the same for each asset of
+        # the registry: the pending edits of its tables and the value
+        # of each input of its tabs.
+        asset_ids <- rv$registry$asset_id
+        for (CONT_007 in asset_ids) {
+          update_asset_from_inputs(
+            asset_rv = asset_rvs[[CONT_007]],
+            asset_id = CONT_007,
+            files    = asset_files[[CONT_007]],
+            input    = input
+          )
+        }
 
         # ---- Validate everything before writing anything ----
-        # Every tab is validated against the same Parameter_config.csv
-        # rules used by the real simulation pipeline, before any file
+        # Every tab is validated against the same catalogue rules used
+        # by the real simulation pipeline, before any file
         # on disk is touched, so a single invalid value in one tab
         # cannot leave the configuration half-written.
+        # validate_param_df_gui is called once per flat file of the
+        # system, to check each of its values against its rule of the
+        # catalogue and collect a message for each invalid one.
         validation_errors <- c(
-          validate_param_df_gui(rv$model, "11_Model_parameters.csv", validation_config),
-          validate_param_df_gui(rv$control, "02_Control.csv", validation_config),
-          validate_param_df_gui(rv$setpoints, "12_Temperature_Setpoints.csv", validation_config),
-          validate_param_df_gui(rv$flex_events, "08_Flexibility_Event_Configuration.csv",
+          validate_asset_registry_gui(rv$registry, file_labels$asset_registry,
+                                      validation_config),
+          validate_param_df_gui(rv$flex_events, file_labels$flexibility_events,
                                 validation_config),
-          validate_param_df_gui(rv$optimization, "01_Optimization_parameters.csv", validation_config),
-          validate_param_df_gui(rv$market, "03_Market_config.csv", validation_config),
-          validate_param_df_gui(rv$reward, "09_Reward_parameters.csv", validation_config),
-          validate_param_df_gui(rv$op_temp_corr, "10_Operational_temperature_corrections.csv",
+          validate_param_df_gui(rv$optimization, file_labels$optimization,
                                 validation_config),
-          validate_param_df_gui(rv$forecast, "15_Forecast_parameters.csv", validation_config),
-          validate_param_df_gui(rv$energy_price, "06_Energy_price_parameters.csv", validation_config),
-          validate_param_df_gui(rv$flex_generation, "07_Flexibility_price_emulation_parameters.csv", validation_config),
-          validate_param_df_gui(rv$debug, "16_Debug_and_config.csv", validation_config),
-          validate_modes_df_gui(rv$modes),
-          validate_market_table_df_gui(rv$sched, "04_Market_config_scheduling.csv"),
-          validate_market_table_df_gui(rv$pilot, "05_Market_config_piloting.csv"),
-          validate_occupancy_dfs_gui(rv$occupancy_type, rv$occupancy_month)
+          validate_param_df_gui(rv$market, file_labels$market, validation_config),
+          validate_param_df_gui(rv$reward, file_labels$reward, validation_config),
+          validate_param_df_gui(rv$forecast, file_labels$forecast, validation_config),
+          validate_param_df_gui(rv$energy_price, file_labels$energy_price,
+                                validation_config),
+          validate_param_df_gui(rv$flex_generation, file_labels$flex_generation,
+                                validation_config),
+          validate_param_df_gui(rv$debug, file_labels$debug, validation_config),
+          validate_market_table_df_gui(rv$sched, file_labels$sched),
+          validate_market_table_df_gui(rv$pilot, file_labels$pilot)
         )
+
+        # The files of the system that the relations between
+        # parameters may use, each under the name of its file.
+        system_values <- setNames(
+          list(rv$flex_events, rv$market, rv$reward),
+          c(file_labels$flexibility_events, file_labels$market,
+            file_labels$reward)
+        )
+
+        # validate_asset_state_gui is called once for each asset, to
+        # check its files and, once they are valid, the relations
+        # between its parameters and those of the system. Its
+        # messages start with the id of the asset.
+        for (CONT_008 in asset_ids) {
+          validation_errors <- c(validation_errors, validate_asset_state_gui(
+            asset_rv            = asset_rvs[[CONT_008]],
+            asset_id            = CONT_008,
+            files               = asset_files[[CONT_008]],
+            validation_config   = validation_config,
+            parameter_relations = parameter_relations,
+            system_values       = system_values
+          ))
+        }
 
         if (length(validation_errors) > 0) {
           output$msg_save <- renderUI(
             tags$div(
               style = "color:#c0392b; white-space:pre-wrap;",
-              tags$strong("✖ Nothing was saved. Fix these values:"),
+              tags$strong("\u2716 Nothing was saved. Fix these values:"),
               tags$ul(lapply(validation_errors, function(m) tags$li(m)))
             )
           )
           return(invisible(NULL))
         }
 
-        rv$modes$mode <- seq_len(nrow(rv$modes))
+        # All validation above passed, so everything is now written:
+        # the folder and the files of each asset, the registry and the
+        # files of the system.
+        for (CONT_009 in asset_ids) {
+          # write_asset_state is called to create the folder of the
+          # asset when it does not exist and write its files.
+          write_asset_state(
+            asset_rv     = asset_rvs[[CONT_009]],
+            asset_id     = CONT_009,
+            asset_type   = rv$registry$asset_type[rv$registry$asset_id ==
+                                                    CONT_009],
+            files        = asset_files[[CONT_009]],
+            asset_folder = file.path(paths$asset_config_folder, CONT_009)
+          )
+        }
 
-        # All validation above passed, so every tab is now written to
-        # its configuration file on disk:
+        # write_table_file is called to write the registry: the rows
+        # change, and its comments and units row are kept.
+        write_table_file(
+          paths$asset_registry_file,
+          c(paste0("# ", file_labels$asset_registry),
+            "# Asset registry configuration file",
+            paste0("# ", strrep("-", 61))),
+          rv$registry
+        )
+
+        # All validation above passed, so every tab of the system is
+        # written to its configuration file on disk:
         #   - write_param_file() for flat "parameter,value,unit" files
-        #   - write_table_file() for the modes/market-schedule tables
-        #   - write_use_patterns_file() for the two-block occupancy
-        #     file
-        write_param_file(
-          file_names$model,
-          "# Physical and thermal parameters of the building and HVAC system",
-          rv$model
-        )
-        write_use_patterns_file(
-          file_names$occupancy,
-          rv$occupancy_type,
-          rv$occupancy_month
-        )
-        write_param_file(
-          file_names$control,
-          "# Control parameters",
-          rv$control
-        )
-        write_param_file(
-          file_names$temperature_setpoints,
-          "# Temperature setpoint parameters",
-          rv$setpoints
-        )
+        #   - write_table_file() for the market-schedule tables
         write_param_file(
           file_names$flexibility_events,
           "# Flexibility event configuration",
@@ -1269,11 +1281,6 @@ server <- function(input, output, session) {
           rv$market
         )
         write_table_file(
-          file_names$modes,
-          "# Setpoint modes & associated heating and cooling setpoints",
-          rv$modes
-        )
-        write_table_file(
           file_names$sched,
           "# Market configuration table",
           rv$sched
@@ -1287,11 +1294,6 @@ server <- function(input, output, session) {
           file_names$reward,
           "# Reward function parameters",
           rv$reward
-        )
-        write_param_file(
-          file_names$operational_temperature_corrections,
-          "# Operational temperature corrections",
-          rv$op_temp_corr
         )
         write_param_file(
           file_names$forecast,
@@ -1318,40 +1320,46 @@ server <- function(input, output, session) {
         # leftover defaults or duplicates: clear every "defaulted" and
         # "duplicated" flag so the red highlighting disappears now
         # that it has been persisted.
-        rv$model_defaulted        <- character(0)
-        rv$control_defaulted      <- character(0)
-        rv$setpoints_defaulted    <- character(0)
         rv$flex_events_defaulted  <- character(0)
         rv$optimization_defaulted <- character(0)
         rv$market_defaulted       <- character(0)
         rv$reward_defaulted       <- character(0)
-        rv$op_temp_corr_defaulted <- character(0)
         rv$forecast_defaulted     <- character(0)
         rv$energy_price_defaulted <- character(0)
         rv$flex_generation_defaulted <- character(0)
         rv$debug_defaulted        <- character(0)
-        rv$model_duplicated        <- character(0)
-        rv$control_duplicated      <- character(0)
-        rv$setpoints_duplicated    <- character(0)
         rv$flex_events_duplicated  <- character(0)
         rv$optimization_duplicated <- character(0)
         rv$market_duplicated       <- character(0)
         rv$reward_duplicated       <- character(0)
-        rv$op_temp_corr_duplicated <- character(0)
         rv$forecast_duplicated     <- character(0)
         rv$energy_price_duplicated <- character(0)
         rv$flex_generation_duplicated <- character(0)
         rv$debug_duplicated        <- character(0)
-        rv$modes_defaulted_rows           <- integer(0)
-        rv$sched_defaulted_rows           <- integer(0)
-        rv$pilot_defaulted_rows           <- integer(0)
-        rv$occupancy_type_defaulted_rows  <- integer(0)
-        rv$occupancy_month_defaulted_rows <- integer(0)
+        rv$sched_defaulted_rows    <- integer(0)
+        rv$pilot_defaulted_rows    <- integer(0)
+        for (CONT_010 in asset_ids) {
+          # clear_asset_flags is called to stop painting in red the
+          # values of the asset that have just been written.
+          clear_asset_flags(asset_rvs[[CONT_010]])
+        }
+        rv$asset_status <- setNames(
+          rep("in the registry", length(asset_ids)),
+          asset_ids
+        )
+        rv$registry_defaulted_rows <- integer(0)
+
+        # What has just been written is the new baseline of the
+        # pending edits.
+        baselines$system <- reactiveValuesToList(rv)[system_slots]
+        for (CONT_016 in asset_ids) {
+          baselines[[CONT_016]] <- reactiveValuesToList(asset_rvs[[CONT_016]])
+        }
 
         output$msg_save <- renderUI(
           tags$div(
             style = "color:#1e7e34;",
-            paste("✔ All configuration files saved in:", config_path)
+            paste("\u2714 All configuration files saved in:", config_path)
           )
         )
       },
@@ -1367,19 +1375,18 @@ server <- function(input, output, session) {
   }
 
   save_buttons <- c(
-    "save_model", "save_occupancy", "save_control", "save_temperature_setpoints",
-    "save_modes", "save_flexibility_events",
+    "save_assets", "save_flexibility_events",
     "save_optimization", "save_market", "save_sched", "save_pilot",
-    "save_reward", "save_operational_temperature_corrections", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
+    "save_reward", "save_forecast", "save_energy_price", "save_flex_generation", "save_debug"
   )
 
   for (CONT_004 in save_buttons) {
     local({
       button_id <- CONT_004
       observeEvent(input[[button_id]], {
-        # Every "save" button triggers the same save_all(): it always
-        # validates and writes the whole configuration at once, not
-        # just the tab the button belongs to.
+        # Every "save all" button triggers the same save_all(): it
+        # always validates and writes the whole configuration at
+        # once, not just the tab the button belongs to.
         save_all()
       })
     })

@@ -33,15 +33,6 @@
 # Usage instructions
 # tails <- pre_horizon_window_tails(period_chunk, i_begin_horizon, parameters)
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - run_market_process(): sizes the simulated stretch so that those
-#     windows are projected whole, and hands their tail to the
-#     optimization (hand_over_window_tail()).
-# -------------------------------------------------------------
-# functions/scripts called
-#   - reconstruct_flex_phases(): the phases of the windows of a leg,
-#     from its committed energy
-# -------------------------------------------------------------
 
 pre_horizon_window_tails <- function(period_chunk, i_begin_horizon, parameters) {
 
@@ -74,7 +65,7 @@ pre_horizon_window_tails <- function(period_chunk, i_begin_horizon, parameters) 
         tails[[CONT_001]] <- max(tails[[CONT_001]], window_end)
       }
 
-      rm(phase, n, commit_starts)
+      rm(list = c("phase", "n", "commit_starts"))
     }
   }
 

@@ -12,8 +12,8 @@
 #   - The R packages listed in
 #     02_Config/00_Inner_parameters/00_Libraries.txt.
 #   - A C++ compiler, because the script compiles the simulation
-#     loop of the building (03_1_Functions_Cpp/) every time it
-#     starts.
+#     loop of the building (05_Models/01_Building/03_1_Functions_Cpp/)
+#     every time it starts.
 # On Windows the compiler is Rtools, which this script downloads and
 # installs on its own. On macOS and Linux installing a compiler needs
 # administrator rights, so the script only says how to do it.
@@ -50,18 +50,6 @@
 #   source("31_Standalone_code/setup.R")
 # Run it in a new R session, before any package of the script is
 # loaded: on Windows a package that is in use cannot be replaced.
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - Run by hand, once, before the first call to the script.
-#   - call_script_from_R.R: runs it with Rscript.
-#   - call_script_from_Python_subprocess.py: runs it with Rscript.
-#   - call_script_from_Python_rpy2.py: runs it with Rscript.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - install.packages(): installs the missing R packages
-#   - Rcpp::cppFunction(): compiles a small C++ function, to check
-#     that the compiler works
-#   - The Rtools installer, on Windows, through system2()
 # -------------------------------------------------------------
 
 # -------------------------------------------------------------
@@ -141,8 +129,9 @@
   cat("  Folder:", standalone_path, "\n")
   cat("  R     :", R.version.string, "\n")
 
-  rm(source_files, script_argument, inner_path, missing_files, setup_lines,
-     setup_table, required_parameters, missing_parameters, rtools_lines)
+  rm(list = c("source_files", "script_argument", "inner_path", "missing_files",
+              "setup_lines", "setup_table", "required_parameters",
+              "missing_parameters", "rtools_lines"))
 }
 
 # -------------------------------------------------------------
@@ -205,7 +194,7 @@
   }
   cat("  R packages ready:", paste(library_lines, collapse = ", "), "\n")
 
-  rm(missing_packages, still_missing)
+  rm(list = c("missing_packages", "still_missing"))
 }
 
 # -------------------------------------------------------------
@@ -294,8 +283,9 @@
 
     compiler_ready <- compiles()
 
-    rm(usable, rtools_folder, arch_tag, page_url, page, installer_name,
-       installer_url, installer_file, rtools_home, install_status)
+    rm(list = c("usable", "rtools_folder", "arch_tag", "page_url", "page",
+                "installer_name", "installer_url", "installer_file",
+                "rtools_home", "install_status"))
   }
 }
 
@@ -320,6 +310,7 @@
   cat("  C++ compiler ready\n")
   cat("Setup complete: the standalone market script can be called.\n")
 
-  rm(compiles, compiler_ready, library_lines, library_folder, setup,
-     rtools_versions, rtools_from, paths, standalone_path)
+  rm(list = c("compiles", "compiler_ready", "library_lines", "library_folder",
+              "setup", "rtools_versions", "rtools_from", "paths",
+              "standalone_path"))
 }

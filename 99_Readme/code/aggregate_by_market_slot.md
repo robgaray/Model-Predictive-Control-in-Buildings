@@ -16,6 +16,7 @@ Floating point addition is not associative, so the order the terms are added in 
 - [compute_marginal_distribution_cost.R](compute_marginal_distribution_cost.md)
 - [compute_marginal_energy_cost.R](compute_marginal_energy_cost.md)
 - [compute_marginal_flex_revenue.R](compute_marginal_flex_revenue.md)
+- [compute_recovery_energy_cost.R](compute_recovery_energy_cost.md)
 
 ## What it calls, in order of appearance
 

@@ -8,9 +8,10 @@
 # Builds Meteo_transformations_df on the given time grid. This is a
 # synthetic dataframe (not loaded from a data file): its columns are
 # computed downstream from Meteo_df by existing engine logic:
-#   - T_ext_24h, by 02_load_all_parameters.R
+#   - T_ext_24h, by load_all_parameters()
 #   - Text_forec/_ant and SolarR_forec/_ant, by
 #     context_forecast_step()/imperfect_forecast()
+#   - T_ext_24h_forec, by context_forecast_step()
 # This function only creates those columns, as placeholders.
 # -------------------------------------------------------------
 # Inputs
@@ -22,6 +23,7 @@
 #     - T_ext_24h
 #     - Text_forec
 #     - SolarR_forec
+#     - T_ext_24h_forec
 # -------------------------------------------------------------
 # Code outline
 # 1. Build one column per derived weather variable, over the time
@@ -30,20 +32,14 @@
 # Usage instructions
 #   df <- generate_meteo_transformations_df(time)
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by assemble_main_df.R to build Meteo_transformations_df on the
-# master time grid before it is merged into Main_df.
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
-# -------------------------------------------------------------
 
 generate_meteo_transformations_df <- function(time) {
   n <- length(time)
   data.frame(
-    time         = time,
-    T_ext_24h    = rep(0, n),
-    Text_forec   = rep(0, n),
-    SolarR_forec = rep(0, n)
+    time            = time,
+    T_ext_24h       = rep(0, n),
+    Text_forec      = rep(0, n),
+    SolarR_forec    = rep(0, n),
+    T_ext_24h_forec = rep(0, n)
   )
 }

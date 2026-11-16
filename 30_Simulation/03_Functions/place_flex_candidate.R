@@ -43,13 +43,6 @@
 # 2. Keep the segments long enough to hold it.
 # 3. Draw one of them, and a start inside it on the slot grid.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by generate_flexibility_events.R (complex mode) and directly
-# by 09_flexibility_price_emulation.R (basic mode).
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
-# -------------------------------------------------------------
 
 place_flex_candidate <- function(available_segments, market_resolution_sec, max_duration_hours) {
 

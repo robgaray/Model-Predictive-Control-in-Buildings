@@ -1,9 +1,0 @@
-# Default values for 07_Flexibility_price_emulation_parameters.csv, used by
-# 20_GUI/01_Configure_Simulation/GUI_config.R to fill in missing or
-# invalid entries when loading 07_Flexibility_price_emulation_parameters.csv.
-parameter,value,unit
-Max_shift_hours,2,h
-P_advance,0,-
-P_delay,0,-
-P_event_base,0,-
-decay_rate,0,h-1

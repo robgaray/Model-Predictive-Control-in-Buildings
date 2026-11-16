@@ -30,13 +30,6 @@
 # 2. Stop on anything else, naming the row and the column it came
 #    from, because an unknown aim cannot be defaulted.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by run_market_process(), load_03_market_config.R,
-# load_market_config_table().
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
-# -------------------------------------------------------------
 
 map_optimization_aim <- function(aim_raw,
                                  column_name,

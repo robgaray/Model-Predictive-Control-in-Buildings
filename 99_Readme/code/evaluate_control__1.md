@@ -4,12 +4,12 @@ Block 1 of 2 of [evaluate_control.R](evaluate_control.md).
 
 ## What it calls, in this block
 
-- [period_calculation.R](period_calculation.md)
-- [derive_flex_itineraries.R](derive_flex_itineraries.md)
-- [reconstruct_flex_phases.R](reconstruct_flex_phases.md)
-- [reward_function.R](reward_function.md)
-- [flex_evaluation_down.R](flex_evaluation_down.md)
-- [flex_evaluation_up.R](flex_evaluation_up.md)
+- [asset_simulation_order.R](asset_simulation_order.md)
+- [model_type_contract.R](model_type_contract.md)
+- [piece_asset_view.R](piece_asset_view.md)
+- [write_rest_net.R](write_rest_net.md)
+- [piece_absorb_asset.R](piece_absorb_asset.md)
+- [build_recovery_valuation.R](build_recovery_valuation.md)
 
 ## Diagram
 

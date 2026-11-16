@@ -5,12 +5,12 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Validates the columns of a data frame (one block of the inputs, such
-# as context or prices) against the rules defined in
-# Validation_Inputs.csv, following
-# the same file_name/parameter_name/type/output/options convention as
-# Parameter_config.csv (see validate_parameter_config()), but applied to
-# every value of a column vector instead of a single scalar.
+# Validates the columns of a data frame (e.g. Meteo_df, Energy_Prices_df)
+# against the rules defined in a Validation_<name>.csv file, one rule
+# per row with the columns file_name, parameter_name, type, output and
+# options (the range, as "min,max"). The checks are those of
+# validate_parameter_config(), applied to every value of a column
+# vector instead of a single scalar.
 # For each matching rule the function checks:
 #   - Integer : column is numeric and every value is within [min, max]
 #   - Real    : column is numeric and every value is within [min, max]
@@ -19,13 +19,14 @@
 # warning() for output == "Warning".
 # -------------------------------------------------------------
 # Arguments
-#   df                Data frame. The input block to validate
-#                     (e.g. the context block).
-#   file_name         Character. Name the rules of that block are
-#                     filed under in the file_name column (e.g.
-#                     "context").
-#   validation_config Data frame. Content of Validation_Inputs.csv
-#                     (same columns as Parameter_config.csv).
+#   df                Data frame. The loaded dataframe to validate
+#                     (e.g. Meteo_df).
+#   file_name         Character. Base name of the dataframe file, used
+#                     to look up its validation rules (e.g.
+#                     "Meteo_df.rds").
+#   validation_config Data frame. Content of a Validation_<name>.csv
+#                     file (columns file_name, parameter_name, type,
+#                     output and options).
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
@@ -33,7 +34,7 @@
 # Inputs
 #   df : the data frame to check.
 #   file_name : the name the validation table files its rules
-#     under, e.g. "prices".
+#     under, e.g. "Meteo_df.csv".
 #   validation_config : the table of rules, already read.
 # -------------------------------------------------------------
 # Outputs
@@ -41,24 +42,17 @@
 #     naming:
 #       - the column
 #       - the rule it broke
-#       - the number of values that break it
+#       - the offending value
 # -------------------------------------------------------------
 # Code outline
 # 1. Keep the rules filed under this file name, and return at once
 #    when there are none.
-# 2. Check each rule against its whole column: the column exists, it
-#    is numeric and, for an Integer or Real rule with a range, every
-#    value is inside it.
+# 2. Check each rule against its whole column: the type, the range
+#    and, for an options rule, the allowed set.
 # 3. Stop on the first breach, or warn, as the rule's output says.
 # -------------------------------------------------------------
 # Usage instructions
-#   validate_dataframe_config(prices, "prices", parameters$input_validation)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - validate_inputs()
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
+#   validate_dataframe_config(Meteo_df, "Meteo_df.csv", rules)
 # -------------------------------------------------------------
 
 validate_dataframe_config <- function(df, file_name, validation_config) {
@@ -78,7 +72,7 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
 
     if (!col_name %in% names(df)) {
       msg <- paste0("Column '", col_name, "' not found in ", file_name)
-      if (output == "Error") stop(msg) else warning(msg)
+      if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
       next
     }
 
@@ -86,7 +80,7 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
 
     if (!is.numeric(col_values)) {
       msg <- paste0("Column '", col_name, "' must be numeric in ", file_name)
-      if (output == "Error") stop(msg) else warning(msg)
+      if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
       next
     }
 
@@ -105,12 +99,12 @@ validate_dataframe_config <- function(df, file_name, validation_config) {
           msg <- paste0("Column '", col_name, "' has ", sum(out_of_range, na.rm = TRUE),
                         " value(s) outside [", range_vals[1], ", ", range_vals[2],
                         "] in ", file_name)
-          if (output == "Error") stop(msg) else warning(msg)
+          if (output == "Error") stop(msg) else warning(msg, call. = FALSE)
         }
       }
     }
   }
 
-  rm(CONT_001)
+  rm(list = "CONT_001")
   invisible(TRUE)
 }

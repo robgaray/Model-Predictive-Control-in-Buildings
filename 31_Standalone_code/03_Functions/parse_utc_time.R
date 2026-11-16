@@ -26,13 +26,6 @@
 # Usage instructions
 # parse_utc_time("2024-01-15T12:00:00Z", "i0")
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - validate_inputs(): reads the four instants and the time vector
-#     of every block.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
-# -------------------------------------------------------------
 
 parse_utc_time <- function(values,
                            field_name
@@ -67,7 +60,7 @@ parse_utc_time <- function(values,
            "'. Use ISO 8601 UTC, e.g. 2024-01-15T12:00:00Z")
     }
 
-    rm(text_values, formats, CONT_001, pending)
+    rm(list = c("text_values", "formats", "CONT_001", "pending"))
   }
 
   return(parsed)

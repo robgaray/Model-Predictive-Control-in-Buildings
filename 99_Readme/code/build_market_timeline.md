@@ -9,11 +9,11 @@ Builds the market timeline (bid time, period begin/end, optimization horizon, ai
 - Basic  (complex_market_config == "no")  : deterministic market timeline from the role's optimisation horizon parameters.
 - Complex (complex_market_config == "yes") : timeline built from the role's market-config table. The optimization horizon is computed from end_optimization.
 
-This is the logic shared by the Scheduling and Piloting blocks of 08_market_columns_setup.R, parametrized by role.
+This is the logic shared by the Scheduling and Piloting blocks of prepare_market_calendar(), parametrized by role. Every time is clipped to the simulation range. A market whose control period is left with no length, because it falls at the edge of the simulation or outside it, controls no time step and trades nothing, so it is not placed.
 
 ## Called by
 
-- [08_market_columns_setup.R](08_market_columns_setup.md)
+- [prepare_market_calendar.R](prepare_market_calendar.md)
 
 ## What it calls, in order of appearance
 
@@ -42,19 +42,27 @@ This is the logic shared by the Scheduling and Piloting blocks of 08_market_colu
 ### Code outline
 
 1. Build the role's market timeline (basic or complex mode)
-2. Write the timeline into Main_df at each market's bid time
+2. Leave out the markets whose control period has no length
+3. Write the timeline into Main_df at each market's bid time
 
 ### Usage instructions
 
 ```r
-Main_df <- build_market_timeline(role = "Sched", config_table = parameters$market_config_scheduling,
-  implementation_horizon = parameters$market$Implementation_horizon_scheduling,
+Main_df <- build_market_timeline(
+  role                   = "Sched",
+  config_table           = parameters$market_config_scheduling,
+  implementation_horizon =
+  parameters$market$Implementation_horizon_scheduling,
   optimization_horizon   = parameters$market$Optimization_horizon_scheduling,
   anticipation           = parameters$market$Anticipation_scheduling,
   optimization_aim       = parameters$market$optimization_aim_scheduling,
-  aim_label_energy = "E", aim_label_flex = "E+F",
-  complex_market_config = complex_market_config, time_min = time_min, time_max = time_max,
-  Main_df = Main_df)
+  aim_label_energy       = "E",
+  aim_label_flex         = "E+F",
+  complex_market_config  = complex_market_config,
+  time_min               = time_min,
+  time_max               = time_max,
+  Main_df                = Main_df
+  )
 ```
 
 ## Diagram

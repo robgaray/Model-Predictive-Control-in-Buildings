@@ -1,0 +1,38 @@
+# Default values for 12_Asset_registry.csv, the content a default
+# configuration starts from.
+# 12_Asset_registry.csv
+# Asset registry configuration file
+# -------------------------------------------------------------
+# The assets of the system that operates behind its connection point
+# with the grid, one row per asset:
+#   - asset_id   : the name of the asset, its type followed by an
+#                  underscore and a number of three digits, for
+#                  example Building_001 or Photovoltaic_001.
+#   - asset_type : the type of model of the asset:
+#                  - Building: the thermal model of a building with a
+#                    heat pump.
+#                  - Photovoltaic: a photovoltaic installation, which
+#                    produces electricity from the solar radiation and
+#                    the outdoor temperature and has no control.
+#                  - Battery: an electric battery, which charges from
+#                    the system and discharges into it, operated in one
+#                    of five modes on each market interval.
+# Each asset has its own configuration folder, 20_Assets/<asset_id>/,
+# with the files of its type of model, named in
+# 00_Inner_parameters/04_File_paths.csv. A Building holds:
+#   - the operational temperature corrections
+#   - the model parameters
+#   - the setpoint modes
+#   - the use patterns
+#   - the comfort weight and the comfort bands, which it takes from
+#     the reward parameters
+# A Photovoltaic holds one file, its parameters (location, solar
+# radiation, orientation, modules and inverter).
+# A Battery holds one file, its parameters (capacity, state of charge
+# limits, power limits, efficiencies and self-discharge).
+# The registry holds one row per asset, and at least one. The shipped
+# configuration holds one building.
+# -------------------------------------------------------------
+asset_id,asset_type
+text,text
+Building_001,Building

@@ -9,11 +9,11 @@
 # 05_Market_config_piloting.csv, validates required columns
 # and non-empty content, and stores the data frame in
 # parameters$market_config_piloting.
-# Sourced from 02_load_all_parameters.R.
+# Sourced from load_all_parameters().
 # -------------------------------------------------------------
 # Inputs
-#   paths$market_config_piloting_file : path of 05_Market_config_piloting.csv, resolved by
-#     01_initialization.R.
+#   paths$market_config_piloting_file : path of 05_Market_config_piloting.csv,
+#     resolved by initialize_simulator().
 #   parameters : the list being assembled, to which this script
 #     adds one sub-list.
 # -------------------------------------------------------------
@@ -27,15 +27,8 @@
 # 3. Store the table in parameters$market_config_piloting.
 # -------------------------------------------------------------
 # Usage instructions
-#   Not called: sourced by 02_load_all_parameters.R, which supplies
+#   Not called: sourced by load_all_parameters(), which supplies
 #   paths and parameters and takes the updated parameters back.
-# -------------------------------------------------------------
-# Where this function/script is used
-# Sourced by 02_load_all_parameters.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   load_market_config_table() - reads one market
-#                                configuration table
 # -------------------------------------------------------------
 
 {
@@ -44,9 +37,8 @@
   # its non-empty content and that no two Piloting markets clear in
   # the same market slot, and return it as a data frame.
   parameters$market_config_piloting <- load_market_config_table(
-    paths$market_config_piloting_file, "05_Market_config_piloting.csv",
+    paths$market_config_piloting_file,
+    basename(paths$market_config_piloting_file),
     parameters$market$market_resolution
   )
-
-  cat("Market config piloting loaded\n")
 }

@@ -6,10 +6,11 @@
 # -------------------------------------------------------------
 # Overall description
 # Loads the modes table (13_Modes_setpoints.csv) without ever
-# stopping the app. A row that is missing or invalid takes the
-# same row of the Default_ file; when there is none, a generic
-# mode (heating 21, cooling 25) is used. A message is collected
-# for each case.
+# stopping the app. An invalid row takes the same row of the
+# Default_ file; when there is none, a generic mode is used. The
+# modes are the ones of the file: the file may hold fewer modes
+# than the defaults, and none is added. A message is collected for
+# each replaced row.
 # The generic mode is read from 02_Config/GUI_fallback_values.csv
 # (gui_fallback, loaded by GUI_config.R).
 # -------------------------------------------------------------
@@ -38,12 +39,6 @@
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   load_modes_file_safe(filename, default_filename)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# modes_row_valid(), read_table_file()
 # -------------------------------------------------------------
 
 load_modes_file_safe <- function(filename, default_filename) {
@@ -83,7 +78,7 @@ load_modes_file_safe <- function(filename, default_filename) {
     return(list(df = df, defaulted_rows = integer(0), messages = messages))
   }
 
-  n_rows <- max(nrow(df), nrow(defaults_df))
+  n_rows <- nrow(df)
   result <- data.frame(
     mode = character(n_rows), heating = character(n_rows),
     cooling = character(n_rows), stringsAsFactors = FALSE
@@ -91,11 +86,10 @@ load_modes_file_safe <- function(filename, default_filename) {
   defaulted_rows <- integer(0)
 
   for (CONT_202 in seq_len(n_rows)) {
-    has_loaded  <- CONT_202 <= nrow(df)
     has_default <- CONT_202 <= nrow(defaults_df)
 
-    if (has_loaded && modes_row_valid(df$mode[CONT_202], df$heating[CONT_202],
-                                       df$cooling[CONT_202])) {
+    if (modes_row_valid(df$mode[CONT_202], df$heating[CONT_202],
+                        df$cooling[CONT_202])) {
       result$mode[CONT_202]    <- as.character(df$mode[CONT_202])
       result$heating[CONT_202] <- as.character(df$heating[CONT_202])
       result$cooling[CONT_202] <- as.character(df$cooling[CONT_202])
@@ -105,7 +99,7 @@ load_modes_file_safe <- function(filename, default_filename) {
       result$cooling[CONT_202] <- as.character(defaults_df$cooling[CONT_202])
       defaulted_rows <- c(defaulted_rows, CONT_202)
       messages <- c(messages, sprintf(
-        "%s: row %d is missing or invalid. Using its default mode (heating=%s, cooling=%s).",
+        "%s: row %d is invalid. Using its default mode (heating=%s, cooling=%s).",
         filename, CONT_202, defaults_df$heating[CONT_202], defaults_df$cooling[CONT_202]
       ))
     } else {

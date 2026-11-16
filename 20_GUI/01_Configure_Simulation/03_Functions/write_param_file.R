@@ -6,15 +6,12 @@
 # -------------------------------------------------------------
 # Overall description
 # Writes the values the user edited into a flat parameter,value,unit
-# configuration file, changing nothing else. The file keeps its:
-#   - header
-#   - block headers
-#   - order
-#   - unit column
-# Only the value field of each parameter line is replaced.
-# A parameter the file does not hold is added at the end, with the
-# unit its Default_ file declares. A missing file is created from
-# the given header, with the units of its Default_ file.
+# configuration file, changing nothing else. The lines are built by
+# build_param_lines(): the file keeps its header, block headers,
+# order and unit column, only the value field of each parameter line
+# is replaced, a parameter the file does not hold is added at the end
+# with the unit of the catalogue, and a missing file is created from
+# the given header, with the blocks of the catalogue.
 # It writes into config_path, the configuration folder GUI_config.R
 # resolves at start.
 # -------------------------------------------------------------
@@ -29,79 +26,40 @@
 #   None; the file is written.
 # -------------------------------------------------------------
 # Code outline
-# 1. Read the units of the Default_ file.
-# 2. Replace the value of every parameter line of the existing file,
-#    or build the file from the header when it does not exist.
-# 3. Add the parameters the file does not hold, and write it.
+# 1. Read the lines of the existing file, when there is one.
+# 2. Build the new lines and write them.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   write_param_file(filename, header, df)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# default_file_for()
-# -------------------------------------------------------------
+
 write_param_file <- function(filename, header, df) {
 
-  values <- setNames(as.character(df$value), trimws(as.character(df$parameter)))
-  path   <- file.path(config_path, filename)
+  path <- file.path(config_path, filename)
 
   # -------------------------------------------------------------
-  # 1. Read the units of the Default_ file
+  # 1. Read the lines of the existing file, when there is one
   # -------------------------------------------------------------
   {
-    units <- character(0)
-    default_path <- file.path(config_path, default_file_for(filename))
-    if (file.exists(default_path)) {
-      default_df <- tryCatch(
-        read.csv(default_path, comment.char = "#", stringsAsFactors = FALSE,
-                 strip.white = TRUE, colClasses = "character"),
-        error = function(e) NULL
-      )
-      if (!is.null(default_df) && all(c("parameter", "unit") %in% names(default_df))) {
-        units <- setNames(default_df$unit, trimws(default_df$parameter))
-      }
-    }
-    unit_of <- function(name) if (is.na(units[name])) "-" else units[[name]]
+    source_lines <- if (file.exists(path)) readLines(path, warn = FALSE) else NULL
   }
 
   # -------------------------------------------------------------
-  # 2. Replace the value of every parameter line of the existing file,
-  # or build the file from the header when it does not exist
+  # 2. Build the new lines and write them
   # -------------------------------------------------------------
   {
-    if (file.exists(path)) {
-      lines <- readLines(path, warn = FALSE)
-    } else {
-      lines <- c(header, "parameter,value,unit")
-    }
-    written <- character(0)
-    for (CONT_001 in seq_along(lines)) {
-      line <- lines[CONT_001]
-      if (grepl("^\\s*#", line) || !nzchar(trimws(line)) ||
-          grepl("^\\s*parameter\\s*,", line)) {
-        next
-      }
-      name <- trimws(sub(",.*$", "", line))
-      if (name %in% names(values)) {
-        rest <- sub("^[^,]*,[^,]*", "", line)
-        lines[CONT_001] <- paste0(name, ",", values[[name]], rest)
-        written <- c(written, name)
-      }
-    }
-  }
-
-  # -------------------------------------------------------------
-  # 3. Add the parameters the file does not hold, and write it
-  # -------------------------------------------------------------
-  {
-    for (name in setdiff(names(values), written)) {
-      lines <- c(lines, paste(name, values[[name]], unit_of(name), sep = ","))
-    }
-    writeLines(lines, path)
+    # build_param_lines is called to replace the values in the lines of
+    # the file, or to build them from the header and the catalogue when
+    # the file does not exist yet.
+    new_lines <- build_param_lines(
+      filename = filename,
+      header   = header,
+      df       = df,
+      lines    = source_lines
+    )
+    writeLines(new_lines, path)
+    rm(source_lines, new_lines)
   }
 }

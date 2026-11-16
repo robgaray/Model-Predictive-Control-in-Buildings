@@ -13,9 +13,9 @@
 # for why explicit flexibility cannot be valued the same way energy
 # is). Mirrors compute_marginal_energy_cost()'s structure: the
 # candidate's per-timestep flexibility commitment is first aggregated
-# (SUM) per market interval, the same way aggregate_to_slots()
-# aggregates the commitments of the output plan, and explicitly
-# aligned to the target-interval key (market_utc) rather than relying on any implicit
+# (SUM) per market interval, exactly as compute_market_operations()
+# aggregates E_by_market$new, and explicitly aligned to the
+# target-interval key (market_utc) rather than relying on any implicit
 # ordering, since the candidate's own MarketUTC vector may not list
 # intervals in the same order every time this is called (it is called
 # once per GA candidate evaluated).
@@ -28,27 +28,34 @@
 #                       the down leg, -Elec_flex_up_plan for the up leg,
 #                       since value_flex_operation() tells the two apart
 #                       by sign and both signals are non-negative.
-# MarketUTC_candidate  : POSIXct vector, same length as E_candidate.
-#                       Market interval of each fine timestep.
-# market_utc          : POSIXct vector. Target market intervals, in
-#                       the order matching every *_by_market argument
-#                       below (as returned by resolve_marginal_context()).
-# E_orig_by_market    : Numeric vector, same length/order as market_utc.
+# slot_index          : Factor, same length as E_candidate.
+#                       Target market interval of each fine
+#                       timestep, as returned by
+#                       market_slot_index(); its levels follow
+#                       the order of every *_by_market argument
+#                       below.
+# E_orig_by_market    : Numeric vector, same length/order as
+#                       the levels of slot_index.
 #                       Baseline commitment per target interval, before
 #                       this market's optimization.
 # price_down_sell_by_market, price_down_buy_by_market,
 # price_up_sell_by_market, price_up_buy_by_market :
-#                       Numeric vectors, same length/order as market_utc.
-#                       Down/up flexibility prices per target interval.
-#                       reward_function() passes either the commitment
-#                       prices of resolve_marginal_context(), or its
-#                       execution prices weighted by the activation
-#                       probability of each leg.
-# discount_by_market  : Numeric vector, same length/order as market_utc.
+#                       Numeric vectors, same length/order as
+#                       the levels of slot_index.
+#                       Effective down/up flexibility prices per target
+#                       interval, as returned by resolve_marginal_context().
+# discount_by_market  : Numeric vector, same length/order as
+#                       the levels of slot_index.
 #                       Revenue discount factor of each target interval,
 #                       as returned by revenue_discount_factor(). It
 #                       weighs down the intervals that pay and only
 #                       those - see apply_revenue_discount().
+# capped_by_market    : Logical vector, same length/order as the levels
+#                       of slot_index. TRUE for the target intervals
+#                       whose commitment no market may change yet,
+#                       those after the close of the control horizon.
+#                       There the candidate is valued at most at the
+#                       baseline commitment.
 # -------------------------------------------------------------
 # Outputs
 # Numeric scalar. Total marginal cash flow (positive = net income,
@@ -59,50 +66,63 @@
 # Code outline
 # 1. Aggregate the candidate's flexibility commitment per target
 #    market interval
-# 2. Net cash flow per interval, discounted, and total
+# 2. Cap the intervals whose commitment may not change
+# 3. Net cash flow per interval, discounted, and total
 # -------------------------------------------------------------
 # Usage instructions
-# revenue <- compute_marginal_flex_revenue(E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, price_down_sell_by_market, price_down_buy_by_market, price_up_sell_by_market, price_up_buy_by_market, discount_by_market)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - reward_function()
-# -------------------------------------------------------------
-# functions/scripts called
-# market_slot_index() - which target slot each timestep belongs to
-# aggregate_by_market_slot() - adds the candidate up on that index
-# value_flex_operation()
-# apply_revenue_discount() - discounts the income of each interval
+# revenue <- compute_marginal_flex_revenue(E_candidate, slot_index,
+# E_orig_by_market, price_down_sell_by_market, price_down_buy_by_market,
+# price_up_sell_by_market, price_up_buy_by_market, discount_by_market,
+# capped_by_market)
 # -------------------------------------------------------------
 
 compute_marginal_flex_revenue <- function(E_candidate,
-                                          MarketUTC_candidate,
-                                          market_utc,
+                                          slot_index,
                                           E_orig_by_market,
                                           price_down_sell_by_market,
                                           price_down_buy_by_market,
                                           price_up_sell_by_market,
                                           price_up_buy_by_market,
-                                          discount_by_market) {
+                                          discount_by_market,
+                                          capped_by_market) {
 
   # 1. Aggregate the candidate's flexibility commitment per target
   #    market interval
   # -------------------------------------------------------------
-  # Explicitly aligned to market_utc (not assumed order), since this
-  # runs once per GA candidate.
+  # Explicitly aligned to the target intervals (not assumed
+  # order), since this runs once per GA candidate.
   # -------------------------------------------------------------
   {
-    # market_slot_index is called to say which target slot each timestep
-    # of the candidate belongs to, and aggregate_by_market_slot to add
-    # the candidate up on that index. The index is built once per call,
-    # so the candidate is not masked once per slot, and each slot is
-    # summed in the order of its rows.
+    # aggregate_by_market_slot is called to add the candidate up on
+    # slot_index, the target interval of each timestep, which the
+    # caller resolves once with market_slot_index(). The order of the
+    # sums is fixed by the index, so the totals do not depend on how
+    # the rows are laid out.
     E_new_by_market <- aggregate_by_market_slot(
       values     = E_candidate,
-      slot_index = market_slot_index(MarketUTC_candidate, market_utc)
+      slot_index = slot_index
     )
   }
 
-  # 2. Net cash flow per interval, discounted, and total
+  # 2. Cap the intervals whose commitment may not change
+  # -------------------------------------------------------------
+  # After the close of the control horizon the commitment earlier
+  # markets sold stands: this market does not trade it, and a later
+  # market will restate it in its own control horizon. A candidate
+  # that holds it is therefore worth nothing there, and one that
+  # falls short costs the re-purchase that later market will have to
+  # make. A candidate that would draw more is not selling anything,
+  # so it is valued at the commitment that stands. Each leg's signal
+  # keeps one sign, so the cap is taken on the magnitude.
+  # -------------------------------------------------------------
+  {
+    E_new_by_market[capped_by_market] <-
+      sign(E_orig_by_market[capped_by_market]) *
+      pmin(abs(E_new_by_market[capped_by_market]),
+           abs(E_orig_by_market[capped_by_market]))
+  }
+
+  # 3. Net cash flow per interval, discounted, and total
   # -------------------------------------------------------------
   {
     # value_flex_operation is called to resolve, per target market
@@ -124,10 +144,10 @@ compute_marginal_flex_revenue <- function(E_candidate,
     # intervals that pay are discounted; one that costs money keeps its
     # full weight.
     total_revenue <- sum(apply_revenue_discount(operation$revenue, discount_by_market))
-    rm(operation)
+    rm(list = "operation")
   }
 
-  rm(E_new_by_market)
+  rm(list = "E_new_by_market")
 
   return(total_revenue)
 }

@@ -13,8 +13,8 @@
 #   df               : Data frame. The table the function works
 #                      on (see above).
 #   file_label       : Character. File name of the configuration
-#                      file, as Parameter_config.csv and the
-#                      messages name it.
+#                      file, as the catalogue and the messages
+#                      name it.
 # -------------------------------------------------------------
 # Outputs
 #   Character vector: one message per invalid row, empty when all
@@ -28,19 +28,21 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   validate_market_table_df_gui(df, file_label)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# market_table_row_valid()
-# -------------------------------------------------------------
 
 validate_market_table_df_gui <- function(df, file_label) {
   errors <- character(0)
   for (CONT_103 in seq_len(nrow(df))) {
-    if (!market_table_row_valid(df$closure[CONT_103], df$begin[CONT_103],
-                                df$end[CONT_103], df$end_optimization[CONT_103],
-                                df$aim[CONT_103])) {
+    # market_table_row_valid is called to check the row against the
+    # catalogue rules of this table.
+    row_ok <- market_table_row_valid(
+      closure          = df$closure[CONT_103],
+      begin            = df$begin[CONT_103],
+      end              = df$end[CONT_103],
+      end_optimization = df$end_optimization[CONT_103],
+      aim              = df$aim[CONT_103],
+      file_label       = file_label
+    )
+    if (!row_ok) {
       errors <- c(errors, sprintf(
         "%s: the row for market '%s' has invalid values.",
         file_label, df$Market[CONT_103]

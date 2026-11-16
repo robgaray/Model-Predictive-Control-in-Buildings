@@ -4,7 +4,7 @@
 
 ## Function
 
-Builds Flexibility_actions_df on the given time grid. This is a synthetic dataframe (not loaded from a data file): Flex_Act is an engine-level explicit-flexibility tracking signal, stable across building models, so unlike System_df it is not driven by an external variable registry. Initialized to 0 here; set to 1 for rows covered by an accepted flexibility event by 09_flexibility_price_emulation.R.
+Builds Flexibility_actions_df on the given time grid. This is a synthetic dataframe (not loaded from a data file): Flex_Act is an engine-level explicit-flexibility tracking signal, stable across building models, so unlike Building_variables_df it is not driven by an external variable registry. Initialized to 0 here; set to 1 for rows covered by an accepted flexibility event by prepare_flexibility_prices().
 
 ## Called by
 

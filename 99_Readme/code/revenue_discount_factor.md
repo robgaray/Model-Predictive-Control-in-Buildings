@@ -8,8 +8,8 @@ Builds the geometric discount factor that the reward applies to income that is f
 
 ## Called by
 
+- [build_reward_cache.R](build_reward_cache.md)
 - [resolve_marginal_context.R](resolve_marginal_context.md)
-- [reward_function.R](reward_function.md)
 
 ## What it calls, in order of appearance
 
@@ -33,7 +33,7 @@ A decision has to be prudent about what it expects to earn far into the future, 
 
 ### Decision only, never accounting
 
-The factor belongs to the decision process alone. It never reaches the volume or the price of an energy or flexibility commitment: integrate_market_process() settles what was decided at the market's own undiscounted prices, so the discount changes which candidate wins the optimization, not what the winner is then paid for.
+The factor belongs to the decision process alone. It never reaches the volume or the price of an energy or flexibility commitment: settle_market() settles what was decided at the market's own undiscounted prices, so the discount changes which candidate wins the optimization, not what the winner is then paid for.
 
 ### Code outline
 
@@ -43,7 +43,8 @@ The factor belongs to the decision process alone. It never reaches the volume or
 ### Usage instructions
 
 ```r
-f <- revenue_discount_factor(market_utc, Main_df$MarketUTC[row_index], parameters$reward$Revenue_discount_per_hour)
+f <- revenue_discount_factor(market_utc, Main_df$MarketUTC[row_index],
+  parameters$reward$Revenue_discount_per_hour)
 ```
 
 ### Exceptions and special cases

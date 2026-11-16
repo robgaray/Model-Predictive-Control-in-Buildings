@@ -29,12 +29,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   render_label(label, is_default, is_duplicate)
 # -------------------------------------------------------------
-# Where this function/script is used
-# build_input_grid(), build_param_editor()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 render_label <- function(label, is_default, is_duplicate = FALSE) {
   if (isTRUE(is_default) || isTRUE(is_duplicate)) {

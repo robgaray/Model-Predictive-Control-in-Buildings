@@ -27,12 +27,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   update_df_from_inputs(df, prefix, input)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 update_df_from_inputs <- function(df, prefix, input) {
   for (CONT_001 in seq_len(nrow(df))) {

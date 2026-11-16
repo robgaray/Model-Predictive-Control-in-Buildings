@@ -1,11 +1,11 @@
 # Fallback values of the configuration GUI
 # -------------------------------------------------------------
-# Values the GUI uses only when a configuration file of
-# 30_Simulation/02_Config/ has an invalid or missing row AND its
-# Default_ file under 00_Validation/ has no matching row either, so
-# that the app never stops while loading. A row filled with them is
-# painted red in the app until it is saved. They are not simulation
-# parameters: the simulation never reads this file.
+# Values the GUI uses only when a table of 30_Simulation/02_Config/
+# has an invalid or missing row AND the Default_ file of that table
+# under 00_Validation/ has no matching row either, so that the app
+# never stops while loading. A row filled with them is painted red
+# in the app until it is saved. They are not simulation parameters:
+# the simulation never reads this file.
 # -------------------------------------------------------------
 parameter,value,unit
 #
@@ -19,13 +19,8 @@ market_closure,1,h
 market_begin,0,h
 market_end,24,h
 market_end_optimization,6,h
-market_aim_scheduling,E,code
-market_aim_piloting,O,code
+market_aim_scheduling,E,text
+market_aim_piloting,O,text
 #
 # Generic hourly occupancy profile (14_Use_Patterns.csv), every hour
-occupancy_hour_value,0,-(0/1)
-#
-# Validation of the values typed in the GUI
-# Largest distance to the nearest whole number that an Integer
-# parameter of Parameter_config.csv may have and still count as whole.
-integer_tolerance,1e-9,-
+occupancy_hour_value,0,-(boolean 0/1)

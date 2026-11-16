@@ -1,6 +1,6 @@
 # check_recovery_convergence.R
 
-**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/check_recovery_convergence.R`
+**Function** &nbsp;·&nbsp; `30_Simulation/05_Models/01_Building/03_Functions/check_recovery_convergence.R`
 
 ## Function
 
@@ -8,8 +8,7 @@ Decides whether a flexibility itinerary has converged back to the itinerary of o
 
 ## Called by
 
-- [flex_evaluation_down.R](flex_evaluation_down.md)
-- [flex_evaluation_up.R](flex_evaluation_up.md)
+- [flex_evaluation.R](flex_evaluation.md)
 
 ## What it calls, in order of appearance
 
@@ -30,7 +29,7 @@ Decides whether a flexibility itinerary has converged back to the itinerary of o
 
 ### What this protects
 
-The baseline against which the next market optimizes is Main_df, and Main_df keeps whatever is written when the control horizon closes. If a flexibility itinerary is still deviating at that moment, the next market inherits a trajectory that has not settled and its marginal valuation starts from a false baseline. A candidate window that leaves the building in that state is therefore rejected, however profitable it looks on its own. The check is made at the end of the CONTROL HORIZON, not at the end of the Recovery Phase. The difference matters and is deliberate: a window that finishes well before the horizon closes passes the check without effort, because by then the flexibility columns are the copy of the plan that initialize_plan_flex_columns() made and the difference is exactly zero. The check bites on the windows whose Recovery Phase reaches the close of the horizon, which are precisely the ones that can hand over a dirty state.
+The baseline against which the next market optimizes is Main_df, and Main_df keeps whatever is written when the control horizon closes. If a flexibility itinerary is still deviating at that moment, the next market inherits a trajectory that has not settled and its marginal valuation starts from a false baseline. A candidate window that leaves the building in that state is therefore rejected, however profitable it looks on its own. The check is made at the end of the CONTROL HORIZON, not at the end of the Recovery Phase. The difference matters and is deliberate: a window that finishes well before the horizon closes passes the check without effort, because by then the flexibility columns are the copy of the plan that derive_flex_itineraries() made and the difference is exactly zero. The check bites on the windows whose Recovery Phase reaches the close of the horizon, which are precisely the ones that can hand over a dirty state.
 
 ### The two criteria
 

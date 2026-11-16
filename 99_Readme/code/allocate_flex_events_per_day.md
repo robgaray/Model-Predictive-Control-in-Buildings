@@ -52,7 +52,8 @@ The property that makes this work is at the end of the walk: when one market is 
 ### Usage instructions
 
 ```r
-quota <- allocate_flex_events_per_day(day, weight, trades_flex, max_periods_day)
+quota <- allocate_flex_events_per_day(day, weight, trades_flex,
+  max_periods_day)
 ```
 
 ### Exceptions and special cases

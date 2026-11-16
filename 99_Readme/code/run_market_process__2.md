@@ -1,12 +1,15 @@
-# run_market_process.R &mdash; Called items, block 2 of 2
+# run_market_process.R &mdash; Called items, block 2 of 4
 
-Block 2 of 2 of [run_market_process.R](run_market_process.md).
+Block 2 of 4 of [run_market_process.R](run_market_process.md).
 
 ## What it calls, in this block
 
-- [period_calculation.R](period_calculation.md)
-- [reward_function.R](reward_function.md)
-- [evaluate_control.R](evaluate_control.md)
+- [asset_simulation_order.R](asset_simulation_order.md)
+- [write_rest_net.R](write_rest_net.md)
+- [itinerary_columns.R](itinerary_columns.md)
+- [piece_write_rows.R](piece_write_rows.md)
+- [derive_flex_itineraries.R](derive_flex_itineraries.md)
+- [hand_over_window_tail.R](hand_over_window_tail.md)
 
 ## Diagram
 

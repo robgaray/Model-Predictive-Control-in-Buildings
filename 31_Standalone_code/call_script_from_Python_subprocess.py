@@ -12,40 +12,48 @@
 #   2. It runs setup.R, which installs the R packages and the C++
 #      compiler the script needs. Only the first time is it really
 #      needed; later runs find everything in place and end quickly.
-#   3. It loads the inputs of one market, here from
+#   3. It loads the inputs of a first market, here from
 #      01_Input/example_first_call.json. Any Python code can build the
 #      same dictionary instead.
 #   4. It writes them to a JSON file and runs call_script_console.R
-#      with Rscript.
-#   5. It reads the output JSON file and prints a summary.
+#      with Rscript, then reads the output JSON file and prints a
+#      summary.
+#   5. It builds a chained call. The output of the first market has a
+#      "system" block (the net energy of the plan and of its
+#      flexibility itineraries) and an "assets" block (the itineraries
+#      of every asset). Both are copied into the input of a later
+#      market with the "O+F" aim, over the intervals of that market,
+#      and the prices of the later market are added. The later market
+#      keeps the plan and only searches flexibility over it.
+#   6. It runs the chained call and prints its summary.
 # -------------------------------------------------------------
 # Inputs
 #   01_Input/example_first_call.json
+#   01_Input/example_chained_call.json: the market, the weather, the
+#   prices and the use of the building of the chained market. Its own
+#   "system" and "assets" itineraries are replaced by the ones taken
+#   from the output of the first market.
 #   Environment variable RSCRIPT (optional): path of the Rscript
 #   executable. Without it, Rscript is looked up in the PATH and, on
 #   Windows, in the usual installation folders of R.
 # -------------------------------------------------------------
 # Outputs
-#   90_Output/call_script_from_Python_subprocess_output.json
-#   A printed summary of the market operations.
+#   90_Output/call_script_from_Python_subprocess_output.json: the
+#   output of the first market.
+#   90_Output/call_script_from_Python_subprocess_chained_output.json:
+#   the output of the chained market.
+#   A printed summary of the operations of each market.
 # -------------------------------------------------------------
 # Code outline
 # 1. Paths
 # 2. Rscript
 # 3. Setup
-# 4. Inputs
-# 5. Call to call_script_console.R
-# 6. Output
+# 4. Call function
+# 5. First market
+# 6. Chained market
 # -------------------------------------------------------------
 # Usage instructions
 #   python3 31_Standalone_code/call_script_from_Python_subprocess.py
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - Run by hand, as an example.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - setup.R: run with Rscript, through subprocess
-#   - call_script_console.R: run with Rscript, through subprocess
 # -------------------------------------------------------------
 
 import glob
@@ -62,9 +70,12 @@ import tempfile
 standalone_path = os.path.dirname(os.path.abspath(__file__))
 setup_script    = os.path.join(standalone_path, "setup.R")
 console_script  = os.path.join(standalone_path, "call_script_console.R")
-input_example   = os.path.join(standalone_path, "01_Input", "example_first_call.json")
-output_file     = os.path.join(standalone_path, "90_Output",
-                               "call_script_from_Python_subprocess_output.json")
+first_example   = os.path.join(standalone_path, "01_Input", "example_first_call.json")
+chained_example = os.path.join(standalone_path, "01_Input", "example_chained_call.json")
+first_output_file   = os.path.join(standalone_path, "90_Output",
+                                   "call_script_from_Python_subprocess_output.json")
+chained_output_file = os.path.join(standalone_path, "90_Output",
+                                   "call_script_from_Python_subprocess_chained_output.json")
 
 # -------------------------------------------------------------
 # 2. Rscript
@@ -101,41 +112,86 @@ if setup.returncode != 0:
     sys.exit("setup.R failed. Read its messages above.")
 
 # -------------------------------------------------------------
-# 4. Inputs
+# 4. Call function
 # -------------------------------------------------------------
-# The inputs are a dictionary with the blocks market, context, prices
-# and itineraries. Missing values are written as None (JSON null).
+# run_market writes the inputs of a market to a temporary JSON file
+# and runs call_script_console.R on it. The script ends with exit
+# status 1 and prints the reason on any error, without writing the
+# output file. The function returns the output as a dictionary. Missing
+# values are written as None (JSON null).
 # -------------------------------------------------------------
-with open(input_example) as handle:
-    inputs = json.load(handle)
+def run_market(inputs, output_path):
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(inputs, handle)
+        input_file = handle.name
 
-with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
-    json.dump(inputs, handle)
-    input_file = handle.name
+    completed = subprocess.run([rscript, console_script, input_file, output_path],
+                               capture_output=True, text=True)
+    os.remove(input_file)
+
+    if completed.returncode != 0:
+        print(completed.stdout)
+        print(completed.stderr)
+        sys.exit("The market script failed")
+
+    with open(output_path) as handle:
+        return json.load(handle)
+
+
+def print_operations(output):
+    operations = output["operations"]
+    print("Committed intervals:", len(operations["time"]))
+    for name, values in operations.items():
+        if name != "time":
+            print(f"  {name:20s} {sum(values):10.3f} kWh")
 
 # -------------------------------------------------------------
-# 5. Call to call_script_console.R
+# 5. First market
 # -------------------------------------------------------------
-# call_script_console.R ends with exit status 1 and prints the reason
-# on any error, without writing the output file.
+# The inputs are a dictionary with the blocks market, context, prices,
+# system and assets. The first market is a day-ahead market that
+# starts from scratch.
 # -------------------------------------------------------------
-completed = subprocess.run([rscript, console_script, input_file, output_file],
-                           capture_output=True, text=True)
-os.remove(input_file)
+with open(first_example) as handle:
+    first_inputs = json.load(handle)
 
-if completed.returncode != 0:
-    print(completed.stdout)
-    print(completed.stderr)
-    sys.exit("The market script failed")
+first_output = run_market(first_inputs, first_output_file)
+print_operations(first_output)
 
 # -------------------------------------------------------------
-# 6. Output
+# 6. Chained market
 # -------------------------------------------------------------
-with open(output_file) as handle:
-    output = json.load(handle)
+# The chained market takes its market, weather, prices and building
+# use from its own file. The system and the assets come from the
+# output of the first market: take_block cuts a block of that output
+# to the intervals of the chained market, and leaves None where the
+# first market did not reach.
+# -------------------------------------------------------------
+def take_block(block, times):
+    position = {time: index for index, time in enumerate(block["time"])}
+    taken = {"time": list(times)}
+    for name, values in block.items():
+        if name != "time":
+            taken[name] = [values[position[time]] if time in position else None
+                           for time in times]
+    return taken
 
-operations = output["operations"]
-print("Committed intervals:", len(operations["time"]))
-for name, values in operations.items():
-    if name != "time":
-        print(f"  {name:20s} {sum(values):10.3f} kWh")
+
+def take_itineraries(itineraries, times):
+    return {name: take_block(block, times) for name, block in itineraries.items()}
+
+
+with open(chained_example) as handle:
+    chained_inputs = json.load(handle)
+
+chained_times = chained_inputs["context"]["time"]
+
+chained_inputs["system"] = {
+    "itineraries": take_itineraries(first_output["system"]["itineraries"], chained_times)
+}
+for asset_id, asset in first_output["assets"].items():
+    chained_inputs["assets"].setdefault(asset_id, {})["itineraries"] = \
+        take_itineraries(asset["itineraries"], chained_times)
+
+chained_output = run_market(chained_inputs, chained_output_file)
+print_operations(chained_output)

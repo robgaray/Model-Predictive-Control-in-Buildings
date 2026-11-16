@@ -1,0 +1,61 @@
+# Simulation_Variables_Battery.txt
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Declarative registry of the variables of a battery. Read by
+# variable_registry_columns() (called from load_all_parameters()) to
+# build the columns of the table of each battery of the asset
+# registry, assets[[asset_id]]$df. A battery is operated in one of
+# five modes on each market interval: its table holds that mode, the
+# energy it stores, the net electricity of the rest of the system as
+# the battery sees it, the electricity it takes from the system and
+# gives to it, and its electricity for the system.
+# The variables of the whole system (its net electricity, its
+# commitments and its cash flows) are declared in
+# 00_System/Simulation_Variables_System.txt and live in Main_df.
+# Elec_total is declared in both: the table of a battery holds its
+# own electricity, and Main_df the sum over the assets.
+#
+# Columns:
+#   variable      : base variable name.
+#   type          : semantic category (state | context | action | energy |
+#                   evaluation). Documentation only, not used to drive
+#                   any logic.
+#   initial_value : generic value used to initialize the variable at
+#                   row 1. The first row of the table is the initial
+#                   condition of the run and the model never writes it.
+#   scenario      : yes -> the variable is expanded into 4 columns,
+#                   <variable>_exec, <variable>_plan,
+#                   <variable>_plan_flex_down and <variable>_plan_flex_up.
+#                   The last two are the two flexibility itineraries:
+#                   downward (load reduction) and upward (load increase).
+#                   no  -> the variable is kept as a single column,
+#                   <variable>, with no suffix.
+#
+# Variables:
+#   Mode           : mode of the battery in the step that ends in the
+#                    row, from 1 to 5 (-). NA on a row that no market
+#                    has decided.
+#   Stored_energy  : energy stored at the end of the step (kWh). The
+#                    state of charge is Stored_energy divided by the
+#                    capacity.
+#   Elec_rest      : net electricity of the rest of the system in the
+#                    same step, as the battery sees it (kWh, positive
+#                    when the rest imports).
+#   Elec_charge    : electricity the battery takes from the system in
+#                    the same step, on the AC side (kWh, never
+#                    negative).
+#   Elec_discharge : electricity the battery gives to the system in
+#                    the same step, on the AC side (kWh, never
+#                    negative).
+#   Elec_total     : electricity of the battery for the system in the
+#                    same step (kWh): Elec_charge minus Elec_discharge.
+# -------------------------------------------------------------
+variable	type	initial_value	scenario
+Mode	action	NA	yes
+Stored_energy	state	0	yes
+Elec_rest	context	0	yes
+Elec_charge	energy	0	yes
+Elec_discharge	energy	0	yes
+Elec_total	energy	0	yes

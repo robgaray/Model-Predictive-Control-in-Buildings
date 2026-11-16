@@ -14,28 +14,43 @@
 # Once the event and the recovery are over, the thermostat takes over
 # again and the building spends the Recovery Phase returning to
 # the state it would have been in, buying or selling energy it had not
-# planned to. The flexibility prices pay the commitment and the
-# expected execution, and say nothing about that energy, so this term
-# values it.
+# planned to. That deviation was not valued anywhere: the effective
+# flexibility price bundles the commitment payment with the expected
+# execution payment into a single number and says nothing about energy.
 # Only the Recovery Phase is valued, and not by convention: the
 # Commitment Phase's own energy is assumed to be already remunerated by
 # the execution price, and during the Neutral Phase the deviation is
 # exactly zero by construction. The Neutral Phase is simulated in
 # calculation_mode 2, which reads the power of every step from the Q_*
 # columns, and those columns still hold the copy of the _plan itinerary
-# that derive_flex_itineraries() laid as baseline, since the flexibility
+# that derive_flex_itineraries() made, since the flexibility
 # evaluation only overwrites the rows of the Commitment Phase. As the
 # simulation loop derives electricity from Q and the outdoor
 # temperature alone, the flexibility itinerary and the plan spend
 # exactly the same in every Neutral Phase row.
 # -------------------------------------------------------------
-# Every row of the window is valued
+# The energy a battery does not recover
+# What this function values is the electricity the leg moves over
+# the rows of the Recovery Phase. A battery that does not bring its
+# stored energy back to the plan in the Recovery Phase moves no
+# electricity for it, so the difference is not seen here: it is
+# valued as stored energy, for the whole leg, by
+# flex_leg_reward_terms().
+# -------------------------------------------------------------
+# Every row of the window is valued, inside the market horizon or not
 # The energy the building moves while recovering is bought or sold
-# whenever it happens. A flexibility window never runs past the rows
-# of the period_chunk, and every row of the period_chunk that can hold
-# a window falls in an interval of the market being optimized, so every
-# Recovery Phase row is valued with that market's prices and
-# probability.
+# whenever it happens. A flexibility window is longer than the stretch
+# of time a single market trades, so part of it falls beyond that
+# market's target intervals; valuing only the part inside would leave a
+# real cost of executing the service unseen, and would make the reward
+# depend on where the window happens to fall relative to the market
+# grid. Every Recovery Phase row is therefore valued, with the market's
+# prices where the market has a view and with the row's own prices
+# where it does not.
+# The market's target intervals cover every row of the optimization
+# chunk except the first, which is the initial condition and holds an
+# energy the market does not decide. The row's own prices are
+# therefore a guard for that row, not a way of valuing the future.
 # -------------------------------------------------------------
 # The baseline is the plan, not the market position
 # The deviation is measured against the building's own plan, not
@@ -70,10 +85,28 @@
 #   probability_by_market : Numeric vector in [0, 1], same length/order
 #                         as market_utc. Activation probability of this
 #                         leg in each target interval.
+#   P_import_buy_row, P_import_sell_row,
+#   P_export_buy_row, P_export_sell_row :
+#                         Numeric vectors, same length as E_plan. Energy
+#                         prices of every timestep, read from the
+#                         period_chunk itself. They are what the
+#                         Recovery Phase rows that fall outside the
+#                         market's target intervals are valued with.
+#   probability_row     : Numeric vector in [0, 1], same length as
+#                         E_plan. Activation probability of this leg at
+#                         every timestep, for the same rows.
 #   discount_by_market  : Numeric vector, same length/order as
 #                         market_utc. Revenue discount factor of each
 #                         target interval, as returned by
 #                         revenue_discount_factor().
+#   discount_row        : Numeric vector, same length as E_plan. The
+#                         same factor at every timestep, used for the
+#                         Recovery Phase rows that fall outside the
+#                         market's target intervals. Both are needed for
+#                         the same reason the prices are: this term
+#                         reaches beyond the market's horizon, and every
+#                         interval it values has to be discounted by its
+#                         own distance from the decision instant.
 # -------------------------------------------------------------
 # Outputs
 #   Numeric scalar. Expected cash flow of the Recovery Phase deviation
@@ -93,10 +126,8 @@
 #              MarketUTC_candidate, market_utc, P_import_buy_by_market,
 #              P_import_sell_by_market, P_export_buy_by_market,
 #              P_export_sell_by_market, probability_by_market,
-#              discount_by_market)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - reward_function()
+#              P_import_buy_row, P_import_sell_row, P_export_buy_row,
+#              P_export_sell_row, probability_row)
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - The result is exactly 0 for a leg that placed no window at all:
@@ -108,28 +139,32 @@
 #   - Only the intervals that actually hold a Recovery Phase row are
 #     valued; the target intervals of the market that hold none do not
 #     enter the sum at all.
-#   - A Recovery Phase row whose interval is not a target interval
-#     stops execution: it has no price to be valued with.
-# -------------------------------------------------------------
-# functions/scripts called
-#   calc_differential_cost() - net cash flow of moving an energy position
-#   apply_revenue_discount() - discounts the income of each interval
 # -------------------------------------------------------------
 compute_recovery_energy_cost <- function(E_plan,
-                                         E_flex,
-                                         phase,
-                                         MarketUTC_candidate,
-                                         market_utc,
-                                         P_import_buy_by_market,
-                                         P_import_sell_by_market,
-                                         P_export_buy_by_market,
-                                         P_export_sell_by_market,
-                                         probability_by_market,
-                                         discount_by_market
-                                         ) {
+                                              E_flex,
+                                              phase,
+                                              MarketUTC_candidate,
+                                              market_utc,
+                                              P_import_buy_by_market,
+                                              P_import_sell_by_market,
+                                              P_export_buy_by_market,
+                                              P_export_sell_by_market,
+                                              probability_by_market,
+                                              P_import_buy_row,
+                                              P_import_sell_row,
+                                              P_export_buy_row,
+                                              P_export_sell_row,
+                                              probability_row,
+                                              discount_by_market,
+                                              discount_row) {
 
+  # 1. Market intervals to value
   # -------------------------------------------------------------
-  # 1. Market intervals holding a Recovery Phase row
+  # Every interval that holds a Recovery Phase row, not only the target
+  # intervals of the current market. The energy the building would move
+  # is bought or sold whenever it happens, so it is valued whenever it
+  # happens; stopping at the market horizon would leave part of the cost
+  # of executing the service unseen.
   # -------------------------------------------------------------
   {
     recovery_rows <- (phase == 3)
@@ -141,51 +176,66 @@ compute_recovery_energy_cost <- function(E_plan,
     mkt_recov <- sort(unique(MarketUTC_candidate[recovery_rows]))
   }
 
-  # -------------------------------------------------------------
   # 2. Prices and probability of each of those intervals
   # -------------------------------------------------------------
-  # The market's own prices and the market's own view of the activation
-  # probability are used, which is what the rest of the reward is
-  # valued with.
+  # Inside the market's target set, the market's own prices and the
+  # market's own view of the activation probability are used, which is
+  # what the rest of the reward is valued with. Outside it there is no
+  # market view, so the row's own signals are read instead, taking the
+  # first row of the interval, the same convention the rest of the code
+  # follows.
+  # Only the first row of the chunk, its initial condition, can fall
+  # outside the target set.
   # -------------------------------------------------------------
   {
     pos_in_target <- match(mkt_recov, market_utc)
+    first_row_of  <- match(mkt_recov, MarketUTC_candidate)
 
-    if (any(is.na(pos_in_target))) {
-      stop("compute_recovery_energy_cost: a Recovery Phase row falls ",
-           "outside the market intervals being valued")
+    pick <- function(by_market, row_vector) {
+      out <- row_vector[first_row_of]
+      inside <- !is.na(pos_in_target)
+      out[inside] <- by_market[pos_in_target[inside]]
+      out
     }
 
-    P_import_buy_recov  <- P_import_buy_by_market[pos_in_target]
-    P_import_sell_recov <- P_import_sell_by_market[pos_in_target]
-    P_export_buy_recov  <- P_export_buy_by_market[pos_in_target]
-    P_export_sell_recov <- P_export_sell_by_market[pos_in_target]
-    probability_recov   <- probability_by_market[pos_in_target]
-    discount_recov      <- discount_by_market[pos_in_target]
+    P_import_buy_recov  <- pick(P_import_buy_by_market,  P_import_buy_row)
+    P_import_sell_recov <- pick(P_import_sell_by_market, P_import_sell_row)
+    P_export_buy_recov  <- pick(P_export_buy_by_market,  P_export_buy_row)
+    P_export_sell_recov <- pick(P_export_sell_by_market, P_export_sell_row)
+    probability_recov   <- pick(probability_by_market,   probability_row)
+    discount_recov      <- pick(discount_by_market,      discount_row)
 
-    rm(pos_in_target)
+    rm(list = c("pos_in_target", "first_row_of", "pick"))
   }
 
-  # -------------------------------------------------------------
   # 3. Aggregate the two itineraries over the Recovery Phase rows
   # -------------------------------------------------------------
-  # Explicitly aligned to mkt_recov rather than assuming the order of the
-  # rows, the same way compute_marginal_flex_revenue() does.
+  # Explicitly aligned to mkt_recov rather than assuming the order
+  # of the rows, the same way compute_marginal_flex_revenue() does.
+  # The Recovery Phase rows are indexed once by their interval and
+  # added up in one pass, rather than comparing every row with
+  # every interval.
   # -------------------------------------------------------------
   {
-    E_recov_plan_by_market <- vapply(
-      mkt_recov,
-      function(mkt) sum(E_plan[recovery_rows & MarketUTC_candidate == mkt]),
-      numeric(1)
+    # market_slot_index is called to say which interval of
+    # mkt_recov each Recovery Phase row belongs to, and
+    # aggregate_by_market_slot to add each itinerary up on that
+    # index, in the order of mkt_recov.
+    recovery_index <- market_slot_index(
+      candidate_market_utc = MarketUTC_candidate[recovery_rows],
+      market_utc           = mkt_recov
     )
-    E_recov_flex_by_market <- vapply(
-      mkt_recov,
-      function(mkt) sum(E_flex[recovery_rows & MarketUTC_candidate == mkt]),
-      numeric(1)
+    E_recov_plan_by_market <- aggregate_by_market_slot(
+      values     = E_plan[recovery_rows],
+      slot_index = recovery_index
     )
+    E_recov_flex_by_market <- aggregate_by_market_slot(
+      values     = E_flex[recovery_rows],
+      slot_index = recovery_index
+    )
+    rm(list = "recovery_index")
   }
 
-  # -------------------------------------------------------------
   # 4. Value the deviation of each interval and weight it by probability
   # -------------------------------------------------------------
   # calc_differential_cost() is called with the plan as the origin and
@@ -219,9 +269,11 @@ compute_recovery_energy_cost <- function(E_plan,
     ))
   }
 
-  rm(recovery_rows, mkt_recov, E_recov_plan_by_market, E_recov_flex_by_market,
-     P_import_buy_recov, P_import_sell_recov, P_export_buy_recov,
-     P_export_sell_recov, probability_recov, discount_recov, dC_by_market)
+  rm(list = c("recovery_rows", "mkt_recov", "E_recov_plan_by_market",
+              "E_recov_flex_by_market", "P_import_buy_recov",
+              "P_import_sell_recov", "P_export_buy_recov",
+              "P_export_sell_recov", "probability_recov", "discount_recov",
+              "dC_by_market"))
 
   return(total_cost)
 }

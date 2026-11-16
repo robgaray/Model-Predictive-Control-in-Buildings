@@ -4,20 +4,20 @@
 
 ## Function
 
-Loads physical properties from 03_Physical_properties.csv, validates the values against Parameter_config.csv, applies the domain-specific validate_physical_properties() check against the reference values of Validation_03_Physical_properties.csv, and stores the result in parameters$physical_properties. Sourced from 02_load_all_parameters.R.
+Loads physical properties from 03_Physical_properties.csv, validates the values against the parameter catalogue, applies the domain-specific validate_physical_properties() check against the reference values of Validation_03_Physical_properties.csv, and stores the result in parameters$physical_properties. Sourced from load_all_parameters().
 
 ## Called by
 
-- [02_load_all_parameters.R](02_load_all_parameters.md)
+- [load_internal_parameters.R](load_internal_parameters.md)
 
 ## What it calls, in order of appearance
 
-- [read_and_validate_parameter_csv.R](read_and_validate_parameter_csv.md) &nbsp;(2 call sites)
+- [load_parameter_file.R](load_parameter_file.md) &nbsp;(2 call sites)
 - [validate_physical_properties.R](validate_physical_properties.md)
 
 ## Input data
 
-- paths$physical_properties_file : path of 03_Physical_properties.csv, resolved by 01_initialization.R.
+- paths$physical_properties_file : path of 03_Physical_properties.csv, resolved by initialize_simulator().
 - Its validation table, Validation_03_Physical_properties.csv, read alongside it.
 - parameters : the list being assembled, to which this script adds one sub-list.
 
@@ -35,7 +35,7 @@ Loads physical properties from 03_Physical_properties.csv, validates the values 
 
 ### Usage instructions
 
-Not called: sourced by 02_load_all_parameters.R, which supplies paths and parameters and takes the updated parameters back.
+Not called: sourced by load_all_parameters(), which supplies paths and parameters and takes the updated parameters back.
 
 ## Diagram
 

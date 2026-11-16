@@ -7,8 +7,9 @@
 # Overall description
 # Command line entry point of the standalone market script. It reads
 # the inputs of one market from a JSON file, optimizes the energy and
-# flexibility commitments of the building for that market with
-# optimize_market(), and writes the result to another JSON file.
+# flexibility commitments of the system of assets of the call for
+# that market with optimize_market(), and writes the result to another
+# JSON file.
 # Any tool able to run a command and read and write JSON can use it,
 # whatever its language.
 # If anything fails, the error is printed on the console, no output
@@ -23,7 +24,8 @@
 #   in the README of this folder.
 # -------------------------------------------------------------
 # Outputs
-#   The output JSON file, with the blocks itineraries and operations.
+#   The output JSON file, with the blocks system, assets and
+#   operations.
 # -------------------------------------------------------------
 # Code outline
 # 1. Arguments and folder of the script
@@ -32,19 +34,10 @@
 # -------------------------------------------------------------
 # Usage instructions
 #   Rscript 31_Standalone_code/call_script_console.R input.json output.json
-#   Rscript 31_Standalone_code/call_script_console.R input.json output.json my_config
+#   Rscript 31_Standalone_code/call_script_console.R input.json output.json
+#   my_config
 # It can be run from any folder: the script finds its own folder.
 # The R packages must be installed first, once, with setup.R.
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - Run by hand or by an external tool.
-#   - call_script_from_Python_subprocess.py: runs it from Python.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - initialize_standalone(): loads libraries, functions and the C++
-#     module
-#   - optimize_market(): optimizes the market
-#   - format_market_output(): prepares the result for JSON
 # -------------------------------------------------------------
 
 # -------------------------------------------------------------
@@ -64,7 +57,7 @@
   script_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   standalone_path <- dirname(normalizePath(sub("^--file=", "", script_argument[1])))
 
-  rm(arguments, script_argument)
+  rm(list = c("arguments", "script_argument"))
 }
 
 # -------------------------------------------------------------
@@ -95,7 +88,7 @@
       inputs <- jsonlite::read_json(input_file, simplifyVector = TRUE)
 
       # optimize_market is called to optimize the commitments of the
-      # building for the market described in the input file.
+      # system of assets for the market described in the input file.
       result <- optimize_market(inputs, paths)
 
       # format_market_output is called to turn the result into plain
@@ -107,6 +100,10 @@
                            na         = "null",
                            pretty     = TRUE)
       cat("Output written to", output_file, "\n")
+
+      # close_standalone is called to stop the worker cluster of
+      # the session, when the optimizer ran in parallel.
+      close_standalone(paths)
     },
     error = function(e) {
       cat("ERROR:", conditionMessage(e), "\n")

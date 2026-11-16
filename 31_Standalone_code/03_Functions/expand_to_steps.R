@@ -6,13 +6,14 @@
 # -------------------------------------------------------------
 # Overall description
 # Turns the checked inputs, given per market interval, into the
-# working table the simulation functions run on: one row per internal
+# piece the simulation functions run on: the table of the system and
+# one table per asset of the call, each with one row per internal
 # time step (main_resolution_sec), from i0 to i_end_horizon, both
 # included. Every function of the market process reads and writes
-# this table.
+# this piece.
 # -------------------------------------------------------------
 # Rows and market intervals
-# A row holds the state of the building at its instant and the energy
+# A row holds the state of the assets at its instant and the energy
 # of the time step that ends at that instant. Each row is therefore
 # assigned (column MarketUTC) to the market interval that contains its
 # time step, i.e. the interval of the instant one step earlier. With
@@ -23,50 +24,56 @@
 # part of the input. Interval values are copied onto it from the first
 # interval, and its energies are 0.
 # -------------------------------------------------------------
-# How each input is spread over the rows
+# The piece
+# A list with:
+#   - system : the table of the system, with time, MarketUTC, the
+#     weather, the activation probability of each leg, the net
+#     electricity of the system in each itinerary, the flexibility
+#     committed on the plan and the phases of the flexibility
+#     windows.
+#   - assets : one entry per asset of the call, in the order of the
+#     asset registry, each with df, the table of the asset. Its
+#     columns are those of its type of model: the operation
+#     spread_input of the model writes them from the block of the
+#     asset, and the operation prepare_period completes them for the
+#     period.
+# -------------------------------------------------------------
+# How each input of the system is spread over the rows
 #   - Text, SolarR     : linear interpolation between interval starts,
 #                        held constant past the last one. The input
-#                        already is the forecast, so the simulation
-#                        reads these columns directly.
+#                        already is the forecast, so the same values
+#                        go to the columns of the weather and to those
+#                        of its forecast (Text_forec, SolarR_forec),
+#                        which the simulation of the plan reads.
 #   - T_ext_24h        : the single value of the call, on every row.
-#   - Occupancy        : the value of the row's interval.
-#   - New-commitment flexibility prices (Flex_unit_cost_down_com_sell,
-#     Flex_unit_cost_up_com_sell): the value of the row's interval.
-#                        They are the only prices read row by row, to
-#                        decide where a flexibility window may start.
-#                        Every other price is read per interval from
-#                        the context built by resolve_marginal_context().
-#   - Setpoints        : the value of the row's interval, per itinerary.
-#   - Elec_total and the commitments Elec_flex_down/Elec_flex_up: the
-#                        interval energy divided evenly between the
-#                        steps of the interval.
-#   - Ti, Te           : the value given at each interval start, on the
-#                        row of that instant.
-# The remaining simulation columns start at 0.
+#                        It is known when the market clears, so the
+#                        same value goes to T_ext_24h_forec, which the
+#                        simulation of the plan reads.
+#   - Flex_Probab_down, Flex_Probab_up: the activation probability of
+#                        the interval of the row, on every row. The
+#                        reward reads it on the first row, which has no
+#                        interval of the market.
+#   - Elec_total of each itinerary and the commitments
+#     Elec_flex_down/Elec_flex_up: the interval energy divided
+#                        evenly between the steps of the interval.
+# The phases of the flexibility windows start at 0.
 # -------------------------------------------------------------
 # Inputs
 #   checked    : Named list, as returned by validate_inputs().
-#   parameters : Named list. Uses computing$main_resolution_sec and
-#                market$market_resolution.
+#   parameters : Named list. Uses computing$main_resolution_sec,
+#                market$market_resolution and assets, whose
+#                asset_type selects the operations of each asset.
 # -------------------------------------------------------------
 # Outputs
-#   Data frame, the working table (period_chunk), one row per step.
+#   List, the piece, with system and assets as described above.
 # -------------------------------------------------------------
 # Code outline
 # 1. Time grid and interval of every row
-# 2. Context columns
-# 3. Price columns
-# 4. Itinerary columns
-# 5. Remaining simulation columns
+# 2. Table of the system
+# 3. Table of each asset
 # -------------------------------------------------------------
 # Usage instructions
-# period_chunk <- expand_to_steps(checked, parameters)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - optimize_market(): builds the working table of the call.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
+# piece <- expand_to_steps(checked, parameters)
 # -------------------------------------------------------------
 
 expand_to_steps <- function(checked,
@@ -75,11 +82,13 @@ expand_to_steps <- function(checked,
 
   # -------------------------------------------------------------
   # 1. Time grid and interval of every row
+  # grid is the time grid the operation spread_input of each type of
+  # model receives: time, slot_of_row, row_at_slot_start and
+  # steps_per_slot.
   # -------------------------------------------------------------
   {
     step_sec       <- parameters$computing$main_resolution_sec
     resolution_sec <- parameters$market$market_resolution * 60
-    steps_per_slot <- resolution_sec / step_sec
 
     time <- seq(from = checked$market$i0,
                 to   = checked$market$i_end_horizon,
@@ -96,107 +105,112 @@ expand_to_steps <- function(checked,
     slot_of_row <- match(as.numeric(market_utc), as.numeric(checked$slot_time))
     slot_of_row[1] <- 1L
 
-    period_chunk <- data.frame(
+    grid <- list(
+      time              = time,
+      slot_of_row       = slot_of_row,
+      row_at_slot_start = match(as.numeric(checked$slot_time),
+                                as.numeric(time)),
+      steps_per_slot    = resolution_sec / step_sec
+    )
+
+    rm(list = c("resolution_sec", "step_sec", "slot_of_row"))
+  }
+
+  # -------------------------------------------------------------
+  # 2. Table of the system
+  # -------------------------------------------------------------
+  {
+    system_df <- data.frame(
       time      = time,
       MarketUTC = market_utc
     )
 
-    rm(market_utc, resolution_sec)
-  }
-
-  # -------------------------------------------------------------
-  # 2. Context columns
-  # -------------------------------------------------------------
-  {
+    # Text and SolarR are the weather of the call, and the forecast
+    # of the plan is the same weather.
     for (CONT_001 in c("Text", "SolarR")) {
-      period_chunk[[CONT_001]] <- approx(
+      weather <- approx(
         x    = as.numeric(checked$slot_time),
         y    = checked$context[[CONT_001]],
         xout = as.numeric(time),
         rule = 2
       )$y
+      system_df[[CONT_001]]                     <- weather
+      system_df[[paste0(CONT_001, "_forec")]]   <- weather
     }
 
-    period_chunk$T_ext_24h <- checked$market$T_ext_24h
-    period_chunk$Occupancy <- as.integer(checked$context$Occupancy[slot_of_row])
+    # T_ext_24h is the mean Text of the day before the clearing date,
+    # known when the market clears, and the plan reads it as
+    # T_ext_24h_forec.
+    system_df$T_ext_24h       <- checked$market$T_ext_24h
+    system_df$T_ext_24h_forec <- checked$market$T_ext_24h
 
-    rm(CONT_001)
+    for (CONT_007 in c("Flex_Probab_down", "Flex_Probab_up")) {
+      system_df[[CONT_007]] <- checked$prices[[CONT_007]][grid$slot_of_row]
+    }
+
+    for (CONT_002 in names(checked$system$itineraries)) {
+      # spread_slot_energy is called to divide the net energy of the
+      # system of each interval evenly between its internal steps.
+      system_df[[paste0("Elec_total_", CONT_002)]] <- spread_slot_energy(
+        slot_energy = checked$system$itineraries[[CONT_002]]$Elec_total,
+        grid        = grid
+      )
+    }
+
+    for (CONT_003 in c("Elec_flex_down", "Elec_flex_up")) {
+      # spread_slot_energy is called to divide the commitment of each
+      # interval evenly between its internal steps.
+      system_df[[paste0(CONT_003, "_plan")]] <- spread_slot_energy(
+        slot_energy = checked$system$itineraries$plan[[CONT_003]],
+        grid        = grid
+      )
+    }
+
+    system_df$Flex_phase_down_plan <- 0
+    system_df$Flex_phase_up_plan   <- 0
+
+    rm(list = c("CONT_001", "CONT_002", "CONT_003", "CONT_007", "weather",
+                "market_utc"))
   }
 
   # -------------------------------------------------------------
-  # 3. Price columns
-  # -------------------------------------------------------------
-  # Only the new-commitment flexibility prices are read from the
-  # working table: they decide where a flexibility window may start.
+  # 3. Table of each asset
+  # Each type of model writes the table of its assets from their
+  # blocks of the input, and prepares it for the period.
   # -------------------------------------------------------------
   {
-    for (CONT_002 in c("Flex_unit_cost_down_com_sell", "Flex_unit_cost_up_com_sell")) {
-      period_chunk[[CONT_002]] <- checked$prices[[CONT_002]][slot_of_row]
+    asset_tables <- list()
+    for (CONT_004 in names(checked$assets)) {
+      asset <- parameters$assets[[CONT_004]]
+
+      # model_type_contract is called to take the operations of the
+      # type of model of the asset.
+      model <- model_type_contract(asset$asset_type)
+
+      # The operation spread_input of the model is called to turn the
+      # block of the asset in the input into its table on the internal
+      # time steps.
+      asset_df <- model$spread_input(
+        asset_input = checked$assets[[CONT_004]],
+        grid        = grid,
+        asset       = asset
+      )
+
+      # The operation prepare_period of the model is called to add the
+      # columns the asset needs over this period, such as the comfort
+      # bands of a building.
+      asset_df <- model$prepare_period(
+        asset_df = asset_df,
+        asset    = asset
+      )
+
+      asset_tables[[CONT_004]] <- list(df = asset_df)
+      rm(list = c("asset", "model", "asset_df"))
     }
-    rm(CONT_002)
+    rm(list = "CONT_004")
   }
 
-  # -------------------------------------------------------------
-  # 4. Itinerary columns
-  # -------------------------------------------------------------
-  # The three itineraries are spread the same way. The process rebuilds
-  # both flexibility itineraries from the plan, so their values only set
-  # the starting point.
-  # -------------------------------------------------------------
-  {
-    setpoint_columns <- c("STP_heat", "STP_heat_low", "STP_heat_high",
-                          "STP_cool", "STP_cool_low", "STP_cool_high")
-    row_at_slot_start <- match(as.numeric(checked$slot_time), as.numeric(time))
+  rm(list = c("time", "grid"))
 
-    spread_energy <- function(slot_energy) {
-      row_energy    <- slot_energy[slot_of_row] / steps_per_slot
-      row_energy[1] <- 0
-      return(row_energy)
-    }
-
-    for (CONT_003 in c("plan", "plan_flex_down", "plan_flex_up")) {
-      itinerary <- checked$itineraries[[CONT_003]]
-
-      for (CONT_004 in setpoint_columns) {
-        period_chunk[[paste0(CONT_004, "_", CONT_003)]] <- itinerary[[CONT_004]][slot_of_row]
-      }
-
-      for (CONT_005 in c("Ti", "Te")) {
-        state <- rep(NA_real_, nrow(period_chunk))
-        state[row_at_slot_start] <- itinerary[[CONT_005]]
-        period_chunk[[paste0(CONT_005, "_", CONT_003)]] <- state
-      }
-
-      period_chunk[[paste0("Elec_total_", CONT_003)]] <- spread_energy(itinerary$Elec_total)
-    }
-
-    period_chunk$Elec_flex_down_plan <- spread_energy(checked$itineraries$plan$Elec_flex_down)
-    period_chunk$Elec_flex_up_plan   <- spread_energy(checked$itineraries$plan$Elec_flex_up)
-
-    rm(CONT_003, CONT_004, CONT_005, itinerary, state, setpoint_columns,
-       row_at_slot_start, spread_energy)
-  }
-
-  # -------------------------------------------------------------
-  # 5. Remaining simulation columns
-  # -------------------------------------------------------------
-  {
-    for (CONT_006 in c("plan", "plan_flex_down", "plan_flex_up")) {
-      for (CONT_007 in c("Act_heat", "Act_cool")) {
-        period_chunk[[paste0(CONT_007, "_", CONT_006)]] <- 0L
-      }
-      for (CONT_008 in c("Q_heat", "Q_cool", "Elec_heat", "Elec_cool", "Comfort")) {
-        period_chunk[[paste0(CONT_008, "_", CONT_006)]] <- 0
-      }
-    }
-
-    period_chunk$Flex_phase_down_plan <- 0
-    period_chunk$Flex_phase_up_plan   <- 0
-
-    rm(CONT_006, CONT_007, CONT_008)
-  }
-
-  rm(time, slot_of_row, step_sec, steps_per_slot)
-
-  return(period_chunk)
+  return(list(system = system_df, assets = asset_tables))
 }

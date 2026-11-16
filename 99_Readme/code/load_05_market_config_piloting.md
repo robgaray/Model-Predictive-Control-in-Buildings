@@ -4,11 +4,11 @@
 
 ## Function
 
-Loads the piloting market configuration table from 05_Market_config_piloting.csv, validates required columns and non-empty content, and stores the data frame in parameters$market_config_piloting. Sourced from 02_load_all_parameters.R.
+Loads the piloting market configuration table from 05_Market_config_piloting.csv, validates required columns and non-empty content, and stores the data frame in parameters$market_config_piloting. Sourced from load_all_parameters().
 
 ## Called by
 
-- [02_load_all_parameters.R](02_load_all_parameters.md)
+- [load_configuration_files.R](load_configuration_files.md)
 
 ## What it calls, in order of appearance
 
@@ -16,7 +16,7 @@ Loads the piloting market configuration table from 05_Market_config_piloting.csv
 
 ## Input data
 
-- paths$market_config_piloting_file : path of 05_Market_config_piloting.csv, resolved by 01_initialization.R.
+- paths$market_config_piloting_file : path of 05_Market_config_piloting.csv, resolved by initialize_simulator().
 - parameters : the list being assembled, to which this script adds one sub-list.
 
 ## Output data
@@ -33,7 +33,7 @@ Loads the piloting market configuration table from 05_Market_config_piloting.csv
 
 ### Usage instructions
 
-Not called: sourced by 02_load_all_parameters.R, which supplies paths and parameters and takes the updated parameters back.
+Not called: sourced by load_all_parameters(), which supplies paths and parameters and takes the updated parameters back.
 
 ## Diagram
 

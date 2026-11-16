@@ -1,0 +1,15 @@
+# GUI_reward_asset_parameters.csv
+# Configuration file: asset parameters shown in the reward tab
+# -------------------------------------------------------------
+# The parameters of an asset file that the GUI shows in the Reward
+# Function tab instead of in the tab of the asset. Each row names
+# the type of model of the assets, the key of the file in
+# 04_File_paths.csv and the parameter. The Reward Function tab has
+# one input for each asset of the type, labelled with the id of the
+# asset, and the value is saved in the file of that asset. The tab
+# of the asset does not show the parameter. They are not simulation
+# parameters: the simulation never reads this file.
+# -------------------------------------------------------------
+asset_type,file_key,parameter
+-,-,-
+Building,comfort_file,alpha_comfort

@@ -11,11 +11,12 @@
 # independently rolls P_advance/P_delay (tie-broken by an extra random
 # number if both roll), and - if a direction is chosen - shifts the
 # event by a market_resolution-aligned Delta and checks whether the
-# shifted event still fits entirely within the horizon once every
-# *other* Scheduling event's forbidden zone has been removed. Does not
-# resample the shifted position: either the single deterministic shift
-# fits, or it does not (no second attempt within this call - a later
-# market may offer the event another echo, until the first success).
+# shifted event still fits entirely within the horizon, once the
+# forbidden zone of every *other* Scheduling event is taken out of it.
+# Does not resample the shifted position: either the single
+# deterministic shift fits, or it does not (no second attempt within
+# this call - a later market may offer the event another echo, until
+# the first success).
 # -------------------------------------------------------------
 # Inputs
 # event                  : List with t_start_sec, duration_sec (the
@@ -52,12 +53,6 @@
 # 2. Draw a shift in that direction, bounded by the maximum.
 # 3. Return the shifted event only if it still fits the horizon and
 #    keeps its margin from every other event.
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by generate_flexibility_events.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   compute_available_segments()
 # -------------------------------------------------------------
 
 try_flex_echo <- function(event, horizon_begin, horizon_end, other_events,

@@ -34,13 +34,6 @@
 # energy_in <- sum_by_slot(pmax(Main_df$Elec_total_exec, 0),
 #                          slot_group, slot_targets)
 # -------------------------------------------------------------
-# Where this function/script is used
-# 15_economic_analysis_finalize.R, for every per-slot total of the
-# execution phase.
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
-# -------------------------------------------------------------
 
 sum_by_slot <- function(values,
                         slot_group,

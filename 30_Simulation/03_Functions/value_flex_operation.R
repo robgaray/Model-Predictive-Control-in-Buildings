@@ -34,9 +34,11 @@
 #                 target slots: Elec_flex_down_plan for the down leg,
 #                 -Elec_flex_up_plan for the up leg.
 # The four prices below are numeric vectors, same length as E_orig:
-# the effective price (commitment + execution, weighted by activation
-# probability) of selling/buying back the down/up leg in each target
-# slot.
+# the price of selling/buying back the down/up leg in each target
+# slot, as the caller values it. settle_market() settles
+# at the commitment price; reward_function() values the commitment
+# term at the commitment price and the execution term at the
+# execution price times the activation probability.
 #   - price_down_sell
 #   - price_down_buy
 #   - price_up_sell
@@ -57,15 +59,8 @@
 # 3. Net cash flow
 # -------------------------------------------------------------
 # Usage instructions
-# op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy, price_up_sell, price_up_buy)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by integrate_market_process.R (post-hoc accounting, both
-# Scheduling and Piloting) and by compute_marginal_flex_revenue()
-# (marginal costing for the GA, via reward_function.R).
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
+# op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy,
+# price_up_sell, price_up_buy)
 # -------------------------------------------------------------
 
 value_flex_operation <- function(E_orig, E_new,
@@ -94,7 +89,7 @@ value_flex_operation <- function(E_orig, E_new,
                down_bought * price_down_buy - up_bought * price_up_buy
   }
 
-  rm(orig_down, new_down, orig_up, new_up)
+  rm(list = c("orig_down", "new_down", "orig_up", "new_up"))
 
   return(list(
     down_sold   = down_sold,

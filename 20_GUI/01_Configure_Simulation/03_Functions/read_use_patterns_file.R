@@ -7,7 +7,8 @@
 # Overall description
 # Reads 14_Use_Patterns.csv, which holds two tables in one file:
 # the hourly profiles (TYPE) and the monthly mapping of weekdays
-# to profiles (MONTH). Each table's units row is dropped.
+# to profiles (MONTH). Each table's units row, the first row under
+# its header, is dropped.
 # It reads config_path, the configuration folder GUI_config.R
 # resolves at start.
 # -------------------------------------------------------------
@@ -28,12 +29,6 @@
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   read_use_patterns_file(filename)
-# -------------------------------------------------------------
-# Where this function/script is used
-# load_occupancy_file_safe()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
 # -------------------------------------------------------------
 
 read_use_patterns_file <- function(filename) {
@@ -68,14 +63,22 @@ read_use_patterns_file <- function(filename) {
     strip.white      = TRUE
   )
 
-  if (nrow(day_types) > 0 &&
-      tolower(trimws(as.character(day_types$TYPE[1]))) == "text") {
+  # The units row is the first row under each header. In the TYPE
+  # table, is_units_row is called on its hour columns, which hold
+  # numbers in a data row. In the MONTH table a data row names day
+  # types, so the units row is the one that names something else.
+  hour_cols <- intersect(sprintf("H%02d", 1:24), names(day_types))
+  day_cols  <- intersect(sprintf("D%02d", 1:7), names(month_profiles))
+  if (nrow(day_types) > 0 && length(hour_cols) > 0 &&
+      is_units_row(day_types[1, hour_cols])) {
     day_types <- day_types[-1, , drop = FALSE]
   }
-  if (nrow(month_profiles) > 0 &&
-      tolower(trimws(as.character(month_profiles$MONTH[1]))) == "text") {
+  if (nrow(month_profiles) > 0 && length(day_cols) > 0 &&
+      !all(trimws(unlist(month_profiles[1, day_cols])) %in%
+             trimws(day_types$TYPE))) {
     month_profiles <- month_profiles[-1, , drop = FALSE]
   }
+  rm(hour_cols, day_cols)
 
   list(day_types = day_types, month_profiles = month_profiles)
 }

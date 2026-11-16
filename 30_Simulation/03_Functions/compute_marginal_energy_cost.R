@@ -9,10 +9,10 @@
 # period_calculation() output) at its marginal (differential) cost
 # relative to a fixed baseline, per target market interval, using the
 # same calc_differential_cost() already used for post-hoc market
-# accounting in integrate_market_process()/propagate_differential_cost().
+# accounting in settle_market()/propagate_differential_cost().
 # The candidate's per-timestep energy is first aggregated (SUM) per
-# market interval, exactly as integrate_market_process() aggregates
-# E_new_*_by_market, and explicitly aligned to the target-interval key
+# market interval, exactly as settle_market() aggregates
+# E_by_market$new, and explicitly aligned to the target-interval key
 # (market_utc) rather than relying on any implicit ordering, since the
 # candidate's own MarketUTC vector may not list intervals in the same
 # order every time this is called (it is called once per GA candidate
@@ -23,23 +23,27 @@
 #                       candidate being evaluated (e.g. Elec_total_plan,
 #                       Elec_total_plan_flex_down or Elec_flex_down_plan of a
 #                       period_chunk), one value per fine timestep.
-# MarketUTC_candidate  : POSIXct vector, same length as E_candidate.
-#                       Market interval of each fine timestep.
-# market_utc          : POSIXct vector. Target market intervals, in
-#                       the order matching every *_by_market argument
-#                       below (as returned by resolve_marginal_context()).
-# E_orig_by_market    : Numeric vector, same length/order as market_utc.
+# slot_index          : Factor, same length as E_candidate.
+#                       Target market interval of each fine
+#                       timestep, as returned by
+#                       market_slot_index(); its levels follow
+#                       the order of every *_by_market argument
+#                       below.
+# E_orig_by_market    : Numeric vector, same length/order as
+#                       the levels of slot_index.
 #                       Baseline commitment per target interval, before
 #                       this market's optimization.
 # P_import_buy_by_market, P_import_sell_by_market,
 # P_export_buy_by_market, P_export_sell_by_market :
-#                       Numeric vectors, same length/order as market_utc.
+#                       Numeric vectors, same length/order as
+#                       the levels of slot_index.
 #                       Current-market prices per target interval, passed
 #                       straight through to calc_differential_cost() (see
 #                       that function's header for their meaning). A
 #                       flexibility caller maps its own up/down prices
 #                       into these same four slots.
-# discount_by_market  : Numeric vector, same length/order as market_utc.
+# discount_by_market  : Numeric vector, same length/order as
+#                       the levels of slot_index.
 #                       Revenue discount factor of each target interval,
 #                       as returned by revenue_discount_factor(). It
 #                       weighs down the intervals whose cash flow is an
@@ -57,24 +61,13 @@
 # 2. Differential cost per interval, discounted, and total
 # -------------------------------------------------------------
 # Usage instructions
-# cost <- compute_marginal_energy_cost(E_candidate, MarketUTC_candidate, market_utc, E_orig_by_market, P_import_buy_by_market, P_import_sell_by_market, P_export_buy_by_market, P_export_sell_by_market, discount_by_market)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by reward_function.R for the base-energy term (always) and,
-# when optimization_aim is "flexibility" (Scheduling) or
-# "operationflex" (Piloting) with an active flexibility event, for the
-# explicit flexibility revenue term.
-# -------------------------------------------------------------
-# functions/scripts called
-# market_slot_index() - which target slot each timestep belongs to
-# aggregate_by_market_slot() - adds the candidate up on that index
-# calc_differential_cost()
-# apply_revenue_discount() - discounts the income of each interval
+# cost <- compute_marginal_energy_cost(E_candidate, slot_index,
+# E_orig_by_market, P_import_buy_by_market, P_import_sell_by_market,
+# P_export_buy_by_market, P_export_sell_by_market, discount_by_market)
 # -------------------------------------------------------------
 
 compute_marginal_energy_cost <- function(E_candidate,
-                                         MarketUTC_candidate,
-                                         market_utc,
+                                         slot_index,
                                          E_orig_by_market,
                                          P_import_buy_by_market,
                                          P_import_sell_by_market,
@@ -84,19 +77,18 @@ compute_marginal_energy_cost <- function(E_candidate,
 
   # 1. Aggregate the candidate's energy per target market interval
   # -------------------------------------------------------------
-  # Explicitly aligned to market_utc (not assumed order), since this
-  # runs once per GA candidate.
+  # Explicitly aligned to the target intervals (not assumed
+  # order), since this runs once per GA candidate.
   # -------------------------------------------------------------
   {
-    # market_slot_index is called to say which target slot each timestep
-    # of the candidate belongs to, and aggregate_by_market_slot to add
-    # the candidate up on that index. Together they replace a walk that
-    # masked the candidate once per slot, comparing two POSIXct vectors
-    # on every step; the totals are the same bit for bit, and the
-    # ordering of the sums is what guarantees it.
+    # aggregate_by_market_slot is called to add the candidate up on
+    # slot_index, the target interval of each timestep, which the
+    # caller resolves once with market_slot_index(). The order of the
+    # sums is fixed by the index, so the totals do not depend on how
+    # the rows are laid out.
     E_new_by_market <- aggregate_by_market_slot(
       values     = E_candidate,
-      slot_index = market_slot_index(MarketUTC_candidate, market_utc)
+      slot_index = slot_index
     )
   }
 
@@ -120,12 +112,12 @@ compute_marginal_energy_cost <- function(E_candidate,
     # differential cash flow is an income counts for less the further
     # away it is from the decision instant, while an expense keeps its
     # full weight. This is a decision-time weighting only: the same
-    # move is settled undiscounted by integrate_market_process().
+    # move is settled undiscounted by settle_market().
     total_cost <- sum(apply_revenue_discount(cost_by_market, discount_by_market))
-    rm(cost_by_market)
+    rm(list = "cost_by_market")
   }
 
-  rm(E_new_by_market)
+  rm(list = "E_new_by_market")
 
   return(total_cost)
 }

@@ -6,11 +6,11 @@
 
 Takes, for each market slot of the economic analysis, the value of a Main_df column on the first row of that slot.
 
-Prices are a property of the market slot, not of the timestep, so the slot's own price is taken from its first row rather than aggregated - the same rule integrate_market_process.R uses to read Flex_Probab_down / Flex_Probab_up for a target interval. A slot with no Main_df row comes back as 0.
+Prices are a property of the market slot, not of the timestep, so the slot's own price is taken from its first row rather than aggregated. A slot with no Main_df row comes back as 0.
 
 ## Called by
 
-- [15_economic_analysis_finalize.R](15_economic_analysis_finalize.md)
+- [finalize.R](finalize.md)
 
 ## What it calls, in order of appearance
 

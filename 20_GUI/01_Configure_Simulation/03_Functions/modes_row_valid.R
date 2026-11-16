@@ -27,12 +27,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   modes_row_valid(mode_val, heating_val, cooling_val)
 # -------------------------------------------------------------
-# Where this function/script is used
-# load_modes_file_safe()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 modes_row_valid <- function(mode_val, heating_val, cooling_val) {
   !is.na(suppressWarnings(as.numeric(mode_val))) &&

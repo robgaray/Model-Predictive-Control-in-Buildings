@@ -6,11 +6,11 @@
 # -------------------------------------------------------------
 # Overall description
 # Writes a table configuration file (modes or markets) from the rows
-# the user edited. The file keeps its own comment header and its
-# units row (the "text,..." line under the column names); the rows
-# below them are replaced.
-# When the file does not exist, the given header and the units row of
-# its Default_ file are used.
+# the user edited. The lines are built by build_table_lines(): the
+# file keeps its own comment header and its units row (the
+# "text,..." line under the column names); the rows below them are
+# replaced. When the file does not exist, the given header and the
+# units row of its Default_ file are used.
 # It writes into config_path, the configuration folder GUI_config.R
 # resolves at start.
 # -------------------------------------------------------------
@@ -25,65 +25,39 @@
 #   None; the file is written.
 # -------------------------------------------------------------
 # Code outline
-# 1. Take the comment header and the units row from the existing
-#    file, or from the header given and the Default_ file.
-# 2. Write the header, the column names, the units row and the rows.
+# 1. Read the lines of the existing file, when there is one.
+# 2. Build the new lines and write them.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   write_table_file(filename, header, df)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# default_file_for()
-# -------------------------------------------------------------
+
 write_table_file <- function(filename, header, df) {
 
   path <- file.path(config_path, filename)
 
   # -------------------------------------------------------------
-  # 1. Take the comment header and the units row from the existing
-  # file, or from the header given and the Default_ file
+  # 1. Read the lines of the existing file, when there is one
   # -------------------------------------------------------------
   {
-    units_row_of <- function(lines) {
-      data_lines <- lines[!grepl("^\\s*#", lines) & nzchar(trimws(lines))]
-      if (length(data_lines) >= 2 && grepl("^\\s*text\\s*,", data_lines[2], ignore.case = TRUE)) {
-        return(data_lines[2])
-      }
-      return(NULL)
-    }
-
-    source_lines <- if (file.exists(path)) readLines(path, warn = FALSE) else character(0)
-    top_comments <- if (length(source_lines) > 0) {
-      first_data <- which(!grepl("^\\s*#", source_lines) & nzchar(trimws(source_lines)))[1]
-      if (is.na(first_data)) source_lines else source_lines[seq_len(first_data - 1)]
-    } else {
-      header
-    }
-    units_row <- units_row_of(source_lines)
-    if (is.null(units_row)) {
-      default_path <- file.path(config_path, default_file_for(filename))
-      if (file.exists(default_path)) {
-        units_row <- units_row_of(readLines(default_path, warn = FALSE))
-      }
-    }
+    source_lines <- if (file.exists(path)) readLines(path, warn = FALSE) else NULL
   }
 
   # -------------------------------------------------------------
-  # 2. Write the header, the column names, the units row and the rows
+  # 2. Build the new lines and write them
   # -------------------------------------------------------------
   {
-    con <- file(path, open = "wt")
-    on.exit(close(con), add = TRUE)
-    writeLines(top_comments, con)
-    writeLines(paste(names(df), collapse = ","), con)
-    if (!is.null(units_row)) {
-      writeLines(units_row, con)
-    }
-    write.table(df, con, sep = ",", row.names = FALSE, col.names = FALSE, quote = FALSE)
+    # build_table_lines is called to keep the comment header and the
+    # units row of the file and replace its rows.
+    new_lines <- build_table_lines(
+      filename = filename,
+      header   = header,
+      df       = df,
+      lines    = source_lines
+    )
+    writeLines(new_lines, path)
+    rm(source_lines, new_lines)
   }
 }

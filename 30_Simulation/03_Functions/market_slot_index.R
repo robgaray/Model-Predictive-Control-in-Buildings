@@ -32,14 +32,6 @@
 # Usage instructions
 # slot_index <- market_slot_index(period_chunk$MarketUTC, market_utc)
 # -------------------------------------------------------------
-# Where this function/script is used
-# 30_Simulation/03_Functions/compute_marginal_energy_cost.R
-# 30_Simulation/03_Functions/compute_marginal_distribution_cost.R
-# 30_Simulation/03_Functions/compute_marginal_flex_revenue.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
-# -------------------------------------------------------------
 
 market_slot_index <- function(candidate_market_utc, market_utc) {
 

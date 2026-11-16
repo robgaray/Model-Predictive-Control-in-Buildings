@@ -15,7 +15,7 @@
 # purchase. Explicit flexibility is different: it is a service the
 # building SELLS to the grid, in two independent, always non-negative
 # legs - down-flexibility (Elec_flex_down_plan > 0, a promise to reduce
-# load) and up-flexibility (Elec_flex_up_plan > 0, a promise to increase
+# load) and up-flexibility (Elec_flex_down_plan < 0, a promise to increase
 # it). Growing either leg is a SALE (income), and shrinking it is a
 # BUY BACK (expense) - the opposite polarity of calc_differential_cost()'s
 # "growing the positive leg = a purchase" convention. Passing E_orig/
@@ -35,8 +35,10 @@
 #                 -Elec_flex_up_plan for the up leg.
 # The four prices below are numeric vectors, same length as E_orig:
 # the price of selling/buying back the down/up leg in each target
-# slot. The callers pass the commitment prices, or the execution
-# prices weighted by the activation probability of each leg.
+# slot, as the caller values it. compute_market_operations() settles
+# at the commitment price; reward_function() values the commitment
+# term at the commitment price and the execution term at the
+# execution price times the activation probability.
 #   - price_down_sell
 #   - price_down_buy
 #   - price_up_sell
@@ -57,14 +59,8 @@
 # 3. Net cash flow
 # -------------------------------------------------------------
 # Usage instructions
-# op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy, price_up_sell, price_up_buy)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - compute_marginal_flex_revenue()
-#   - compute_market_operations()
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
+# op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy,
+# price_up_sell, price_up_buy)
 # -------------------------------------------------------------
 
 value_flex_operation <- function(E_orig, E_new,
@@ -93,7 +89,7 @@ value_flex_operation <- function(E_orig, E_new,
                down_bought * price_down_buy - up_bought * price_up_buy
   }
 
-  rm(orig_down, new_down, orig_up, new_up)
+  rm(list = c("orig_down", "new_down", "orig_up", "new_up"))
 
   return(list(
     down_sold   = down_sold,

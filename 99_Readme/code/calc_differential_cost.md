@@ -10,8 +10,8 @@ Values the differential cash flow, from the building's own point of view, of mov
 
 - [compute_marginal_energy_cost.R](compute_marginal_energy_cost.md)
 - [compute_recovery_energy_cost.R](compute_recovery_energy_cost.md)
-- [implement_control_step.R](implement_control_step.md)
 - [propagate_differential_cost.R](propagate_differential_cost.md)
+- [settle_execution.R](settle_execution.md)
 
 ## What it calls, in order of appearance
 
@@ -54,7 +54,8 @@ This function aggregates those four into the single signed number:
 ### Usage instructions
 
 ```r
-net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell)
+net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy,
+  P_import_sell, P_export_buy, P_export_sell)
 ```
 
 ## Diagram

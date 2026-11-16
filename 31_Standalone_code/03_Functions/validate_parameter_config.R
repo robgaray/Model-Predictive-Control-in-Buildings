@@ -5,22 +5,37 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Validates a named list of parameter values against the rules
-# defined in Parameter_config.csv for a given file name.
-# For each matching rule the function checks:
-#   - Integer : value is numeric, whole number, and within [min, max]
-#   - Real    : value is numeric and within [min, max] (when options set)
+# Validates a named list of parameter values against the rules of
+# the parameter catalogue (Parameter_catalogue.csv) for a given file
+# name. It validates the configuration files, and the scalars of the
+# market block of an input, whose rules the catalogue files under
+# market. For each matching rule the function checks:
+#   - Integer : value is numeric, a whole number within the integer
+#               tolerance, and within [min, max]
+#   - Real    : value is numeric and within [min, max]
 #   - Options : as.character(value) is one of the allowed options
 #   - Text    : no additional constraint beyond existence
+# An empty min or max means no bound on that side.
+# A parameter that is missing stops the run (or warns, as the rule
+# says): the value is never filled in silently, because the
+# standalone script has no default values.
 # Validation failures trigger stop() for output == "Error" or
 # warning() for output == "Warning".
+# Three things stop the run whatever the output of the rules, because
+# they mean the file and its rules do not match:
+#   - a file with no rule at all;
+#   - a parameter of the file that no rule describes, usually a name
+#     written wrong or left over. The message names the closest rule;
+#   - a rule whose type is none of the four above.
 # -------------------------------------------------------------
 # Arguments
 #   values            Named list. parameter_name -> raw value (character
 #                     or numeric) as read from the CSV file.
 #   file_name         Character. Base name of the config file
 #                     (e.g. "11_Model_parameters.csv").
-#   validation_config Data frame. Content of Parameter_config.csv.
+#   validation_config Named list, as load_parameter_catalogue()
+#                     returns it: the rules of the catalogue and the
+#                     integer tolerance.
 # -------------------------------------------------------------
 # Returns
 #   invisible(TRUE) on success; stops on first Error-class failure.
@@ -28,9 +43,10 @@
 # Inputs
 #   values : the named list of values read from a configuration
 #     file.
-#   file_name : the name the validation table files its rules
-#     under, e.g. "02_Control.csv".
-#   validation_config : Parameter_config.csv, already read.
+#   file_name : the name the catalogue files its rules
+#     under, e.g. "09_Reward_parameters.csv".
+#   validation_config : the parameter catalogue, already read by
+#     load_parameter_catalogue().
 # -------------------------------------------------------------
 # Outputs
 #   TRUE, invisibly, when every rule passes. Otherwise it stops,
@@ -40,38 +56,51 @@
 #       - its value
 # -------------------------------------------------------------
 # Code outline
-# 1. Keep the rules filed under this file name, and return at once
-#    when there are none.
+# 1. Keep the rules filed under this file name. Stop when there are
+#    none, or when the file holds a parameter no rule describes.
 # 2. Check each rule against its one value: the type, the range
 #    and, for an options rule, the allowed set.
 # 3. Stop on the first breach, or warn, as the rule's output says.
 # -------------------------------------------------------------
 # Usage instructions
-#   validate_parameter_config(values, "02_Control.csv",
+#   validate_parameter_config(values, "09_Reward_parameters.csv",
 #                             validation_config)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - read_and_validate_parameter_csv()
-#   - validate_inputs()
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
 # -------------------------------------------------------------
 
 validate_parameter_config <- function(values, file_name, validation_config) {
 
-  rules <- validation_config[trimws(as.character(validation_config$file_name)) == file_name, ]
+  rules <- validation_config$rules[validation_config$rules$file == file_name, ]
 
   if (nrow(rules) == 0) {
-    return(invisible(TRUE))
+    stop("No rule describes the parameters of ", file_name, ". Every ",
+         "parameter of a configuration file needs one rule in the ",
+         "parameter catalogue.")
   }
+
+  # A parameter the file holds and no rule describes is reported with
+  # the rule name closest to it, which is usually the one meant.
+  rule_names <- rules$parameter
+  unknown    <- setdiff(names(values), rule_names)
+  if (length(unknown) > 0) {
+    closest <- vapply(unknown, function(one_name) {
+      rule_names[which.min(adist(one_name, rule_names))]
+    }, character(1))
+    stop("Parameter not described by any rule of ", file_name, ": ",
+         paste0("'", unknown, "' (closest rule: '", closest, "')",
+                collapse = ", "))
+  }
+  rm(list = c("rule_names", "unknown"))
 
   for (CONT_001 in seq_len(nrow(rules))) {
 
-    param_name  <- trimws(as.character(rules$parameter_name[CONT_001]))
-    type        <- trimws(as.character(rules$type[CONT_001]))
-    output      <- trimws(as.character(rules$output[CONT_001]))
-    options_str <- trimws(as.character(rules$options[CONT_001]))
+    param_name  <- rules$parameter[CONT_001]
+    type        <- rules$type[CONT_001]
+    output      <- rules$output[CONT_001]
+    options_str <- rules$options[CONT_001]
+    # An empty end of the range means no bound on that side.
+    range_vals  <- suppressWarnings(as.numeric(c(rules$min[CONT_001],
+                                                 rules$max[CONT_001])))
+    range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
 
     value <- values[[param_name]]
 
@@ -91,26 +120,17 @@ validate_parameter_config <- function(values, file_name, validation_config) {
                       file_name, ". Got: '", value_char, "'")
         if (output == "Error") stop(msg) else warning(msg)
       } else {
-        if (abs(value_num - round(value_num)) > 1e-9) {
+        if (abs(value_num - round(value_num)) >
+            validation_config$integer_tolerance) {
           msg <- paste0("Parameter '", param_name, "' = ", value_num,
                         " must be an integer in ", file_name)
           if (output == "Error") stop(msg) else warning(msg)
         }
-        if (!is.na(options_str) && nzchar(options_str)) {
-          # An empty side of the range ("0," or ",5") means no bound on that
-          # side. strsplit() drops a trailing empty field, so the two sides are
-          # completed before they are read.
-          range_vals <- suppressWarnings(as.numeric(trimws(
-            c(strsplit(options_str, ",")[[1]], "")[1:2]
-          )))
-          range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
-          if (length(range_vals) == 2 &&
-              (value_num < range_vals[1] || value_num > range_vals[2])) {
-            msg <- paste0("Parameter '", param_name, "' = ", value_num,
-                          " is outside [", range_vals[1], ", ", range_vals[2],
-                          "] in ", file_name)
-            if (output == "Error") stop(msg) else warning(msg)
-          }
+        if (value_num < range_vals[1] || value_num > range_vals[2]) {
+          msg <- paste0("Parameter '", param_name, "' = ", value_num,
+                        " is outside [", range_vals[1], ", ", range_vals[2],
+                        "] in ", file_name)
+          if (output == "Error") stop(msg) else warning(msg)
         }
       }
 
@@ -120,21 +140,11 @@ validate_parameter_config <- function(values, file_name, validation_config) {
         msg <- paste0("Parameter '", param_name, "' must be numeric in ",
                       file_name, ". Got: '", value_char, "'")
         if (output == "Error") stop(msg) else warning(msg)
-      } else if (!is.na(options_str) && nzchar(options_str)) {
-        # An empty side of the range ("0," or ",5") means no bound on that
-        # side. strsplit() drops a trailing empty field, so the two sides are
-        # completed before they are read.
-        range_vals <- suppressWarnings(as.numeric(trimws(
-          c(strsplit(options_str, ",")[[1]], "")[1:2]
-        )))
-        range_vals[is.na(range_vals)] <- c(-Inf, Inf)[is.na(range_vals)]
-        if (length(range_vals) == 2 &&
-            (value_num < range_vals[1] || value_num > range_vals[2])) {
-          msg <- paste0("Parameter '", param_name, "' = ", value_num,
-                        " is outside [", range_vals[1], ", ", range_vals[2],
-                        "] in ", file_name)
-          if (output == "Error") stop(msg) else warning(msg)
-        }
+      } else if (value_num < range_vals[1] || value_num > range_vals[2]) {
+        msg <- paste0("Parameter '", param_name, "' = ", value_num,
+                      " is outside [", range_vals[1], ", ", range_vals[2],
+                      "] in ", file_name)
+        if (output == "Error") stop(msg) else warning(msg)
       }
 
     } else if (type == "Options") {
@@ -147,10 +157,14 @@ validate_parameter_config <- function(values, file_name, validation_config) {
         if (output == "Error") stop(msg) else warning(msg)
       }
 
+    } else if (type != "Text") {
+      stop("Rule of parameter '", param_name, "' in ", file_name,
+           " has an unknown type: '", type, "'. Valid types: Integer, ",
+           "Real, Options, Text.")
     }
     # type == "Text": existence already confirmed above; no further constraint.
   }
 
-  rm(CONT_001)
+  rm(list = "CONT_001")
   invisible(TRUE)
 }

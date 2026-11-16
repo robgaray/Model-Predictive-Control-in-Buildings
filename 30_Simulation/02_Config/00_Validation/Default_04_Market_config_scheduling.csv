@@ -1,8 +1,9 @@
-# Default values for 04_Market_config_scheduling.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
-# to fill in missing or invalid entries when loading 04_Market_config_scheduling.csv.
+# Default values for 04_Market_config_scheduling.csv, used by
+# 20_GUI/01_Configure_Simulation/GUI_config.R to fill in missing or invalid
+# entries when loading 04_Market_config_scheduling.csv.
 # Market configuration table
 Market,closure,begin,end,end_optimization,aim
-text,h,h,h,h,code
+text,h,h,h,h,text
 DA,12,0,24,6,E
 ID1,6,0,24,6,E
 ID2,3,0,24,6,E

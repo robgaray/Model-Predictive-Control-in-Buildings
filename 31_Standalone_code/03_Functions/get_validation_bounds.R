@@ -11,7 +11,7 @@
 # -------------------------------------------------------------
 # Why the bounds are read instead of written
 # A limit written in the code is invisible to whoever configures the
-# simulation, and it is duplicated as soon as a second piece of code
+# script, and it is duplicated as soon as a second piece of code
 # needs the same limit. Every limit therefore lives in a validation
 # file under 02_Config/00_Validation/, and the code that
 # enforces it asks for it here. A limit that is missing from the file
@@ -19,9 +19,9 @@
 # that it validates that magnitude, so the file must say how.
 # -------------------------------------------------------------
 # Inputs
-#   validation_config : Data frame. Content of a validation file that
-#                       follows Parameter_config.csv's convention,
-#                       with the columns:
+#   validation_config : Data frame. Content of a validation table of
+#                       00_Validation/, one rule per row, with the
+#                       columns:
 #                         - file_name
 #                         - parameter_name
 #                         - type
@@ -47,10 +47,8 @@
 # 2. Split the options field into its two bounds
 # -------------------------------------------------------------
 # Usage instructions
-# bounds <- get_validation_bounds(bounding_validation_config, "11_Model_parameters.csv", "Volume")
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - validate_model_parameters()
+# bounds <- get_validation_bounds(bounding_validation_config,
+# "11_Model_parameters.csv", "Volume")
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - An options field with an empty side ("-1," or ",60") means the
@@ -59,9 +57,6 @@
 #     result is padded before being read.
 #   - A rule whose two sides are both empty is rejected: it would
 #     declare a validation that checks nothing.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 get_validation_bounds <- function(validation_config, file_name, parameter_name) {
@@ -104,7 +99,7 @@ get_validation_bounds <- function(validation_config, file_name, parameter_name) 
     )
   }
 
-  rm(rule, options_str, parts, bounds)
+  rm(list = c("rule", "options_str", "parts", "bounds"))
 
   return(result)
 }

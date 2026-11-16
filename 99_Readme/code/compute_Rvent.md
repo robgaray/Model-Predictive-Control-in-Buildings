@@ -1,6 +1,6 @@
 # compute_Rvent.R
 
-**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/compute_Rvent.R`
+**Function** &nbsp;·&nbsp; `30_Simulation/05_Models/01_Building/03_Functions/compute_Rvent.R`
 
 ## Function
 
@@ -16,12 +16,12 @@ This function converts Air Change per Hour (ACH) ventilation rates (RENventXX) i
 
 ## Input data
 
-- model_parameters    : Named list. Must include: RENvent01    - Infiltration ACH rate (h-1) RENvent1     - Night ventilation ACH rate (h-1) RENvent2     - Day ventilation ACH rate (h-1) Efi_Vent_Rec - Heat recovery efficiency (0-1) Volume       - Building volume (m3)
+- model_parameters    : Named list. Must include: RENvent01    - Infiltration ACH rate (1/h), unoccupied and T_ext_24h below Setpoint_Rvent1 RENvent1     - Reinforced ventilation ACH rate (1/h), unoccupied and T_ext_24h at or above Setpoint_Rvent1 RENvent2     - Occupied ventilation ACH rate (1/h) Efi_Vent_Rec - Heat recovery efficiency (0-1) Volume       - Building volume (m3)
 - physical_properties : Named list. Must include: Cp_air   - Specific heat of air (kJ/(kg·K)) dens_air - Density of air (kg/m3)
 
 ## Output data
 
-- model_parameters : Named list. The input list extended with: Rvent01    - Thermal resistance, infiltration (K/kW) Rvent1     - Thermal resistance, night vent (K/kW) Rvent2     - Thermal resistance, day vent (K/kW) Rvent01_HR - Rvent01 with heat recovery (K/kW) Rvent1_HR  - Rvent1 with heat recovery (K/kW) Rvent2_HR  - Rvent2 with heat recovery (K/kW)
+- model_parameters : Named list. The input list extended with: Rvent01    - Thermal resistance, infiltration (K/kW) Rvent1     - Thermal resistance, reinforced ventilation (K/kW) Rvent2     - Thermal resistance, occupied ventilation (K/kW) Rvent01_HR - Rvent01 with heat recovery (K/kW) Rvent1_HR  - Rvent1 with heat recovery (K/kW) Rvent2_HR  - Rvent2 with heat recovery (K/kW) The building simulation reads Rvent01, Rvent1, Rvent2 and Rvent2_HR: heat recovery only runs with the occupied ventilation. A rate of 0, or a recovery efficiency of 1, gives an infinite resistance (Inf): no ventilation at all.
 
 ## Other notes from the file header
 

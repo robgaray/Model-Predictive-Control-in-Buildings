@@ -25,12 +25,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   get_param_value(df, param)
 # -------------------------------------------------------------
-# Where this function/script is used
-# build_group_editor()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 get_param_value <- function(df, param) {
   value <- df$value[df$parameter == param]

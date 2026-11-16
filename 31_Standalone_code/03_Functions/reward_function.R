@@ -7,130 +7,126 @@
 # Overall description
 # This function calculates a reward function on the adequacy of
 # a particular building HVAC operation over a planning period.
-# It reads a period_chunk data frame and values it according to
-# parameters$control$optimization_aim:
-#   "energy"        - energy cost and comfort
-#   "flexibility"   - energy cost and comfort, plus the revenue of
-#                     the flexibility windows of the candidate
-#   "operationflex" - the same as "flexibility"; the plan itself is
-#                     fixed by the caller, only the flexibility
-#                     windows change
-# A market with the "operation" aim changes nothing and is never
-# valued, so that aim is not accepted here.
+# It reads a piece of the market and values it with the same
+# terms whatever the optimization_aim is:
+#   - comfort, over the three itineraries;
+#   - the marginal energy and distribution cost of the plan;
+#   - the revenue of the flexibility of each leg, with the cost of
+#     its Recovery Phase;
+#   - when an asset stores energy, the value of the energy the plan
+#     leaves stored, in the term of the energy of the plan
+#     (Elec_Cost_plan), and the value of the energy each leg leaves
+#     stored against the plan, in the term of the execution revenue
+#     (Elec_flex_exec_revenue_plan), both as the change against the
+#     committed itineraries;
+#   - the technical feasibility penalty.
+# It brings together the two sides of the reward:
+#   - the asset side, each asset of the asset registry, through the
+#     operations of its type of model (model_type_contract()):
+#       - comfort (comfort_term() for a Building) computes the
+#         comfort term of the asset from the comfort flags of the
+#         three itineraries, weighed with the comfort weight of the
+#         asset; the reward adds the terms of all the assets;
+#       - window_feasible (flex_window_is_feasible() for a
+#         Building) says whether the windows of each leg are a
+#         service the asset can render; the technical feasibility
+#         penalty counts one penalty per asset and leg that breaks
+#         the technical rules of its type, plus one when the
+#         windows already sold could not be drawn over the plan;
+#   - the system side: economic_terms() computes every economic
+#     term from the rows of system_energy_rows() alone, that is
+#     the net electricity of the system in each itinerary per row
+#     and market interval, and the change of the energy the assets
+#     store, with the commitments and prices of marginal_context. It
+#     never sees a temperature, a mode or a setpoint.
+# Every economic term is differential: it values only the change
+# against what earlier markets already committed. An itinerary
+# identical to the committed one is valued 0, whatever the aim.
+# marginal_context is mandatory: there is no fallback that values
+# the full candidate commitment directly (ignoring the differential
+# baseline), because such a fallback could silently mask a missing
+# or broken marginal-cost chain upstream (e.g. a caller that forgot
+# to call resolve_marginal_context()) instead of surfacing it as an
+# error.
 # Comfort is always evaluated over the full simulated energy flow of
-# each itinerary:
-#   - Elec_total_plan
-#   - Elec_total_plan_flex_down
-#   - Elec_total_plan_flex_up
-# since the building's thermal evolution depends on the full energy
-# applied. The economic
-# terms are always valued at their marginal (differential) cash flow
-# relative to whatever was already committed for the same market
-# intervals by an earlier market process, at the current market's
-# prices - see compute_marginal_energy_cost() and
-# resolve_marginal_context(). marginal_context is mandatory: there is
-# no fallback that values the full candidate commitment directly
-# (ignoring the differential baseline), because such a fallback could
-# silently mask a missing or broken marginal-cost chain upstream
-# instead of surfacing it as an error.
-# In addition to the energy price, the base-energy term also accounts
-# for the marginal distribution cost (Elec_unit_cost_distribution),
-# via compute_marginal_distribution_cost().
-# This is a decision-time-only consideration (it is never written to
-# the market operations, only to Reward): buying or selling energy always
-# adds distribution cost, unbuying ("descompra") or unselling
-# ("desventa") always reduces it, regardless of direction - it does
-# not apply to the explicit-flexibility term.
+# each itinerary, since the building's thermal evolution depends on
+# the full energy applied.
 # -------------------------------------------------------------
 # The reward is dimensionless
 # The two weights are what make it so, and they are kept apart on
 # purpose. alpha_comfort is in 1/h and multiplies the comfort term,
-# which is measured in hours out of comfort; alpha_cost is in 1/EUR and
-# multiplies every economic term, which are in EUR. The reward is
+# which is measured in hours out of comfort; each building has its
+# own, in its comfort group. alpha_cost is in 1/EUR and multiplies
+# every economic term, which are in EUR; it is of the system, which
+# values the energy of all its assets together. The reward is
 # therefore a pure number, and what governs the optimizer's behaviour is
 # the ratio between the two weights, not either of them on its own.
 # Keeping the two weights apart also leaves room for more complex
 # price structures: a new economic term only needs to be added inside
-# the alpha_cost bracket to be weighted consistently with the rest.
-# -------------------------------------------------------------
-# Revenue discount
-# Income that is far away in time weighs less in the decision than the
-# same income in the next slot. Every economic term is therefore valued
-# per market interval and, where that interval's cash flow turns out to
-# be an income, multiplied by (1 - Revenue_discount_per_hour/100)^n,
-# with n the hours from the decision instant to that interval - see
-# revenue_discount_factor() and apply_revenue_discount(). Expense is
-# never discounted, and neither is the comfort term: prudence is about
-# what the building expects to earn, not about what it will spend or
-# about whether people are comfortable.
-# The discount belongs to the decision and stops there. What the winning
-# candidate commits is turned into market operations by
-# compute_market_operations(), as undiscounted volumes, so neither the
-# volume nor the price of any commitment carries it.
+# economic_terms() to be weighted consistently with the rest.
 # -------------------------------------------------------------
 # Sign convention
-# Every economic term already carries the sign of its cash flow:
-#   - the electricity cost
-#   - the distribution cost
-#   - the commitment revenue of the flexibility windows
-#   - the expected execution revenue of the flexibility windows
-# positive = income, negative = expense (see calc_differential_cost(),
-# compute_marginal_distribution_cost() and value_flex_operation()).
-# Reward is therefore a pure sum of the comfort term and every economic
-# term, never a mix of "+" and "-" that has to be remembered per term.
-# The explicit-flexibility term is valued via compute_marginal_flex_revenue(),
-# not compute_marginal_energy_cost(): explicit flexibility is a service
-# sold to the grid in two independent down/up legs, not a single
-# position that flips sign like energy import/export - see
-# value_flex_operation()'s header for the full explanation of why the
-# two cannot share the same valuation machinery.
+# Every term already carries its own sign: comfort is 0 in comfort and
+# negative out of it, every economic term is positive for an income
+# and negative for an expense, and the feasibility penalty is 0 or
+# negative. Reward is therefore a pure sum of the comfort term, the
+# weighted economic term and the feasibility penalty, never a mix of
+# "+" and "-" that has to be remembered per term.
 # -------------------------------------------------------------
 # Inputs
-#   period_chunk             : Data frame. Planning-period data with *_plan,
+#   piece                    : The piece of the planning period. The asset
+#                              side (feasibility and comfort) works on the
+#                              view of each asset, and the system side on
+#                              the table of the system. They hold *_plan,
 #                              *_plan_flex_down and *_plan_flex_up columns
 #                              produced by period_calculation(),
 #                              derive_flex_itineraries() and the flexibility
 #                              evaluation functions.
-#                              Required columns:
-#                                time             - POSIXct. Simulation timestamps.
-#                                MarketUTC        - POSIXct. Market interval of each row.
-#                                Comfort_plan     - Numeric (0/1). Comfort flag (plan).
-#                                Elec_total_plan  - Numeric. Total electricity (plan).
-#                                Comfort_plan_flex_down    - Numeric (0/1). Comfort flag (plan_flex_down).
-#                                Comfort_plan_flex_up      - Numeric (0/1). Comfort flag (plan_flex_up).
-#                              Additional columns required for the
-#                              "flexibility" and "operationflex" aims:
-#                                Elec_total_plan_flex_down - Numeric. Total electricity (plan_flex_down).
-#                                Elec_total_plan_flex_up   - Numeric. Total electricity (plan_flex_up).
-#                                Flex_phase_down_plan      - Integer. Phase code of the downward windows.
-#                                Flex_phase_up_plan        - Integer. Phase code of the upward windows.
+#                              Columns read by comfort_term():
+#                                - time
+#                                - Comfort_plan
+#                                - Comfort_plan_flex_down
+#                                - Comfort_plan_flex_up
+#                              Columns read by system_energy_rows(), for
+#                              the economic terms:
+#                                - MarketUTC
+#                                - Elec_total_plan
+#                                - Elec_total_plan_flex_down
+#                                - Elec_total_plan_flex_up
+#                                - Flex_phase_down_plan
+#                                - Flex_phase_up_plan
+#                                - the four row prices
+#                                  Elec_unit_cost_import/export_buy/sell
+#                                - Flex_Probab_down
+#                                - Flex_Probab_up
+#                              Columns read by the feasibility check:
+#                                - the columns flex_window_is_feasible()
+#                                  reads
+#                                - Standing_commitment_held_legs_plan,
+#                                  when the caller wrote it from
+#                                  derive_flex_itineraries()
 #   parameters               : Named list. Must contain:
-#                                parameters$reward$alpha_comfort : Numeric (1/h). Weight applied
-#                                                                  to the comfort penalty term.
-#                                                                  Mandatory: stop() is raised if
-#                                                                  absent.
-#                                parameters$reward$alpha_cost    : Numeric (1/EUR). Weight applied
-#                                                                  to every economic term.
-#                                                                  Mandatory: stop() is raised if
-#                                                                  absent.
-#                                parameters$control$optimization_aim : Character. "energy",
-#                                                                       "flexibility" or
-#                                                                       "operationflex".
-#                                parameters$computing$flex_infeasible_penalty : Numeric. Weight
-#                                                                  of the technical feasibility
-#                                                                  term.
-#   simulation_control       : Named list. Simulation control object. Must contain:
-#                                simulation_control$indexes_local$i_flex : Integer scalar. Row number in
-#                                  period_chunk at which the flexibility event starts.
-#                                  Defaults to 1 when NULL or absent.
-#                                simulation_control$flexibility$commitment_phase_length : Numeric
-#                                  scalar. Duration of the Commitment Phase (h). Only used to decide
-#                                  whether a flexibility aim still behaves as "energy" (see
-#                                  EXCEPTIONS below); not used for any economic calculation.
-#   marginal_context          : Named list. Mandatory (no default). As returned by
-#                                resolve_marginal_context(), with:
+#                                parameters$reward$alpha_cost : Numeric (1/EUR).
+#                                  Weight applied to every economic term.
+#                                  Mandatory: stop() is raised if absent.
+#                                parameters$computing$flex_infeasible_penalty :
+#                                  Numeric. Weight of the technical
+#                                  feasibility term. Mandatory.
+#                                parameters$assets : the asset registry,
+#                                  one entry per asset; its asset_type
+#                                  gives the type of model, and the
+#                                  comfort group of a building its
+#                                  comfort weight, alpha_comfort (1/h),
+#                                  read by comfort_term().
+#   optimization_aim       : Character. Aim of the market the reward is
+#                                computed for: "energy", "operation",
+#                                "flexibility", or "operationflex".
+#                                Mandatory (no default).
+#   marginal_context          : Named list. Mandatory (no default). As returned
+#                                by resolve_marginal_context(), with:
 #                                  - market_utc
 #                                  - E_orig_base_by_market
+#                                  - E_orig_gross_by_market
 #                                  - E_orig_expflex_down_by_market
 #                                  - E_orig_expflex_up_by_market
 #                                  - P_import_buy_by_market
@@ -146,95 +142,127 @@
 #                                  - p_down_exec_sell_by_market
 #                                  - p_up_exec_buy_by_market
 #                                  - p_up_exec_sell_by_market
-#                                    (the flex prices are per leg, "up"/"down",
-#                                    not "import"/"export" - see value_flex_operation())
+#                                    (the flex prices are per leg,
+#                                    "up"/"down", not "import"/"export" - see
+#                                    value_flex_operation())
 #                                  - flex_probab_down_by_market
 #                                  - flex_probab_up_by_market
 #                                  - revenue_discount_by_market
 #                                  - revenue_discount_per_hour
 #                                  - discount_origin_time
-#                                stop()s if NULL, and also if it carries no revenue
-#                                discount.
+#                                  - beyond_control_by_market
+#                                  - recovery_cost_committed_down
+#                                  - recovery_cost_committed_up
+#                                    (added by committed_recovery_cost())
+#                                stop()s if NULL, and also if it carries no
+#                                revenue discount.
+#   reward_cache              : Named list or NULL (default NULL). As returned
+#                                by build_reward_cache() for this piece's
+#                                plan.
+#                                The search for flexibility windows of
+#                                evaluate_control() builds it once per leg, with
+#                                the other leg fixed, and hands it to every
+#                                candidate. With NULL it is built here, with no
+#                                leg fixed.
 # -------------------------------------------------------------
 # Outputs
-#   period_chunk : Data frame. The input data frame with a 'Reward' column
-#                  added (or overwritten) containing the per-row reward value
-#                  for each timestep. The economic terms are concentrated on
-#                  the last row, so only the sum of Reward is meaningful.
-#                  For the "flexibility" and "operationflex" aims (when a
-#                  window is being evaluated) it also carries:
+#   piece        : The input piece, with a 'Reward' column added (or
+#                  overwritten) in its table of the system, containing the
+#                  per-row reward value for each timestep, plus the
+#                  following intermediate result columns (all modes), as
+#                  returned by economic_terms(), in the same table:
+#                    Elec_Cost_plan              - Numeric. Electricity cost.
+#                                                  The whole interval-aggregated
+#                                                  marginal cost is concentrated
+#                                                  on the last row (this column
+#                                                  is not meaningful
+#                                                  per-timestep; only its sum
+#                                                  matters).
+#                    Elec_Cost_distribution_plan - Numeric. Marginal
+#                                                  distribution cost
+#                                                  (base-energy term only), same
+#                                                  last-row concentration as
+#                                                  Elec_Cost_plan.
+#                  And the columns of the flexibility terms:
 #                    Elec_flex_down_plan        - Numeric. Energy difference
-#                                                  (plan - plan_flex_down), bounded to
-#                                                  the Commitment Phase: it is 0 wherever
-#                                                  Flex_phase_down_plan is not 1.
+#                                                  (plan - plan_flex_down),
+#                                                  bounded to the Commitment
+#                                                  Phase: it is 0 wherever
+#                                                  Flex_phase_down_plan is not
+#                                                  1.
 #                    Elec_flex_up_plan          - Numeric. Energy difference
-#                                                  (plan_flex_up - plan), bounded the
-#                                                  same way to Flex_phase_up_plan == 1
-#                                                  and to 0 from below. Both signals
-#                                                  are non-negative by construction.
+#                                                  (plan_flex_up - plan),
+#                                                  bounded the same way to
+#                                                  Flex_phase_up_plan == 1 and
+#                                                  to 0 from below. Both signals
+#                                                  are non-negative by
+#                                                  construction.
+#                    Elec_flex_com_revenue_plan  - Numeric. Certain revenue of
+#                                                  the flexibility commitment,
+#                                                  at the commitment price alone
+#                                                  (same last-row concentration
+#                                                  as Elec_Cost_plan).
+#                    Elec_flex_exec_revenue_plan - Numeric. Expected revenue of
+#                                                  the execution: the execution
+#                                                  price weighted by the
+#                                                  activation probability, plus
+#                                                  the change of the cost of the
+#                                                  energy the Recovery Phase
+#                                                  would move if the service
+#                                                  were called, against the
+#                                                  committed itineraries. Same
+#                                                  last-row concentration.
+#                  And the column of the feasibility penalty:
+#                    Technical_feasibility_penalty_plan - Numeric. The
+#                                                  whole penalty, of all
+#                                                  the assets and legs, on
+#                                                  the last row.
 #                  The caller is responsible for summing the Reward column
 #                  when a scalar reward is required.
 # -------------------------------------------------------------
 # Code outline
-# 1. Extract the alpha_comfort and alpha_cost parameters
-# 2. Extract i_flex and commitment_phase_length from simulation_control
-# 3. Calculate delta_t per timestep
-# 3b. Read the revenue discount factors of the market intervals
-# 4. Compute electricity cost (marginal) and distribution cost (marginal)
-# 4c. Technical feasibility of the flexibility itineraries
-# 5. Aim-specific reward (energy or flexibility)
-# 6. Store per-row reward in data frame
+# 1. Extract the alpha_cost parameter
+# 2. Terms that depend on the plan only: revenue discount, target
+#    interval of each row, and marginal energy and distribution cost
+#    (build_reward_cache())
+# 3. Technical feasibility of the flexibility itineraries, per asset
+#    and leg
+# 4. Comfort term (the operation comfort of the model of each asset)
+# 5. Economic terms (system_energy_rows() and economic_terms())
+# 6. Store the terms and the per-row reward in the data frame
 # -------------------------------------------------------------
 # Usage instructions
-# result_df <- reward_function(period_chunk, parameters, simulation_control, marginal_context)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - evaluate_control()
+# piece <- reward_function(piece, parameters, optimization_aim,
+#                          marginal_context)
+# piece <- reward_function(piece, parameters, optimization_aim,
+#                          marginal_context, reward_cache)
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - If marginal_context is NULL, stop() is called immediately (see header).
-#   - If parameters$reward$alpha_comfort or parameters$reward$alpha_cost
-#     is NULL, stop() is called immediately (no default value is used).
+#   - If parameters$reward$alpha_cost is NULL, stop() is called
+#     immediately (no default value is used). comfort_term() does the
+#     same with the alpha_comfort of a building.
 #   - If marginal_context carries no revenue discount, stop() is called
 #     immediately. Treating its absence as "no discount" would silently
 #     turn a broken context into a valid-looking optimization run at a
 #     different, undeclared prudence.
-#   - delta_t for the first row is set to 0 (no prior timestep). It is
-#     expressed in hours, so that alpha_comfort (1/h) times it yields a
-#     dimensionless number, the same as alpha_cost (1/EUR) times each
-#     economic term (EUR).
-#   - If optimization_aim is none of "energy", "flexibility" or
-#     "operationflex", stop() is called.
-#   - In every aim, the comfort penalty applies to every time step
+#   - If optimization_aim is none of "energy", "operation",
+#     "flexibility" or "operationflex", stop() is called.
+#   - Whatever the aim, the comfort penalty applies to every time step
 #     where ANY of Comfort_plan, Comfort_plan_flex_down or
 #     Comfort_plan_flex_up is 0 (out of its own band), occupied or not.
-#   - When simulation_control$indexes_local$i_flex is NULL, it defaults to 1 (first row).
-#   - When simulation_control$flexibility$commitment_phase_length is NULL
-#     or 0, no window is being evaluated, and a flexibility aim is valued
-#     as "energy".
-#   - The flexibility revenue term does not distinguish a "commitment
-#     window" vs "execution/Recovery Phase": Elec_flex_down_plan is
-#     aggregated per market interval over the whole period_chunk and
-#     valued at that interval's own up/down flexibility prices, which
-#     already values any post-event rebound at its own interval's price
-#     instead of forcing every revenue component onto the flex event's
-#     own price.
+#   - Only the Commitment Phase carries a commitment:
+#     Elec_flex_down_plan and Elec_flex_up_plan are 0 outside it,
+#     and each market interval is valued at its own flexibility
+#     prices. The Neutral and Recovery Phases are a consequence of
+#     the event, not a service sold, so they enter the reward only
+#     through the change of the Recovery Phase cost.
 # -------------------------------------------------------------
-# functions/scripts called
-#   compute_marginal_energy_cost() - marginal cash flow, base-energy term
-#   compute_marginal_distribution_cost() - marginal distribution cost
-#     (base-energy term only)
-#   compute_marginal_flex_revenue() - marginal cash flow, explicit
-#     flexibility term (flexibility/operationflex aims only)
-#   flex_window_is_feasible() - says whether a window raises the
-#     electricity of both thermal systems over the plan
-#   compute_recovery_energy_cost() - expected energy cost of the
-#     Recovery Phase (flexibility/operationflex aims only)
-# -------------------------------------------------------------
-reward_function <- function(period_chunk,
+reward_function <- function(piece,
                             parameters,
-                            simulation_control = NULL,
-                            marginal_context   = NULL
+                            optimization_aim,
+                            marginal_context = NULL,
+                            reward_cache     = NULL
                             ) {
 
   # 0. marginal_context is mandatory: no no-context fallback (see header)
@@ -247,120 +275,90 @@ reward_function <- function(period_chunk,
          "through.")
   }
 
-  # 1. Get the two reward weights from reward_parameters
-  if (!is.null(parameters$reward$alpha_comfort)) {
-    alpha_comfort <- parameters$reward$alpha_comfort
-  } else {
-    stop("alpha_comfort was not found")
-  }
+  # 1. Get the weight of the economic terms from reward_parameters.
+  # The weight of the comfort term is of each building, and its
+  # comfort operation reads it.
   if (!is.null(parameters$reward$alpha_cost)) {
     alpha_cost <- parameters$reward$alpha_cost
   } else {
     stop("alpha_cost was not found")
   }
 
-  # 2. Extract i_flex and commitment_phase_length from simulation_control
-  if (!is.null(simulation_control) &&
-      !is.null(simulation_control$indexes_local$i_flex)) {
-    i_flex <- simulation_control$indexes_local$i_flex
-  } else {
-    i_flex <- 1L
+  # 2. Terms that depend on the plan only
+  # -------------------------------------------------------------
+  # build_reward_cache() resolves what every candidate valued over
+  # the same plan shares: the revenue discount factors, the target
+  # interval of each row and the marginal cost of the plan's energy
+  # and distribution. A caller that values many candidates over one
+  # plan builds it once and hands it in, with the leg it keeps
+  # fixed; otherwise it is built here. The values are the same
+  # either way. A cache built here is built on this very piece, so
+  # the change of the stored energy it is built with is the one the
+  # economic terms read below, and it is resolved only once.
+  # -------------------------------------------------------------
+  {
+    cache_built_here <- is.null(reward_cache)
+    if (cache_built_here) {
+      # system_stored_energy is called to add the change of the energy
+      # that the assets store, in each itinerary of the piece. It is
+      # NULL when no asset stores energy.
+      stored_energy <- system_stored_energy(
+        piece      = piece,
+        parameters = parameters
+      )
+
+      # build_reward_cache is called to resolve the plan's terms for
+      # this call alone, with no leg fixed.
+      reward_cache <- build_reward_cache(
+        piece            = piece,
+        parameters       = parameters,
+        marginal_context = marginal_context,
+        fixed_leg        = NULL,
+        stored_energy    = stored_energy
+      )
+    }
   }
 
-  if (!is.null(simulation_control) &&
-      !is.null(simulation_control$flexibility$commitment_phase_length)) {
-    commitment_phase_length <- simulation_control$flexibility$commitment_phase_length
-  } else {
-    commitment_phase_length <- NULL
+  # 2.1. Views of the assets
+  # Each asset is judged, and its comfort is computed, in its own view.
+  # The views are taken once, for blocks 3 and 4.
+  # -------------------------------------------------------------
+  {
+    views <- lapply(
+      setNames(names(parameters$assets), names(parameters$assets)),
+      function(one_id) {
+        # piece_asset_view is called to take the table of the asset
+        # joined with that of the system.
+        piece_asset_view(
+          piece        = piece,
+          asset_id     = one_id,
+          column_order = parameters$joined_cols
+        )
+      }
+    )
   }
 
-  # 3. Calculate delta_t (hours) for each row; first row gets 0.
-  # Hours is the project-wide reference unit for time, the same one
-  # period_simulation_cpp.cpp uses. It is what makes the comfort term
-  # dimensionally consistent with the economic ones: alpha_comfort is
-  # 1/h, so alpha_comfort * delta_t (h) is a pure number, directly
-  # addable to alpha_cost (1/EUR) times the electricity cost and the
-  # rest, which are in EUR.
-  # period_chunk$time must be POSIXct. as.numeric() is applied before
-  # diff(), not after: diff() on a POSIXct vector returns a difftime
-  # with an automatically chosen unit (seconds, minutes, hours or days,
-  # picked from the series' own spacing), so as.numeric(diff(...))
-  # would silently pick up whatever unit R chose instead of always
-  # being seconds. Converting to numeric first fixes the unit to
-  # seconds before diff() ever runs, so the /3600 below always yields
-  # hours regardless of the working table's resolution.
-  delta_t_h <- c(0, diff(as.numeric(period_chunk$time)) / 3600)
-
-  # 3b. Revenue discount factors
+  # 3. Technical feasibility of the flexibility itineraries
   # -------------------------------------------------------------
-  # The factors of the market's own target intervals are resolved once
-  # per optimization by resolve_marginal_context() and travel in the
-  # context, so they are read rather than recomputed here: this function
-  # runs once per GA candidate and they are the same for all of them.
-  # Those intervals cover every row of the period_chunk that can be
-  # valued, so no other factor is needed.
-  # -------------------------------------------------------------
-  if (is.null(marginal_context$revenue_discount_by_market) ||
-      is.null(marginal_context$discount_origin_time) ||
-      is.null(marginal_context$revenue_discount_per_hour)) {
-    stop("reward_function: marginal_context carries no revenue discount. ",
-         "revenue_discount_by_market, revenue_discount_per_hour and ",
-         "discount_origin_time are resolved by resolve_marginal_context() ",
-         "and have no default here - a missing one means the context was ",
-         "built by something else, not that the discount should be ",
-         "skipped.")
-  }
-  discount_by_market <- marginal_context$revenue_discount_by_market
-
-  # Number of rows: every lump-sum term below is written on the last one.
-  n_rows <- nrow(period_chunk)
-
-  # 4. Compute electricity cost (marginal)
-  # -------------------------------------------------------------
-  # The whole horizon's base-energy commitment is aggregated per market
-  # interval and valued at its marginal (differential) cost relative to
-  # marginal_context's baseline, at the current market's prices. The
-  # resulting scalar is concentrated on the last row so that
-  # sum(period_chunk$Reward) still yields the correct total.
-  # -------------------------------------------------------------
-  Elec_Cost <- rep(0, n_rows)
-  Elec_Cost[n_rows] <- compute_marginal_energy_cost(
-    E_candidate             = period_chunk$Elec_total_plan,
-    MarketUTC_candidate     = period_chunk$MarketUTC,
-    market_utc              = marginal_context$market_utc,
-    E_orig_by_market        = marginal_context$E_orig_base_by_market,
-    P_import_buy_by_market  = marginal_context$P_import_buy_by_market,
-    P_import_sell_by_market = marginal_context$P_import_sell_by_market,
-    P_export_buy_by_market  = marginal_context$P_export_buy_by_market,
-    P_export_sell_by_market = marginal_context$P_export_sell_by_market,
-    discount_by_market      = discount_by_market
-  )
-
-  # Marginal distribution cost (base-energy term only, never for
-  # flexibility).
-  Elec_Cost_distribution <- rep(0, n_rows)
-  Elec_Cost_distribution[n_rows] <- compute_marginal_distribution_cost(
-    E_candidate                 = period_chunk$Elec_total_plan,
-    MarketUTC_candidate         = period_chunk$MarketUTC,
-    market_utc                  = marginal_context$market_utc,
-    E_orig_by_market            = marginal_context$E_orig_base_by_market,
-    distribution_rate_by_market = marginal_context$distribution_rate_by_market,
-    discount_by_market          = discount_by_market
-  )
-
-  # 4c. Technical feasibility of the flexibility itineraries
-  # -------------------------------------------------------------
-  # A window that raises the electricity of BOTH thermal systems over
-  # the plan is not a service the building can render, and the optimizer
-  # has to see that as a cost rather than simply fail to sell anything.
-  # flex_evaluation_down()/flex_evaluation_up() already refuse such a
+  # A window that breaks the technical rules of an asset is not a
+  # service the asset can render, and the optimizer has to see that
+  # as a cost rather than simply fail to sell anything. For a
+  # building, the rule is that a window may not raise the
+  # electricity of BOTH its thermal systems over the plan.
+  # flex_evaluation() already refuses such a
   # window before it is placed, so in a healthy run this term is zero;
   # it is the net for a candidate that carries one anyway, and it is
   # what makes the region visible to the search instead of merely
   # unprofitable.
-  # The whole penalty is written on a single row, as the lump-sum terms
-  # above are, so that summing over the horizon does not multiply it by
-  # the number of rows.
+  # The rules are checked within each asset, one leg at a time, and
+  # each asset and leg that breaks them adds one penalty. Nothing is
+  # checked between two assets: one building may raise its heating
+  # while another raises its cooling.
+  # It is a check of the assets, made over the view of each asset: the
+  # economic side never sees the windows.
+  # The whole penalty is written on a single row, as the lump-sum
+  # economic terms are, so that summing over the horizon does not
+  # multiply it by the number of rows.
   # -------------------------------------------------------------
   {
     # Weight of the technical-feasibility term, read from
@@ -375,249 +373,190 @@ reward_function <- function(period_chunk,
       stop("flex_infeasible_penalty was not found in parameters$computing")
     }
 
-    infeasible_legs <- sum(vapply(c("down", "up"), function(one_leg) {
-      as.integer(!flex_window_is_feasible(period_chunk, one_leg, parameters))
-    }, integer(1)))
+    infeasible_legs <- 0L
+    for (CONT_001 in names(parameters$assets)) {
+      asset <- parameters$assets[[CONT_001]]
 
-    # And the other way a candidate can be infeasible: over its plan, a
-    # window of the guard zone that was already sold would raise both
-    # thermal systems, so it can only be held as it stands.
-    # derive_flex_itineraries() reports it, because it is what tried to
-    # draw the window. A chunk that never went through it carries no
-    # such column and nothing is added.
-    if (!is.null(period_chunk$Standing_commitment_held_plan) &&
-        any(period_chunk$Standing_commitment_held_plan == 0L)) {
-      infeasible_legs <- infeasible_legs + 1L
+      # model_type_contract is called to take the operations of the
+      # type of model of the asset, whose technical rules are checked.
+      model <- model_type_contract(asset$asset_type)
+
+      for (CONT_002 in c("down", "up")) {
+        if (identical(reward_cache$fixed_leg, CONT_002)) {
+          # reward_cache already carries the answer of each asset for
+          # the leg it keeps fixed.
+          feasible <- reward_cache$fixed_terms$feasible[[CONT_001]]
+        } else {
+          # The operation window_feasible of the model
+          # (flex_window_is_feasible() for a building) is called to
+          # judge the windows of this leg by the technical rules of
+          # the asset.
+          feasible <- model$window_feasible(
+            period_chunk = views[[CONT_001]],
+            leg          = CONT_002,
+            parameters   = parameters,
+            asset        = asset
+          )
+        }
+        infeasible_legs <- infeasible_legs + as.integer(!feasible)
+      }
+      rm(list = c("asset", "model", "feasible"))
+    }
+    rm(list = c("CONT_001", "CONT_002"))
+
+    # And the other way a candidate can be infeasible: over its plan, an
+    # asset cannot rebuild a window of the guard zone that was already
+    # sold, because it would raise both thermal systems, or because the
+    # plan leaves it no room (for an upward window whose system the
+    # prudence rule leaves undecided, with both systems), so it can
+    # only hold it within the limits of its equipment.
+    # derive_flex_itineraries() reports each asset and leg that holds
+    # such a window, because it is what tried to draw it, and the
+    # caller writes how many they are in
+    # Standing_commitment_held_legs_plan. Each of them adds one
+    # penalty, whatever the number of windows it holds on that leg. A
+    # piece that never went through it carries no such column and
+    # nothing is added.
+    if (!is.null(piece$system$Standing_commitment_held_legs_plan)) {
+      infeasible_legs <- infeasible_legs +
+        max(c(0L, piece$system$Standing_commitment_held_legs_plan),
+            na.rm = TRUE)
     }
 
-    Technical_feasibility_penalty <- rep(0, n_rows)
-    Technical_feasibility_penalty[n_rows] <- -FLEX_INFEASIBLE_PENALTY * infeasible_legs
+    Technical_feasibility_penalty <- rep(0, nrow(piece$system))
+    Technical_feasibility_penalty[nrow(piece$system)] <-
+      -FLEX_INFEASIBLE_PENALTY * infeasible_legs
 
-    rm(FLEX_INFEASIBLE_PENALTY, infeasible_legs)
+    rm(list = c("FLEX_INFEASIBLE_PENALTY", "infeasible_legs"))
   }
 
-  # 5. Aim-specific reward calculation
-  optimization_aim <- parameters$control$optimization_aim
+  # -------------------------------------------------------------
+  # 4. Comfort term
+  # The reward has the same terms whatever the aim:
+  #   - comfort, over the three itineraries;
+  #   - the marginal energy and distribution cost of the plan;
+  #   - the commitment and execution revenue of each flexibility
+  #     leg, with the cost of its Recovery Phase;
+  #   - the technical feasibility penalty.
+  # The aim is checked here, although no term depends on it, so
+  # that a market with an unknown aim stops instead of being
+  # valued.
+  # -------------------------------------------------------------
+  {
+    if (!optimization_aim %in% c("energy", "operation", "flexibility", "operationflex")) {
+      stop("Invalid optimization_aim: '", optimization_aim,
+           "'. Must be 'energy', 'operation', 'flexibility' or 'operationflex'.")
+    }
 
-  if (optimization_aim == "energy" ||
-      ((optimization_aim == "flexibility" || optimization_aim == "operationflex") &&
-       (is.null(i_flex) ||
-        i_flex == 0 ||
-        is.null(commitment_phase_length)
-        ||
-        commitment_phase_length == 0
+    # The comfort term is the sum of the comfort terms of the assets,
+    # each weighed with the comfort weight of its asset. The term of
+    # the first asset is taken as it is, and those of the others are
+    # added to it.
+    comfort <- NULL
+    for (CONT_003 in names(parameters$assets)) {
+      asset <- parameters$assets[[CONT_003]]
+
+      # model_type_contract is called to take the operations of the
+      # type of model of the asset, whose comfort term this is.
+      model <- model_type_contract(asset$asset_type)
+
+      # The operation comfort of the model (comfort_term() for a
+      # building) is called to compute, from the comfort flags of
+      # the three itineraries, the weighted hours out of comfort of
+      # each row.
+      asset_comfort <- model$comfort(
+        period_chunk = views[[CONT_003]],
+        asset        = asset
+      )
+      comfort <- if (is.null(comfort)) {
+        asset_comfort
+      } else {
+        comfort + asset_comfort
+      }
+      rm(list = c("asset", "model", "asset_comfort"))
+    }
+    rm(list = c("CONT_003", "views"))
+  }
+
+  # -------------------------------------------------------------
+  # 5. Economic terms
+  # The flexibility terms are always computed, and they are 0 when
+  # no leg carries a commitment. A market with the "energy" aim
+  # places no new window, but its itineraries still carry the
+  # flexibility that earlier markets sold: derive_flex_itineraries()
+  # restates it over the candidate's plan. Inside the control
+  # horizon any change of it is settled at this market's prices.
+  # After it the commitment stands, and a candidate is valued at
+  # most at it: the part the plan can no longer hold is the
+  # re-purchase a later market will have to make. Either way, a plan
+  # that can no longer hold a sold commitment pays for it, and the
+  # flexibility terms make that cost visible to the decision.
+  # -------------------------------------------------------------
+  {
+    # The change of the stored energy is only resolved when the cache
+    # values it, that is when an asset stores energy. The cache is
+    # built on the plan of the candidate, which is the one the
+    # itineraries of this piece follow. A cache built above already
+    # resolved it on this piece.
+    if (!cache_built_here) {
+      stored_energy <- NULL
+      if (!is.null(reward_cache$stored_value_plan)) {
+        # system_stored_energy is called to add the change of the
+        # energy that the assets store, in each itinerary of the
+        # candidate.
+        stored_energy <- system_stored_energy(
+          piece      = piece,
+          parameters = parameters
         )
-       )
-      ) {
-    # Comfort is measured over the THREE itineraries, whatever the aim.
-    # A market that only trades energy does not sell flexibility, but it
-    # can still leave the building outside comfort in an itinerary that
-    # was already committed and that it is obliged to hold, and that has
-    # to show in its reward.
-    # Where nothing is committed, derive_flex_itineraries() leaves both
-    # flexibility itineraries as copies of the plan, so the "or" adds no
-    # penalty there.
-    # Every time step counts, occupied or not: each itinerary carries
-    # its own band (the plan band, or the occupancy band inside a
-    # flexibility window), and outside occupancy and the scheduling
-    # window that band is the setback band.
-    Performance_plan <- ifelse(period_chunk$Comfort_plan == 0 |
-                               period_chunk$Comfort_plan_flex_down == 0 |
-                               period_chunk$Comfort_plan_flex_up == 0,
-                             -1, 0) * delta_t_h
+      }
+    }
 
-    # Every term already carries its own sign (comfort: neutral/positive
-    # in comfort, negative out of it; economic terms: positive income,
-    # negative expense), so Reward is a plain sum.
-    Reward <- alpha_comfort * Performance_plan +
-              alpha_cost * (Elec_Cost +
-                            Elec_Cost_distribution) +
-              Technical_feasibility_penalty
-
-    rm(Performance_plan)
-
-  } else if (optimization_aim == "flexibility"  ||
-             optimization_aim =="operationflex") {
-
-    # The commitment exists only during the Commitment Phase (phase 1).
-    # The Neutral and Recovery Phases are a consequence of the event,
-    # not a service sold to the grid, so they are not valued - not even
-    # with the opposite sign: the rebound makes this difference
-    # negative, and value_flex_operation() would then book it on the up
-    # leg, selling it as upward flexibility that was never offered.
-    period_chunk$Elec_flex_down_plan <-
-      (period_chunk$Elec_total_plan - period_chunk$Elec_total_plan_flex_down) *
-      (period_chunk$Flex_phase_down_plan == 1)
-
-    # The upward commitment is the mirror image: the load the building
-    # adds over its plan during its own Commitment Phase. Defined this way
-    # round, both signals are non-negative and a real commitment is a
-    # positive value on either of them.
-    # The lower bound at 0 is what guarantees the non-negativity, and it
-    # is not redundant. flex_evaluation_up() already refuses a window
-    # whose event does not raise the building's electricity overall, but
-    # within an accepted window a single row can still come out below
-    # the plan, because the event switches the non-selected system off
-    # and that system may have been running on the backup resistances,
-    # at COP 1. A row like that delivers no upward service, so it
-    # commits nothing; letting it through as a negative value would make
-    # value_flex_operation() read it as a downward sale, at downward
-    # prices, on the leg that is not being traded.
-    period_chunk$Elec_flex_up_plan <-
-      pmax(period_chunk$Elec_total_plan_flex_up - period_chunk$Elec_total_plan, 0) *
-      (period_chunk$Flex_phase_up_plan == 1)
-
-    # The penalty applies if ANY of the three itineraries is out of
-    # comfort. Committing to a service that leaves the building outside
-    # comfort in the itinerary that would actually be flown is not an
-    # acceptable commitment, whichever of the two legs it belongs to.
-    # Outside the flexibility windows both flex columns are the copy of
-    # Comfort_plan that derive_flex_itineraries() made, so the "or" adds
-    # no false penalty there.
-    # Every time step counts, occupied or not: each itinerary carries
-    # its own band (the plan band, or the occupancy band inside a
-    # flexibility window), and outside occupancy and the scheduling
-    # window that band is the setback band.
-    Performance_flex <- ifelse(period_chunk$Comfort_plan == 0 |
-                               period_chunk$Comfort_plan_flex_down == 0 |
-                               period_chunk$Comfort_plan_flex_up == 0,
-                             -1, 0) * delta_t_h
-
-    # Marginal explicit-flexibility revenue: each leg's signal aggregated
-    # per market interval, valued at that interval's own down/up
-    # flexibility prices (value_flex_operation(), via
-    # compute_marginal_flex_revenue() - not compute_marginal_energy_cost():
-    # see that function's header for why explicit flexibility cannot be
-    # valued as an import/export position), relative to the pre-existing
-    # baseline of that same leg.
-    # One call per leg, with the upward series negated, exactly as
-    # compute_market_operations() does when it settles the same decision:
-    # value_flex_operation() tells the legs apart by sign, and both
-    # signals are non-negative, so a single netted call would cancel a
-    # downward commitment against an upward one in the same interval.
-    #
-    # The revenue is valued as two terms, because they are not equally
-    # certain and they do not carry the same costs:
-    #   - The COMMITMENT term is certain. Selling the service is paid
-    #     for whether or not the operator ever calls it, so it is valued
-    #     at the commitment price alone.
-    #   - The EXECUTION term is conditional. It is valued at the
-    #     execution price weighted by the activation probability, and it
-    #     also carries the energy the building has to move during the
-    #     Recovery Phase if it is actually called - see
-    #     compute_recovery_energy_cost(). That energy is valued over the
-    #     whole Recovery Phase, at the prices and probability of this
-    #     market. A window never runs past the rows of the period_chunk,
-    #     and those rows all fall in intervals this market values.
-    # The execution price is weighted by the probability before it is
-    # handed to compute_marginal_flex_revenue(), so the two terms add up
-    # to the commitment price plus the execution price times the
-    # probability, plus the Recovery Phase cost.
-    Elec_flex_com_revenue <- rep(0, n_rows)
-    Elec_flex_com_revenue[n_rows] <- compute_marginal_flex_revenue(
-      E_candidate                = period_chunk$Elec_flex_down_plan,
-      MarketUTC_candidate        = period_chunk$MarketUTC,
-      market_utc                 = marginal_context$market_utc,
-      E_orig_by_market           = marginal_context$E_orig_expflex_down_by_market,
-      price_down_sell_by_market  = marginal_context$p_down_com_sell_by_market,
-      price_down_buy_by_market   = marginal_context$p_down_com_buy_by_market,
-      price_up_sell_by_market    = marginal_context$p_up_com_sell_by_market,
-      price_up_buy_by_market     = marginal_context$p_up_com_buy_by_market,
-      discount_by_market         = discount_by_market
-    ) +
-    compute_marginal_flex_revenue(
-      E_candidate                = -period_chunk$Elec_flex_up_plan,
-      MarketUTC_candidate        = period_chunk$MarketUTC,
-      market_utc                 = marginal_context$market_utc,
-      E_orig_by_market           = -marginal_context$E_orig_expflex_up_by_market,
-      price_down_sell_by_market  = marginal_context$p_down_com_sell_by_market,
-      price_down_buy_by_market   = marginal_context$p_down_com_buy_by_market,
-      price_up_sell_by_market    = marginal_context$p_up_com_sell_by_market,
-      price_up_buy_by_market     = marginal_context$p_up_com_buy_by_market,
-      discount_by_market         = discount_by_market
+    # system_energy_rows is called to take from the table of the
+    # system only what it knows of the candidate: the net
+    # electricity of the system in each itinerary, with the market
+    # interval, the phases, the prices, the probabilities and the
+    # change of the stored energy of each row.
+    system_rows <- system_energy_rows(
+      period_chunk  = piece$system,
+      stored_energy = stored_energy
     )
 
-    Elec_flex_exec_revenue <- rep(0, n_rows)
-    Elec_flex_exec_revenue[n_rows] <- compute_marginal_flex_revenue(
-      E_candidate                = period_chunk$Elec_flex_down_plan,
-      MarketUTC_candidate        = period_chunk$MarketUTC,
-      market_utc                 = marginal_context$market_utc,
-      E_orig_by_market           = marginal_context$E_orig_expflex_down_by_market,
-      price_down_sell_by_market  = marginal_context$p_down_exec_sell_by_market *
-                                     marginal_context$flex_probab_down_by_market,
-      price_down_buy_by_market   = marginal_context$p_down_exec_buy_by_market *
-                                     marginal_context$flex_probab_down_by_market,
-      price_up_sell_by_market    = marginal_context$p_up_exec_sell_by_market *
-                                     marginal_context$flex_probab_up_by_market,
-      price_up_buy_by_market     = marginal_context$p_up_exec_buy_by_market *
-                                     marginal_context$flex_probab_up_by_market,
-      discount_by_market         = discount_by_market
-    ) +
-    compute_marginal_flex_revenue(
-      E_candidate                = -period_chunk$Elec_flex_up_plan,
-      MarketUTC_candidate        = period_chunk$MarketUTC,
-      market_utc                 = marginal_context$market_utc,
-      E_orig_by_market           = -marginal_context$E_orig_expflex_up_by_market,
-      price_down_sell_by_market  = marginal_context$p_down_exec_sell_by_market *
-                                     marginal_context$flex_probab_down_by_market,
-      price_down_buy_by_market   = marginal_context$p_down_exec_buy_by_market *
-                                     marginal_context$flex_probab_down_by_market,
-      price_up_sell_by_market    = marginal_context$p_up_exec_sell_by_market *
-                                     marginal_context$flex_probab_up_by_market,
-      price_up_buy_by_market     = marginal_context$p_up_exec_buy_by_market *
-                                     marginal_context$flex_probab_up_by_market,
-      discount_by_market         = discount_by_market
-    ) +
-    compute_recovery_energy_cost(
-      E_plan                  = period_chunk$Elec_total_plan,
-      E_flex                  = period_chunk$Elec_total_plan_flex_down,
-      phase                   = period_chunk$Flex_phase_down_plan,
-      MarketUTC_candidate     = period_chunk$MarketUTC,
-      market_utc              = marginal_context$market_utc,
-      P_import_buy_by_market  = marginal_context$P_import_buy_by_market,
-      P_import_sell_by_market = marginal_context$P_import_sell_by_market,
-      P_export_buy_by_market  = marginal_context$P_export_buy_by_market,
-      P_export_sell_by_market = marginal_context$P_export_sell_by_market,
-      probability_by_market   = marginal_context$flex_probab_down_by_market,
-      discount_by_market      = discount_by_market
-    ) +
-    compute_recovery_energy_cost(
-      E_plan                  = period_chunk$Elec_total_plan,
-      E_flex                  = period_chunk$Elec_total_plan_flex_up,
-      phase                   = period_chunk$Flex_phase_up_plan,
-      MarketUTC_candidate     = period_chunk$MarketUTC,
-      market_utc              = marginal_context$market_utc,
-      P_import_buy_by_market  = marginal_context$P_import_buy_by_market,
-      P_import_sell_by_market = marginal_context$P_import_sell_by_market,
-      P_export_buy_by_market  = marginal_context$P_export_buy_by_market,
-      P_export_sell_by_market = marginal_context$P_export_sell_by_market,
-      probability_by_market   = marginal_context$flex_probab_up_by_market,
-      discount_by_market      = discount_by_market
+    # economic_terms is called to value those rows against the
+    # commitments and prices of marginal_context, with the plan's
+    # terms reward_cache carries.
+    economic <- economic_terms(
+      system_rows      = system_rows,
+      alpha_cost       = alpha_cost,
+      marginal_context = marginal_context,
+      reward_cache     = reward_cache
     )
 
-    # Every term already carries its own sign - see the energy branch
-    # above.
-    Reward <- alpha_comfort * Performance_flex +
-              alpha_cost * (Elec_Cost +
-                            Elec_Cost_distribution +
-                            Elec_flex_com_revenue +
-                            Elec_flex_exec_revenue) +
-              Technical_feasibility_penalty
-
-    rm(Performance_flex, Elec_flex_com_revenue, Elec_flex_exec_revenue)
-
-  } else {
-    stop("Invalid optimization_aim: '", optimization_aim,
-         "'. Must be 'energy', 'flexibility' or 'operationflex'.")
+    rm(list = c("system_rows", "stored_energy", "cache_built_here"))
   }
 
-  # 6. Store per-row reward in period_chunk and return the data frame
-  period_chunk$Reward <- Reward
+  # -------------------------------------------------------------
+  # 6. Store the terms and the per-row reward
+  # Every term already carries its own sign (comfort: neutral in
+  # comfort, negative out of it; economic terms: positive income,
+  # negative expense; feasibility: 0 or negative), so Reward is a
+  # plain sum.
+  # -------------------------------------------------------------
+  {
+    piece$system$Elec_Cost_plan                     <- economic$Elec_Cost_plan
+    piece$system$Elec_Cost_distribution_plan        <- economic$Elec_Cost_distribution_plan
+    piece$system$Technical_feasibility_penalty_plan <- Technical_feasibility_penalty
+    piece$system$Elec_flex_down_plan                <- economic$Elec_flex_down_plan
+    piece$system$Elec_flex_up_plan                  <- economic$Elec_flex_up_plan
+    piece$system$Elec_flex_com_revenue_plan         <- economic$Elec_flex_com_revenue_plan
+    piece$system$Elec_flex_exec_revenue_plan        <- economic$Elec_flex_exec_revenue_plan
 
-  rm(alpha_comfort, alpha_cost, i_flex, commitment_phase_length,
-     delta_t_h, discount_by_market, n_rows, Elec_Cost,
-     Elec_Cost_distribution, Technical_feasibility_penalty,
-     optimization_aim, Reward)
+    piece$system$Reward <- comfort +
+                           economic$economic_reward +
+                           Technical_feasibility_penalty
 
-  return(period_chunk)
+    rm(list = c("alpha_cost", "reward_cache", "comfort", "economic",
+                "Technical_feasibility_penalty"))
+  }
+
+  return(piece)
 }

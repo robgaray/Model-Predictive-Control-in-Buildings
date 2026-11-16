@@ -4,11 +4,11 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Plausibility bounds of parameters, as a second, looser check on top
-# of the parameter's own range in Parameter_config.csv. They are
+# of the parameter's own range in Parameter_catalogue.csv. They are
 # applied by validate_model_parameters() through
 # get_validation_bounds(), and every one of them only warns: a value
 # outside these bounds is unusual, not impossible.
-# Structure: same convention as Parameter_config.csv
+# Structure: one rule per row, with the columns
 #   file_name      : name of the parameter file
 #   parameter_name : name of the parameter to validate
 #   type           : Integer | Real

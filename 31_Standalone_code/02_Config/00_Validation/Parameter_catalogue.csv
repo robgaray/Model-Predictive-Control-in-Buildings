@@ -1,0 +1,165 @@
+# Parameter catalogue
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# One row per parameter of the configuration files of the standalone
+# market script, and one per column of its tables: everything the
+# script knows about each one in one place. load_parameters()
+# validates every configuration file against its rows
+# (load_parameter_catalogue()), the files of each asset included, and
+# a missing parameter is reported by name. A file of an asset is
+# catalogued once, for its type, by its file name. The rows of the
+# files market and building_input are the scalars of the market block
+# of an input and of the block of a building, which the input
+# validation checks in the same way.
+# 999_Repository_Checks/check_repository.py checks that every
+# parameter of the configuration files is in it, with the unit its
+# file writes. The standalone has no GUI, so every default is -,
+# except for the parameters of the block of a file with a table.
+# -------------------------------------------------------------
+# Structure:
+#   file        : the configuration file, by its name, or market for
+#                 the market block of an input, or building_input for
+#                 the scalars of the block of a building of an input.
+#   parameter   : the parameter, or the column of a table.
+#   group       : the sub-list of parameters it goes to.
+#   block       : the title of the block it falls under in its file,
+#                 or - when the file has no blocks.
+#   type        : Integer, Real, Options or Text.
+#   min, max    : the range of an Integer or a Real. Empty for no bound.
+#   options     : the allowed values of an Options parameter.
+#   output      : Error or Warning, when a value breaks the rule.
+#   unit        : the unit, as the file writes it. A parameter with no
+#                 physical unit takes - (a number or an index),
+#                 -(boolean 0/1), -(count) or text.
+#   description : what the parameter is.
+#   default     : - for every parameter and every column, except for
+#                 the parameters of the block of a file with a table,
+#                 which hold their value. The standalone has no
+#                 default values to fill in.
+# -------------------------------------------------------------
+file,parameter,group,block,type,min,max,options,output,unit,description,default
+text,text,text,text,text,text,text,text,text,text,text,text
+01_Optimization_parameters.csv,population_size,optimization,-,Integer,1,1000,,Error,-(count),Number of candidate solutions of the genetic algorithm,-
+01_Optimization_parameters.csv,iteration_number,optimization,-,Integer,1,1000,,Error,-(count),Number of generations of the genetic algorithm,-
+01_Optimization_parameters.csv,run_number,optimization,-,Integer,1,100,,Error,-(count),Consecutive generations without improvement before the search stops,-
+01_Optimization_parameters.csv,pcrossover,optimization,-,Real,0,1,,Error,-,Probability that two candidate solutions are crossed,-
+01_Optimization_parameters.csv,pmutation,optimization,-,Real,0.001,1,,Error,-,Probability that a gene of a candidate solution mutates,-
+03_Run_config.csv,market_resolution,market,Market,Real,1,120,,Error,min,Duration of one market interval,-
+03_Run_config.csv,parallel,debug_and_config,Parallel execution of the genetic algorithm,Options,,,"0,1",Error,-(boolean 0/1),"Whether the genetic algorithm runs on parallel workers: 1 yes, 0 no",-
+03_Run_config.csv,parallel_workers,debug_and_config,Parallel execution of the genetic algorithm,Integer,0,1024,,Error,-(count),"Number of parallel workers, 0 to use every logical core but one",-
+08_Flexibility_Event_Configuration.csv,commitment_phase_length_max,control,Phases of an event,Real,0,12,,Error,h,Longest duration of the Commitment Phase of a flexibility event,-
+08_Flexibility_Event_Configuration.csv,neutral_phase_timespan,control,Phases of an event,Real,0,6,,Error,h,Duration of the Neutral Phase of a flexibility event,-
+08_Flexibility_Event_Configuration.csv,recovery_phase_timespan,control,Phases of an event,Real,0,12,,Error,h,Duration of the Recovery Phase of a flexibility event,-
+08_Flexibility_Event_Configuration.csv,minimum_flexibility,control,Phases of an event,Real,0,100,,Error,kW,"Least flexibility a new window may sell, as a power: in each market interval it sells nothing or at least minimum_flexibility * market_resolution / 60 kWh of electricity, never compared with heat. A restated commitment is not bound by it",-
+08_Flexibility_Event_Configuration.csv,recovery_convergence_window,control,Convergence of the Recovery Phase,Real,0,240,,Error,min,Window at the end of the control horizon over which the convergence of the Recovery Phase is measured,-
+08_Flexibility_Event_Configuration.csv,recovery_convergence_tol_rel,control,Convergence of the Recovery Phase,Real,0,100,,Error,%,Relative tolerance of the energy difference over the convergence window,-
+08_Flexibility_Event_Configuration.csv,recovery_convergence_tol_abs,control,Convergence of the Recovery Phase,Real,0,100,,Error,kW,Absolute tolerance of the mean power difference over the convergence window,-
+08_Flexibility_Event_Configuration.csv,flex_up_horizon_long,control,System of an upward event,Real,0,48,,Error,h,Long horizon over which the planned electricity of each system is accumulated to find the dominant one,-
+08_Flexibility_Event_Configuration.csv,flex_up_horizon_short,control,System of an upward event,Real,0,48,,Error,h,Short horizon of the same accumulation,-
+08_Flexibility_Event_Configuration.csv,flex_up_dominance_threshold,control,System of an upward event,Real,0,100,,Error,%,Share by which a system must dominate the other to render an upward event,-
+08_Flexibility_Event_Configuration.csv,flex_up_max_power_heating,control,System of an upward event,Options,,,"Q_hp_heat_1,Q_hp_heat_2",Error,text,Model parameter that holds the heating power an upward event may reach: Q_hp_heat_1 or Q_hp_heat_2,-
+08_Flexibility_Event_Configuration.csv,flex_feasibility_tolerance,control,Feasibility of a window,Real,0,100,,Error,%,Share of the dominant increment below which the increment of the other system does not count as a decision,-
+08_Flexibility_Event_Configuration.csv,flex_feasibility_floor,control,Feasibility of a window,Real,0,100,,Error,kWh,Increment below which neither system counts as having decided anything,-
+08_Flexibility_Event_Configuration.csv,flex_restatement_tol,control,Commitment,Real,0,100,,Error,kWh,Energy a re-stated standing commitment may miss its target by,-
+08_Flexibility_Event_Configuration.csv,flexibility_commitment_margin,control,Commitment,Real,0,100,,Error,kW,Electrical headroom every market slot of a flexibility window keeps against the limit of its system,-
+08_Flexibility_Event_Configuration.csv,flexibility_commitment_bisection_steps,control,Commitment,Integer,1,64,,Error,-(count),Number of halvings of the bisection that keeps the commitment margin in each market slot,-
+08_Flexibility_Event_Configuration.csv,flex_restatement_bisection_steps,control,Commitment,Integer,1,64,,Error,-(count),Number of halvings of the bisection that re-states a standing commitment over the new plan,-
+09_Reward_parameters.csv,alpha_cost,reward,Weight of the reward,Real,0,1000,,Error,1/EUR,Weight of the economic terms of the reward,-
+09_Reward_parameters.csv,Revenue_discount_per_hour,reward,Discount of future revenue,Real,0,100,,Error,%,Hourly rate of the discount applied to the revenue expected in the future,-
+10_Operational_temperature_corrections.csv,Service_Anticipation_Begin,operational_temperature_corrections,Anticipation of the service period,Real,0,24,,Error,h,Time before the start of occupancy from which the service band applies,-
+10_Operational_temperature_corrections.csv,Service_Anticipation_End,operational_temperature_corrections,Anticipation of the service period,Real,0,24,,Error,h,Time after the end of occupancy during which the service band still applies,-
+10_Operational_temperature_corrections.csv,Service_AT_Low_Sched_HDD,operational_temperature_corrections,Correction of the comfort band by season,Real,0,20,,Error,degC,Correction of the lower limit of the service band on heating days,-
+10_Operational_temperature_corrections.csv,Service_AT_High_Sched_CDD,operational_temperature_corrections,Correction of the comfort band by season,Real,0,20,,Error,degC,Correction of the upper limit of the service band on cooling days,-
+11_Model_parameters.csv,Ci,model,Building inertia,Real,0.1,1000,,Error,kWh/K,Thermal capacitance of the indoor air and contents,-
+11_Model_parameters.csv,Ce,model,Building inertia,Real,0.1,1000,,Error,kWh/K,Thermal capacitance of the envelope,-
+11_Model_parameters.csv,Rie,model,Building inertia,Real,0.1,1000,,Error,K/kW,Thermal resistance between the indoor air and the envelope,-
+11_Model_parameters.csv,Rea,model,Building inertia,Real,0.1,1000,,Error,K/kW,Thermal resistance between the envelope and the outdoor air,-
+11_Model_parameters.csv,Aw,model,Building inertia,Real,0,1000,,Error,m2,Equivalent solar aperture of the windows,-
+11_Model_parameters.csv,Ae,model,Building inertia,Real,0,1000,,Error,m2,Equivalent solar aperture of the envelope,-
+11_Model_parameters.csv,Shading_0,model,Shading,Real,0,1,,Error,-,Share of the window solar gain blocked in the baseline shading,-
+11_Model_parameters.csv,Shading_1,model,Shading,Real,0,1,,Error,-,Share of the window solar gain blocked in the full shading,-
+11_Model_parameters.csv,Setpoint_Shading1,model,Shading,Real,0,50,,Error,degC,Outdoor temperature of the last 24 hours above which the full shading applies,-
+11_Model_parameters.csv,AT_hp_heat_1,model,Heat pump,Real,0,50,,Error,degC,Temperature difference of the first heat pump stage,-
+11_Model_parameters.csv,AT_hp_heat_2,model,Heat pump,Real,0,50,,Error,degC,Temperature difference of the second heat pump stage,-
+11_Model_parameters.csv,Q_hp_heat_1,model,Heat pump,Real,0.5,100,,Error,kW,Heating power of the heat pump alone,-
+11_Model_parameters.csv,Q_hp_heat_2,model,Heat pump,Real,0.5,100,,Error,kW,Heating power of the heat pump and its backup resistances,-
+11_Model_parameters.csv,COP_hp_heat_1_coef1,model,Heat pump,Real,-100,100,,Error,-,"Heating COP at the reference point (Text_ref_hp_heat, Tsup_ref_hp_heat)",-
+11_Model_parameters.csv,COP_hp_heat_1_coef2,model,Heat pump,Real,-100,100,,Error,1/degC,Sensitivity of the heating COP to the outdoor temperature,-
+11_Model_parameters.csv,COP_hp_heat_1_coef3,model,Heat pump,Real,-100,100,,Error,1/degC,Sensitivity of the heating COP to the supply temperature,-
+11_Model_parameters.csv,Tsup_hp_heat,model,Heat pump,Real,20,80,,Error,degC,Supply temperature of the heat pump,-
+11_Model_parameters.csv,Text_ref_hp_heat,model,Heat pump,Real,-20,20,,Error,degC,Outdoor temperature of the rating point the heating COP refers to,-
+11_Model_parameters.csv,Tsup_ref_hp_heat,model,Heat pump,Real,20,80,,Error,degC,Supply temperature of the rating point the heating COP refers to,-
+11_Model_parameters.csv,Q_hp_cool,model,Heat pump,Real,0.5,100,,Error,kW,Cooling power of the heat pump,-
+11_Model_parameters.csv,COP_hp_cool,model,Heat pump,Real,1,20,,Error,-,"Cooling COP of the heat pump, fixed",-
+11_Model_parameters.csv,RENvent01,model,Ventilation,Real,0,20,,Error,1/h,"Infiltration rate, in air changes per hour",-
+11_Model_parameters.csv,RENvent1,model,Ventilation,Real,0,20,,Error,1/h,"Reinforced ventilation rate, in air changes per hour",-
+11_Model_parameters.csv,RENvent2,model,Ventilation,Real,0,20,,Error,1/h,"Ventilation rate while the building is occupied, in air changes per hour",-
+11_Model_parameters.csv,Setpoint_Rvent1,model,Ventilation,Real,-10,50,,Error,degC,Outdoor temperature of the last 24 hours above which the reinforced ventilation applies,-
+11_Model_parameters.csv,Volume,model,Ventilation,Real,0,100000,,Error,m3,Volume of the building air,-
+11_Model_parameters.csv,Efi_Vent_Rec,model,Ventilation,Real,0,1,,Error,-,"Efficiency of the heat recovery of the ventilation, 0-1 fraction",-
+11_Model_parameters.csv,inertial_fact,model,Heat distribution,Real,0,1,,Error,-,"Thermal inertia factor of the heat distribution, 0-1 fraction",-
+01_computing_parameters.csv,main_resolution_sec,computing,Internal time grid,Real,30,600,,Error,s,Time step of the internal grid of the simulation,-
+01_computing_parameters.csv,flex_energy_tol,computing,Numerical tolerances,Real,0,1,,Error,kWh,Energy below which the planned position of a market slot is treated as zero,-
+01_computing_parameters.csv,flex_infeasible_penalty,computing,Weight of the technical-feasibility term of the reward,Real,1000,1e15,,Error,-,"Penalty, in reward units, for each flexibility leg whose window is technically infeasible",-
+03_Physical_properties.csv,Cp_air,physical_properties,Properties of air,Real,0,100,,Error,kJ/(kg.K),Specific heat capacity of air,-
+03_Physical_properties.csv,dens_air,physical_properties,Properties of air,Real,0,5,,Error,kg/m3,Density of air,-
+03_Physical_properties.csv,PV_STC_irradiance,physical_properties,Reference conditions of photovoltaic modules,Real,1,2000,,Error,W/m2,Irradiance of the standard test conditions at which the efficiency and the temperature coefficient of a module are rated,-
+03_Physical_properties.csv,PV_STC_cell_temperature,physical_properties,Reference conditions of photovoltaic modules,Real,-50,100,,Error,degC,Cell temperature of the standard test conditions at which the efficiency and the temperature coefficient of a module are rated,-
+03_Physical_properties.csv,PV_NOCT_irradiance,physical_properties,Reference conditions of photovoltaic modules,Real,1,2000,,Error,W/m2,Irradiance at which the nominal operating cell temperature (NOCT) is measured,-
+03_Physical_properties.csv,PV_NOCT_ambient_temperature,physical_properties,Reference conditions of photovoltaic modules,Real,-50,100,,Error,degC,Air temperature at which the nominal operating cell temperature (NOCT) is measured,-
+03_Physical_properties.csv,Solar_constant,physical_properties,Sun,Real,1000,1500,,Error,W/m2,"Solar irradiance outside the atmosphere at the mean distance of the Earth from the sun (Kopp and Lean, 2011). The direct normal irradiance is never above it",-
+02_Setup_parameters.csv,cran_repository,setup,Repository of R packages,Text,,,,Error,text,URL of the repository the R packages are installed from,-
+02_Setup_parameters.csv,rtools_page,setup,C++ compiler for Windows (Rtools),Text,,,,Error,text,URL of the page Rtools is downloaded from,-
+02_Setup_parameters.csv,rtools_install_root,setup,C++ compiler for Windows (Rtools),Text,,,,Error,text,Folder Rtools is installed in,-
+02_Setup_parameters.csv,download_timeout,setup,Downloads,Real,1,86400,,Error,s,Longest time a download may take,-
+Validation_03_Physical_properties.csv,Cp_air_ref,-,-,Real,0,100,,Error,kJ/(kg.K),Reference value the specific heat capacity of air is compared against,-
+Validation_03_Physical_properties.csv,dens_air_ref,-,-,Real,0,5,,Error,kg/m3,Reference value the density of air is compared against,-
+Validation_03_Physical_properties.csv,PV_STC_irradiance_ref,-,-,Real,1,2000,,Error,W/m2,Reference value the irradiance of the standard test conditions is compared against,-
+Validation_03_Physical_properties.csv,PV_STC_cell_temperature_ref,-,-,Real,-50,100,,Error,degC,Reference value the cell temperature of the standard test conditions is compared against,-
+Validation_03_Physical_properties.csv,PV_NOCT_irradiance_ref,-,-,Real,1,2000,,Error,W/m2,Reference value the irradiance of the NOCT conditions is compared against,-
+Validation_03_Physical_properties.csv,PV_NOCT_ambient_temperature_ref,-,-,Real,-50,100,,Error,degC,Reference value the air temperature of the NOCT conditions is compared against,-
+Validation_03_Physical_properties.csv,Solar_constant_ref,-,-,Real,1000,1500,,Error,W/m2,validate_physical_properties.R: reference value Solar_constant is compared against,-
+13_Modes_setpoints.csv,Deadband,control,Hysteresis,Real,0,20,,Error,degC,"Width of the hysteresis of the mode-based control, centred on the setpoint",0.5
+13_Modes_setpoints.csv,mode,setpoint_modes,Modes,Integer,1,,,Error,-,"Mode identifier, a consecutive integer starting at 1",-
+13_Modes_setpoints.csv,heating,setpoint_modes,Modes,Real,,,,Error,degC,Heating setpoint of the mode,-
+13_Modes_setpoints.csv,cooling,setpoint_modes,Modes,Real,,,,Error,degC,Cooling setpoint of the mode,-
+Validation_tolerances.csv,integer_tolerance,validation,-,Real,0,0.001,,Error,-,Largest distance to a whole number a value of an Integer parameter may have,-
+market,aim,inputs,-,Options,,,"E,E+F,O,O+F",Error,text,"Optimization aim of the market: energy, energy and flexibility, operation, operation and flexibility",-
+market,T_ext_24h,inputs,-,Real,-50,60,,Warning,degC,Mean outdoor temperature of the last 24 hours,-
+building_input,Overall_Climate,inputs,-,Options,,,"Heating,Cooling,Intermediate",Error,text,Climate season of the day,-
+market,random_seed,inputs,-,Integer,0,2147483647,,Error,-,Seed of the random number generator of the genetic algorithm,-
+12_Asset_registry.csv,asset_id,assets,-,Text,,,,Error,text,"Identifier, no physical unit: the asset type, an underscore and a number of three digits, for example Building_001",-
+12_Asset_registry.csv,asset_type,assets,-,Options,,,"Building,Photovoltaic,Battery",Error,text,"Type of model of the asset, no physical unit. Building: the thermal model of a building with a heat pump. Photovoltaic: a photovoltaic installation, with no control. Battery: an electric battery, which charges from the system and discharges into it, operated in one of five modes on each market interval",-
+18_Comfort_parameters.csv,alpha_comfort,comfort,Weight of comfort,Real,0,1000,,Error,1/h,Weight of the comfort term of the reward,-
+18_Comfort_parameters.csv,Service_T_Low,comfort,Comfort band while in service,Real,-20,60,,Error,degC,Lower limit of the comfort band while the building is in service,-
+18_Comfort_parameters.csv,Service_T_High,comfort,Comfort band while in service,Real,-20,60,,Error,degC,Upper limit of the comfort band while the building is in service,-
+18_Comfort_parameters.csv,Setback_T_Low,comfort,Comfort band in setback,Real,-20,60,,Error,degC,Lower limit of the band checked in setback,-
+18_Comfort_parameters.csv,Setback_T_High,comfort,Comfort band in setback,Real,-20,60,,Error,degC,Upper limit of the band checked in setback,-
+17_Photovoltaic_parameters.csv,Latitude,photovoltaic,Location,Real,-90,90,,Error,deg,"Latitude of the installation, positive to the north",-
+17_Photovoltaic_parameters.csv,Longitude,photovoltaic,Location,Real,-180,180,,Error,deg,"Longitude of the installation, positive to the east",-
+17_Photovoltaic_parameters.csv,Irradiance_time_offset,photovoltaic,Solar radiation,Real,-120,120,,Error,min,"Time added to the instant of each row to compute the position of the sun, so that the sun is taken at the instant the solar radiation of the row stands for: -30 for hourly means stamped at the end of the hour, 0 for values at the instant",-
+17_Photovoltaic_parameters.csv,Diffuse_threshold,photovoltaic,Solar radiation,Real,0,2000,,Error,W/m2,"Horizontal solar radiation counted as diffuse. With the sun above Min_sun_elevation, the radiation above it is direct",-
+17_Photovoltaic_parameters.csv,Min_sun_elevation,photovoltaic,Solar radiation,Real,1,90,,Error,deg,Elevation of the sun below which all the solar radiation is counted as diffuse,-
+17_Photovoltaic_parameters.csv,Tilt,photovoltaic,Orientation,Real,0,90,,Error,deg,Tilt of the modules from the horizontal: 0 horizontal and 90 vertical,-
+17_Photovoltaic_parameters.csv,Azimuth,photovoltaic,Orientation,Real,-180,180,,Error,deg,"Direction the modules face: 0 south, -90 east and 90 west",-
+17_Photovoltaic_parameters.csv,Albedo,photovoltaic,Orientation,Real,0,1,,Error,-,Share of the solar radiation that the ground reflects,-
+17_Photovoltaic_parameters.csv,Module_area,photovoltaic,Generator,Real,0,100000,,Error,m2,Area of the modules,-
+17_Photovoltaic_parameters.csv,Module_efficiency,photovoltaic,Generator,Real,0,0.5,,Error,-,"Efficiency of the modules at the standard test conditions (1000 W/m2 of irradiance, 25 degC of cell temperature). The peak power is Module_area times Module_efficiency times 1 kW/m2",-
+17_Photovoltaic_parameters.csv,DC_losses,photovoltaic,Generator,Real,0,1,,Error,-,"Share of the DC power lost in the wiring, the soiling, the mismatch, the initial degradation and the nameplate tolerance. The losses with the temperature are computed apart",-
+17_Photovoltaic_parameters.csv,Temperature_coefficient,photovoltaic,Generator,Real,-2,0,,Error,%/K,Change of the power of the modules per kelvin of cell temperature above 25 degC,-
+17_Photovoltaic_parameters.csv,NOCT,photovoltaic,Generator,Real,20,80,,Error,degC,"Nominal operating cell temperature, at 800 W/m2 of irradiance and 20 degC of air",-
+17_Photovoltaic_parameters.csv,Inverter_efficiency,photovoltaic,Inverter,Real,0,1,,Error,-,Share of the DC power that the inverter delivers as AC power,-
+17_Photovoltaic_parameters.csv,Inverter_power,photovoltaic,Inverter,Real,0,10000,,Error,kW,Maximum AC power of the inverter: the production above it is clipped,-
+19_Battery_parameters.csv,Capacity,battery,Capacity,Real,0,100000,,Error,kWh,"Nominal energy the battery stores, from empty to full",-
+19_Battery_parameters.csv,SOC_min,battery,Capacity,Real,0,1,,Error,-,"Lowest state of charge, as a share of the capacity: the battery does not discharge below it",-
+19_Battery_parameters.csv,SOC_max,battery,Capacity,Real,0,1,,Error,-,"Highest state of charge, as a share of the capacity: the battery does not charge above it",-
+19_Battery_parameters.csv,Charge_power_max,battery,Power,Real,0,100000,,Error,kW,Maximum AC power the battery takes from the system while it charges,-
+19_Battery_parameters.csv,Discharge_power_max,battery,Power,Real,0,100000,,Error,kW,Maximum AC power the battery gives to the system while it discharges,-
+19_Battery_parameters.csv,Charge_efficiency,battery,Efficiency,Real,0.5,1,,Error,-,Share of the AC energy taken while charging that is stored,-
+19_Battery_parameters.csv,Discharge_efficiency,battery,Efficiency,Real,0.5,1,,Error,-,Share of the stored energy taken while discharging that is delivered as AC energy,-
+19_Battery_parameters.csv,Self_discharge,battery,Efficiency,Real,0,10,,Error,%/day,Share of the stored energy lost per day,-
+05_File_paths.csv,key,paths,-,Text,,,,Error,text,"Identifier, no physical unit",-
+05_File_paths.csv,scope,paths,-,Text,,,,Error,text,"Scope of the file: system, or the type of model whose every asset holds it; no physical unit",-
+05_File_paths.csv,filename,paths,-,Text,,,,Error,text,"File path, no physical unit",-

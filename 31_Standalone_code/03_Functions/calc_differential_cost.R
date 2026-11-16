@@ -9,18 +9,20 @@
 # view, of moving a net commitment from E_orig to E_new, under four
 # asymmetric prices: a "new commitment" price and an "unwind previous
 # commitment" price, one pair for each sign of the commitment.
-# Positive means the "import" regime (buying energy), negative means
-# the "export" regime (selling energy). Transitions that
+# Positive means the "import" regime (e.g. buying energy, or an
+# up-flexibility commitment), negative means the "export" regime (e.g.
+# selling energy, or a down-flexibility commitment). Transitions that
 # cross zero (import to export or vice versa) are split at zero so
 # that each portion of the transition is valued at its corresponding
 # price: the part of E_orig being undone is always valued at its own
 # regime's "unwind" price, and the part of E_new being newly
 # established is always valued at its own regime's "new commitment"
 # price.
-# Its callers value energy (import/export) with it. Explicit
-# flexibility is valued by value_flex_operation() instead, because its
-# two legs are separate services and not one position that changes
-# sign.
+# This function is generic to both energy (import/export) and
+# flexibility (up/down) callers: the four price arguments are named
+# after the energy case, but a flexibility caller simply maps its own
+# "new up"/"unwind up"/"unwind down"/"new down" prices into the same
+# four slots (see propagate_differential_cost.R).
 # -------------------------------------------------------------
 # Sign convention
 # Money moving TO the building (a sale, or reselling/unwinding a
@@ -60,14 +62,8 @@
 # 2. Net income minus expense
 # -------------------------------------------------------------
 # Usage instructions
-# net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - compute_marginal_energy_cost()
-#   - compute_recovery_energy_cost()
-# -------------------------------------------------------------
-# functions/scripts called
-# split_market_operation()
+# net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy,
+# P_import_sell, P_export_buy, P_export_sell)
 # -------------------------------------------------------------
 
 calc_differential_cost <- function(E_orig, E_new,
@@ -87,7 +83,7 @@ calc_differential_cost <- function(E_orig, E_new,
   net_cash_flow <- (operation$val_sell_new + operation$val_sell_back) -
                    (operation$val_buy_new  + operation$val_buy_back)
 
-  rm(operation)
+  rm(list = "operation")
 
   return(net_cash_flow)
 }

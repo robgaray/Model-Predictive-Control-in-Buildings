@@ -5,7 +5,7 @@
 # -------------------------------------------------------------
 # Range/type validation for the columns of Meteo_df, applied by
 # load_meteo_df.R (step 4 of its code outline).
-# Structure: same convention as Parameter_config.csv
+# Structure: one rule per row
 #   file_name      : name of the dataframe file
 #   parameter_name : name of the column to validate
 #   type           : Integer | Real

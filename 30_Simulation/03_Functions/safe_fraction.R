@@ -28,12 +28,6 @@
 # Usage instructions
 # share <- safe_fraction(qty_scheduling, energy_gross)
 # -------------------------------------------------------------
-# Where this function/script is used
-# 15_economic_analysis_finalize.R, for the reported fractions of each slot.
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
-# -------------------------------------------------------------
 
 safe_fraction <- function(numerator,
                           denominator

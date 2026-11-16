@@ -4,10 +4,10 @@
 
 ## Function
 
-This function performs the optimization of the control strategy for a single MPC step. It selects either setpoint-based or mode-based optimization depending on control_type, and then computes the forecasted building states resulting from the optimized setpoints. It performs the following steps:
+This function performs the optimization of the control strategy for a single MPC step: it searches the best control of each asset for each market period (for a building, its control mode), and then computes the forecasted building states resulting from the optimized setpoints. It performs the following steps:
 
-1. Calls optimize_setpoints() or optimize_modes() according to control_type to find the optimal control schedule (each of these already returns a set_point_df with hysteresis deadbands, built internally via convert_setpoints()).
-2. Calls evaluate_control() with the optimized setpoints to compute the expected building states under forecasted weather (period_calculation() internally reads Text_forec/SolarR_forec instead of Text/SolarR for the "plan"/"plan_flex_down" calculation contexts; period_chunk$Text/ SolarR are not overwritten).
+1. Calls optimize_modes() to find the optimal control schedule (it already returns the control of each asset; for a building, its setpoints with hysteresis deadbands, built internally via convert_modes_to_setpoints()). When no asset has genes, optimize_modes() returns an empty list, and the plan of every asset is evaluated as it is.
+2. Calls evaluate_control() with the optimized controls to compute the expected building states under forecasted weather (period_calculation() internally reads Text_forec/SolarR_forec instead of Text/SolarR for the "plan"/"plan_flex_down" calculation contexts; the Text and SolarR columns are not overwritten).
 
 ## Called by
 
@@ -15,74 +15,43 @@ This function performs the optimization of the control strategy for a single MPC
 
 ## What it calls, in order of appearance
 
-- [optimize_setpoints.R](optimize_setpoints.md)
 - [optimize_modes.R](optimize_modes.md)
 - [evaluate_control.R](evaluate_control.md)
 
 ## Input data
 
-- period_chunk             : Data frame. Simulation data for the optimization horizon. Must contain 'Text_forec', 'SolarR_forec', 'Text', 'SolarR', and all columns required by period_calculation().
-- timestamps               : Named list. Timestamp metadata, passed through to optimize_setpoints()/optimize_modes() and to evaluate_control(). Must contain timestamps$target_periods (POSIXct vector of market period timestamps for the optimization horizon).
-- parameters               : List. Model parameters passed to period_calculation() and reward_function(). The following sub-elements are extracted internally: parameters$control$control_type parameters$control$set_point_range_heating parameters$control$set_point_range_cooling parameters$control$Deadband parameters$control$optimization_aim parameters$optimization parameters$setpoint_modes
-- simulation_control        : Named list. Index/step metadata, passed through to optimize_setpoints()/optimize_modes() and evaluate_control() for interface consistency.
-- marginal_context          : Named list or NULL (default NULL). Passed through to optimize_setpoints()/optimize_modes() and to the final evaluate_control() call.
+- piece                    : List. The piece of the optimization horizon, as build_market_piece() gives it: the table of the system and the table of each asset. Together the tables hold 'Text_forec', 'SolarR_forec', 'Text', 'SolarR', and all columns required by period_calculation().
+- timestamps               : Named list. Timestamp metadata, passed through to optimize_modes() and to evaluate_control(). Must contain timestamps$target_periods (POSIXct vector of market period timestamps for the optimization horizon).
+- parameters               : List. Model parameters passed to optimize_modes() and evaluate_control(). The following sub-elements are extracted internally: parameters$optimization parameters$assets, the asset registry; the building holds the setpoint_modes and its control$Deadband
+- simulation_control        : Named list. Index/step metadata, passed through to optimize_modes() and evaluate_control() for interface consistency.
+- marginal_context          : Named list or NULL (default NULL). Passed through to optimize_modes() and to the final evaluate_control() call.
+- worker_cluster            : Cluster of worker processes of the simulation (start_worker_cluster()) when parallel = 1, NULL otherwise. Passed through to optimize_modes().
 
 ## Output data
 
-- A named list with two elements: set_point_actual : Data frame. Optimized setpoint schedule with histeresis deadbands for the target periods, as returned by optimize_setpoints() or optimize_modes(). period_chunk     : Data frame. Expected building states under the optimized setpoints and forecasted weather, corresponding to the best flexibility scenario found (period_chunk from evaluate_control()). Contains all columns returned by period_calculation() plus these *_plan columns:
-    - Ti_plan
-    - Te_plan
-    - STP_heat_low_plan
-    - STP_heat_high_plan
-    - STP_cool_low_plan
-    - STP_cool_high_plan
-    - Act_heat_plan
-    - Act_cool_plan
-    - Q_heat_plan
-    - Q_cool_plan
-    - Elec_heat_plan
-    - Elec_cool_plan
-    - Elec_total_plan
-
-and these *_flex columns, representing the best flexibility scenario (Q=0 over the optimal window):
-
-- Ti_plan_flex_down
-- Te_plan_flex_down
-- STP_heat_low_plan_flex_down
-- STP_heat_high_plan_flex_down
-- STP_cool_low_plan_flex_down
-- STP_cool_high_plan_flex_down
-- Act_heat_plan_flex_down
-- Act_cool_plan_flex_down
-- Q_heat_plan_flex_down
-- Q_cool_plan_flex_down
-- Elec_heat_plan_flex_down
-- Elec_cool_plan_flex_down
-- Elec_total_plan_flex_down
-- Elec_flex_down_plan
-- Elec_flex_com_revenue_plan
-- Elec_flex_exec_revenue_plan
-
-The last two are reward_function()'s own internal/transient columns (see that function's header), unrelated to any persisted Main_df column.
+- A named list with two elements: controls : Named list. The optimized control of each asset, named by its asset_id, as returned by optimize_modes(): for the building, the setpoint schedule with hysteresis deadbands for the target periods. piece    : List. The piece with the expected states of each asset under the optimized setpoints and forecasted weather, corresponding to the best flexibility scenario found (the piece from evaluate_control()):
+    - the plan of each asset in its table: all the columns returned by period_calculation() plus the *_plan columns (for a building: Ti_plan, Te_plan, the STP_*_plan setpoints, Act_*_plan, Q_*_plan, Elec_*_plan and Elec_total_plan);
+    - in the table of the system, the net electricity of the plan and the flexibility itineraries of the best scenario (Q=0 over the optimal window), with their phases, the held legs of the standing commitment and the per-row Reward.
 
 ## Other notes from the file header
 
 ### Code outline
 
-1. Dispatch to optimize_setpoints() or optimize_modes() according to control_type
+1. Search the control modes with optimize_modes()
 2. Run evaluate_control() with the optimized setpoints and forecasted weather to compute expected building states
-3. Return the optimized set_point_actual and period_chunk
+3. Return the optimized controls and the piece
 
 ### Usage instructions
 
 ```r
-result <- optimize_control_step(period_chunk, timestamps, parameters, simulation_control)
+result <- optimize_control_step(piece, timestamps, parameters,
+  simulation_control, marginal_context,
+  worker_cluster)
 ```
 
 ### Exceptions and special cases
 
-- If control_type is neither "setpoints" nor "modes", the function raises an error via stop().
-- Parallelization is initialized inside optimize_setpoints() and optimize_modes(); the cluster is stopped within those functions.
+- The worker cluster is created once for the whole simulation by start_worker_cluster(), called from simulate(), and stopped there when the loop ends. optimize_modes() only uses it.
 
 ## Diagram
 

@@ -10,9 +10,8 @@ It exists so that the answer is worked out once and not once per candidate. The 
 
 ## Called by
 
-- [compute_marginal_distribution_cost.R](compute_marginal_distribution_cost.md)
-- [compute_marginal_energy_cost.R](compute_marginal_energy_cost.md)
-- [compute_marginal_flex_revenue.R](compute_marginal_flex_revenue.md)
+- [build_reward_cache.R](build_reward_cache.md)
+- [compute_recovery_energy_cost.R](compute_recovery_energy_cost.md)
 
 ## What it calls, in order of appearance
 

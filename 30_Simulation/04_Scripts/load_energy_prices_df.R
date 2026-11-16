@@ -25,7 +25,7 @@
 #                            Energy_Prices_df$time.
 # -------------------------------------------------------------
 # Code outline
-# 1. Read Energy_Prices_df.rds
+# 1. Check that Energy_Prices_df.rds exists and read it
 # 2. Validate required columns are present and numeric
 # 3. Validate the time grid (equispaced, compatible with Main_df's
 #    resolution)
@@ -34,19 +34,18 @@
 # Usage instructions
 # source(file.path("30_Simulation", "04_Scripts", "load_energy_prices_df.R"))
 # -------------------------------------------------------------
-# Where this function/script is used
-# Sourced by assemble_main_df.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   validate_time_grid(), validate_dataframe_config()
-#   -- from 30_Simulation/03_Functions/
-# -------------------------------------------------------------
 # Usage instructions
 #   Not called: sourced by assemble_main_df.R while it builds
 #   Main_df out of the input series.
 # -------------------------------------------------------------
 
 {
+  # initialize_simulator() does not require the input series, so that
+  # the simulator can be loaded without them. Their existence is
+  # checked here, where they are read.
+  if (!file.exists(paths$energy_prices_file)) {
+    stop("Missing required file:\n", paths$energy_prices_file)
+  }
   Energy_Prices_df <- readRDS(paths$energy_prices_file)
 
   required_cols <- c("time", "Elec_unit_cost_buy", "Elec_unit_cost_distribution",
@@ -77,8 +76,6 @@
   # Energy_Prices_df against the ranges defined in
   # Validation_Energy_Prices_df.csv.
   validate_dataframe_config(Energy_Prices_df, "Energy_Prices_df.rds", energy_prices_validation_config)
-  rm(energy_prices_validation_config, required_cols, missing_cols)
-
-  cat("Energy_Prices_df loaded and validated:", nrow(Energy_Prices_df), "rows, step =",
-      energy_prices_step_sec, "s\n")
+  rm(list = c("energy_prices_validation_config", "required_cols",
+              "missing_cols"))
 }

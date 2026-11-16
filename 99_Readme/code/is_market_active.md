@@ -8,12 +8,10 @@ Determines whether a market configuration value represents an active market.
 
 ## Called by
 
-- [11_full_market_information_setup.R](11_full_market_information_setup.md)
-- [12_market_commitments_setup.R](12_market_commitments_setup.md)
-- [13_economic_analysis_setup.R](13_economic_analysis_setup.md)
-- [14_simulation.R](14_simulation.md)
+- [build_market_events.R](build_market_events.md)
 - [generate_flexibility_events.R](generate_flexibility_events.md)
-- [resolve_marginal_context.R](resolve_marginal_context.md)
+- [run_market_role.R](run_market_role.md)
+- [validate_market_coverage.R](validate_market_coverage.md)
 
 ## What it calls, in order of appearance
 

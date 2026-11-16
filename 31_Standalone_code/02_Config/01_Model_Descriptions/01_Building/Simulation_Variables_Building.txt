@@ -1,0 +1,68 @@
+# Simulation_Variables_Building.txt
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Declarative registry of the state/control/energy variables of a
+# building. Read by variable_registry_columns() to build the columns
+# of the table of each building of the asset registry, so that a
+# different building model (different period_calculation logic,
+# different physical properties) can define its own variable set
+# here without any change to the loading code.
+# The variables of the whole system (its net electricity and its
+# commitments) are declared in 00_System/Simulation_Variables_System.txt
+# and live in the market table of the call. Elec_total is declared in
+# both: the table of a building holds its own electricity, and the
+# market table the sum over the assets.
+#
+# Columns:
+#   variable      : base variable name.
+#   type          : semantic category (state | context | action | energy |
+#                   evaluation). Documentation only, not used to drive
+#                   any logic.
+#   initial_value : generic value used to initialize the variable at
+#                   row 1 when no other source of a real initial
+#                   condition exists. Ti and Te are the documented
+#                   exception: their row-1 value is the state at i0
+#                   given in the input, regardless of the generic
+#                   value declared here.
+#                   The six setpoints (STP_*) start at NA, which
+#                   marks a row that no market has planned yet. A
+#                   setpoint of 0 degC is a valid setpoint.
+#                   Act_heat and Act_cool report what each system does
+#                   in the step: 0 off, 1 on by the thermostat, 2
+#                   imposed (heat or cold imposed from outside the
+#                   thermostat, as in the Commitment and Neutral Phases
+#                   of a flexibility window). Thermostat_heat and
+#                   Thermostat_cool hold the state of each thermostat
+#                   (0/1), also while the heat is imposed: the
+#                   hysteresis of the next step starts from it.
+#   scenario      : yes -> the variable is expanded into 3 columns,
+#                   <variable>_plan, <variable>_plan_flex_down and
+#                   <variable>_plan_flex_up. The last two are the two
+#                   flexibility itineraries: downward (load reduction)
+#                   and upward (load increase).
+#                   no  -> the variable is kept as a single column,
+#                   <variable>, with no suffix.
+# -------------------------------------------------------------
+variable	type	initial_value	scenario
+Ti	state	0	yes
+Te	state	0	yes
+Scheduling	context	0	no
+Occupancy	context	0	no
+STP_heat	action	NA	yes
+STP_heat_high	context	NA	yes
+STP_heat_low	context	NA	yes
+STP_cool	action	NA	yes
+STP_cool_high	context	NA	yes
+STP_cool_low	context	NA	yes
+Comfort	evaluation	0	yes
+Act_heat	action	0	yes
+Act_cool	action	0	yes
+Thermostat_heat	state	0	yes
+Thermostat_cool	state	0	yes
+Q_heat	action	0	yes
+Q_cool	action	0	yes
+Elec_heat	energy	0	yes
+Elec_cool	energy	0	yes
+Elec_total	energy	0	yes

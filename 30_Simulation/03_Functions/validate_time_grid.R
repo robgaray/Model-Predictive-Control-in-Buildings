@@ -45,12 +45,6 @@
 # Usage instructions
 #   validate_time_grid(df$time, "Meteo_df.csv", main_resolution_sec)
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by load_meteo_df.R and load_energy_prices_df.R.
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
-# -------------------------------------------------------------
 
 validate_time_grid <- function(time, file_name, main_resolution_sec) {
 

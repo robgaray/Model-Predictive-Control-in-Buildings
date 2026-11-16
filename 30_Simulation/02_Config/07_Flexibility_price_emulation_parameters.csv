@@ -1,7 +1,8 @@
-# Market-aware flexibility price emulation parameters (Complex_Market_Config == "yes" only)
+# Market-aware flexibility price emulation parameters (Complex_Market_Config ==
+# "yes" only)
 parameter,value,unit
 Max_shift_hours,2,h
 P_advance,0.05,-
 P_delay,0.05,-
-P_event_base,0.05,-
-decay_rate,0.05,h-1
+P_event_base,0.25,-
+decay_rate,0.1,1/h

@@ -6,8 +6,9 @@
 
 Builds Meteo_transformations_df on the given time grid. This is a synthetic dataframe (not loaded from a data file): its columns are computed downstream from Meteo_df by existing engine logic:
 
-- T_ext_24h, by 02_load_all_parameters.R
+- T_ext_24h, by load_all_parameters()
 - Text_forec/_ant and SolarR_forec/_ant, by context_forecast_step()/imperfect_forecast()
+- T_ext_24h_forec, by context_forecast_step()
 
 This function only creates those columns, as placeholders.
 
@@ -30,6 +31,7 @@ This function only creates those columns, as placeholders.
     - T_ext_24h
     - Text_forec
     - SolarR_forec
+    - T_ext_24h_forec
 
 ## Other notes from the file header
 

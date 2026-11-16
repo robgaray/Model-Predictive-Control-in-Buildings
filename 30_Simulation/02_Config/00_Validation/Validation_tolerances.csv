@@ -1,0 +1,19 @@
+# Validation_tolerances.csv tolerances of the validation
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# The tolerances the validation of the configuration files applies,
+# shared by the simulation and the GUI.
+# -------------------------------------------------------------
+# Structure:
+#   parameter : name of the tolerance
+#   value     : its value
+#   unit      : its unit
+# -------------------------------------------------------------
+# integer_tolerance : largest distance to a whole number a value of an
+#                     Integer parameter may have and still be read as
+#                     that whole number.
+# -------------------------------------------------------------
+parameter,value,unit
+integer_tolerance,1e-9,-

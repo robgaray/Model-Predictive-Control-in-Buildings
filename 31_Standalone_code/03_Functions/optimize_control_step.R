@@ -5,89 +5,141 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Optimizes the control of one market over its optimization horizon
-# and computes the expected building states under the result. The
-# control is always mode-based:
-#   1. optimize_modes() searches, with the genetic algorithm, the mode
-#      of every market interval of the horizon, and returns the
-#      corresponding setpoint schedule with its hysteresis deadbands.
-#   2. evaluate_control() simulates the building under that schedule,
-#      with the forecast weather, builds the two flexibility
-#      itineraries and values the result with the reward.
+# This function performs the optimization of the control strategy
+# for a single MPC step: it searches the best control of each asset
+# for each market period (for a building, its control mode), and
+# then computes the forecasted building states resulting from the
+# optimized setpoints.
+# It performs the following steps:
+#   1. Calls optimize_modes() to find the optimal control schedule
+#      (it already returns the control of each asset; for a
+#      building, its setpoints with hysteresis deadbands, built
+#      internally via convert_modes_to_setpoints()).
+#      When no asset has genes, optimize_modes() returns an empty
+#      list, and the plan of every asset is evaluated as it is.
+#   2. Calls evaluate_control() with the optimized controls to
+#      compute the expected building states under forecasted
+#      weather (period_calculation() internally reads
+#      Text_forec/SolarR_forec instead of Text/SolarR for the
+#      "plan"/"plan_flex_down" calculation contexts; the Text and
+#      SolarR columns are not overwritten).
 # -------------------------------------------------------------
 # Inputs
-#   period_chunk       : Data frame. Working table over the optimization
-#                        horizon, with every column period_calculation()
-#                        and reward_function() read.
-#   timestamps         : Named list. Must contain target_periods, the
-#                        market intervals whose modes are optimized.
-#   parameters         : Named list. Uses control, optimization and
-#                        setpoint_modes, through the functions called.
-#   simulation_control : Named list. Index metadata, passed through.
-#   marginal_context   : Named list. As returned by
-#                        resolve_marginal_context(), passed through.
+#   piece                    : List. The piece of the optimization
+#                              horizon, as build_market_piece() gives
+#                              it: the table of the system and the
+#                              table of each asset. Together the tables
+#                              hold 'Text_forec', 'SolarR_forec',
+#                              'Text', 'SolarR', and all columns
+#                              required by period_calculation().
+#   timestamps               : Named list. Timestamp metadata, passed through
+#                              to optimize_modes() and to
+#                              evaluate_control(). Must contain
+#                              timestamps$target_periods (POSIXct vector of
+#                              market period timestamps for the optimization
+#                              horizon).
+#   parameters               : List. Model parameters passed to
+#                              optimize_modes() and evaluate_control(). The
+#                              following sub-elements are extracted internally:
+#                                parameters$optimization
+#                                parameters$assets, the asset
+#                                registry; the building holds the
+#                                setpoint_modes and its control$Deadband
+#   simulation_control        : Named list. Index/step metadata, passed
+#                              through to optimize_modes() and
+#                              evaluate_control() for interface consistency.
+#   marginal_context          : Named list or NULL (default NULL). Passed
+#                              through to optimize_modes() and to the final
+#                              evaluate_control() call.
+#   worker_cluster            : Cluster of worker processes of the
+#                              R session (start_worker_cluster()) when
+#                              parallel = 1, NULL otherwise. Passed
+#                              through to optimize_modes().
 # -------------------------------------------------------------
 # Outputs
-#   Named list:
-#     set_point_actual : Data frame. Optimized setpoint schedule per
-#                        target period.
-#     period_chunk     : Data frame. The working table with the plan
-#                        and both flexibility itineraries of the
-#                        optimized schedule, and the per-row Reward.
+#   A named list with two elements:
+#     controls : Named list. The optimized control of each
+#                asset, named by its asset_id, as returned by
+#                optimize_modes(): for the building, the
+#                setpoint schedule with hysteresis deadbands
+#                for the target periods.
+#     piece    : List. The piece with the expected states of each
+#                asset under the optimized setpoints and forecasted
+#                weather, corresponding to the best flexibility
+#                scenario found (the piece from evaluate_control()):
+#                  - the plan of each asset in its table: all the
+#                    columns returned by period_calculation() plus
+#                    the *_plan columns (for a building: Ti_plan,
+#                    Te_plan, the STP_*_plan setpoints, Act_*_plan,
+#                    Q_*_plan, Elec_*_plan and Elec_total_plan);
+#                  - in the table of the system, the net electricity
+#                    of the plan and the flexibility itineraries of
+#                    the best scenario (Q=0 over the optimal window),
+#                    with their phases, the held legs of the standing
+#                    commitment and the per-row Reward.
 # -------------------------------------------------------------
 # Code outline
-# 1. Search the modes with the genetic algorithm
-# 2. Evaluate the optimized schedule
+# 1. Search the control modes with optimize_modes()
+# 2. Run evaluate_control() with the optimized setpoints and
+#    forecasted weather to compute expected building states
+# 3. Return the optimized controls and the piece
 # -------------------------------------------------------------
 # Usage instructions
-# result <- optimize_control_step(period_chunk, timestamps, parameters,
-#                                 simulation_control, marginal_context)
+# result <- optimize_control_step(piece, timestamps, parameters,
+#                                 simulation_control, marginal_context,
+#                                 worker_cluster)
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - run_market_process(): for the "energy" and "flexibility" aims.
+# EXCEPTIONS AND SPECIAL CASES:
+#   - The worker cluster is created once for the R session by
+#     start_worker_cluster(), called from initialize_standalone(), and
+#     stopped by close_standalone(). optimize_modes() only uses it.
 # -------------------------------------------------------------
-# functions/scripts called
-#   - optimize_modes(): genetic algorithm over the mode of each interval
-#   - evaluate_control(): simulation, flexibility itineraries and reward
-# -------------------------------------------------------------
-
-optimize_control_step <- function(period_chunk,
+optimize_control_step <- function(piece,
                                   timestamps,
                                   parameters,
                                   simulation_control,
-                                  marginal_context
-                                  ) {
+                                  marginal_context = NULL,
+                                  worker_cluster) {
 
   # -------------------------------------------------------------
-  # 1. Search the modes with the genetic algorithm
+  # 1. Search of the controls
+  # The best control of each asset is searched with the genetic
+  # algorithm.
   # -------------------------------------------------------------
   {
-    # optimize_modes is called to search the mode of each target period
-    # that maximizes the reward over the horizon.
-    set_point_actual <- optimize_modes(period_chunk       = period_chunk,
-                                       timestamps         = timestamps,
-                                       parameters         = parameters,
-                                       simulation_control = simulation_control,
-                                       marginal_context   = marginal_context
-                                       )
+    # optimize_modes is called to run the GA search over the discrete
+    # control options of each asset with genes: for the building, its
+    # setpoint_modes.
+    controls <- optimize_modes(
+      piece              = piece,
+      timestamps         = timestamps,
+      parameters         = parameters,
+      simulation_control = simulation_control,
+      marginal_context   = marginal_context,
+      worker_cluster     = worker_cluster
+    )
   }
 
   # -------------------------------------------------------------
-  # 2. Evaluate the optimized schedule
+  # 2. The plan of the best controls
+  # The forecast states of each asset are calculated with the
+  # optimized setpoints.
   # -------------------------------------------------------------
   {
-    # evaluate_control is called to simulate the building under the
-    # optimized schedule and rebuild its itineraries and reward.
-    period_chunk <- evaluate_control(period_chunk       = period_chunk,
-                                     set_point_df       = set_point_actual,
-                                     parameters         = parameters,
-                                     simulation_control = simulation_control,
-                                     marginal_context   = marginal_context
-                                     )$period_chunk
+    # evaluate_control is called once more with the best controls, to
+    # give the plan, the flexibility itineraries and the reward that
+    # the market writes.
+    piece <- evaluate_control(
+      piece              = piece,
+      controls           = controls,
+      parameters         = parameters,
+      simulation_control = simulation_control,
+      marginal_context   = marginal_context
+    )$piece
   }
 
   return(list(
-    set_point_actual = set_point_actual,
-    period_chunk     = period_chunk
+    controls = controls,
+    piece    = piece
   ))
 }

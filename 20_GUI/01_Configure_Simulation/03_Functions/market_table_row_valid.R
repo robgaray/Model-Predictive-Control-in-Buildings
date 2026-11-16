@@ -7,16 +7,15 @@
 # Overall description
 # Says whether one row of a market table
 # (04_Market_config_scheduling.csv or
-# 05_Market_config_piloting.csv) is valid: its four time columns
-# are non-negative numbers and its aim is one of:
-#   - O
-#   - E
-#   - O+F
-#   - E+F
-# The allowed aims are market_aim_options, which GUI_config.R takes
-# from Parameter_config.csv (the aims of 03_Market_config.csv). When
-# that file could not be read they are NULL, and any non-empty aim is
-# accepted: the limited validation the app already announces.
+# 05_Market_config_piloting.csv) is valid: each of its five
+# columns is valid against its rule of the parameter catalogue for
+# that file, which is:
+#   - closure, begin, end and end_optimization: a number inside the
+#     range of the rule
+#   - aim: one of the options of the rule
+# It reads validation_config, which GUI_config.R loads once at
+# start. When the catalogue could not be read, any non-empty value
+# is accepted: the limited validation the app already announces.
 # -------------------------------------------------------------
 # Inputs
 #   closure          : Value of the closure column of the market
@@ -29,13 +28,14 @@
 #                      the market row [h].
 #   aim              : Character. The optimization aim of the
 #                      market row.
+#   file_label       : Character. File name of the market table, as
+#                      the catalogue names it.
 # -------------------------------------------------------------
 # Outputs
 #   Logical scalar: TRUE when the row is valid.
 # -------------------------------------------------------------
 # Code outline
-# 1. Check the four time columns are non-negative numbers.
-# 2. Check the aim is one of the four allowed.
+# 1. Check each column against its rule of the catalogue.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
@@ -45,20 +45,28 @@
 #     begin,
 #     end,
 #     end_optimization,
-#     aim)
-# -------------------------------------------------------------
-# Where this function/script is used
-# load_market_table_file_safe(), validate_market_table_df_gui()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
+#     aim,
+#     file_label)
 # -------------------------------------------------------------
 
-market_table_row_valid <- function(closure, begin, end, end_optimization, aim) {
-  nums <- suppressWarnings(as.numeric(c(closure, begin, end, end_optimization)))
-  if (anyNA(nums) || any(nums < 0)) return(FALSE)
-  if (is.null(market_aim_options)) {
-    return(nzchar(trimws(as.character(aim))))
+market_table_row_valid <- function(closure, begin, end, end_optimization, aim,
+                                   file_label) {
+  values <- list(closure = closure, begin = begin, end = end,
+                 end_optimization = end_optimization, aim = aim)
+
+  for (CONT_001 in names(values)) {
+    # check_param_valid is called to check the column against its rule
+    # of the catalogue, the same one the simulation applies to it.
+    column_ok <- check_param_valid(
+      value             = values[[CONT_001]],
+      file_name         = file_label,
+      param_name        = CONT_001,
+      validation_config = validation_config
+    )
+    if (!column_ok) {
+      return(FALSE)
+    }
   }
-  trimws(as.character(aim)) %in% market_aim_options
+
+  TRUE
 }

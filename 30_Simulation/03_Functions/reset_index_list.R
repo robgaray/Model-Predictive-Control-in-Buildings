@@ -28,12 +28,10 @@
 # 1. Build and return the zeroed index list
 # -------------------------------------------------------------
 # Usage instructions
-# simulation_control$indexes_global[names(reset_index_list())] <- reset_index_list()
-# simulation_control$indexes_local[names(reset_index_list())]  <- reset_index_list()
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by 14_simulation.R after the Scheduling, Piloting and Execution
-# processes of each simulation step.
+# simulation_control$indexes_global[names(reset_index_list())] <-
+# reset_index_list()
+# simulation_control$indexes_local[names(reset_index_list())]  <-
+# reset_index_list()
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - indexes_global and indexes_local also hold an n_steps field that
@@ -43,9 +41,6 @@
 #     not covered here) untouched. A full-list replacement
 #     (simulation_control$indexes_global <- reset_index_list()) would
 #     instead wipe out n_steps and must not be used.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 reset_index_list <- function() {

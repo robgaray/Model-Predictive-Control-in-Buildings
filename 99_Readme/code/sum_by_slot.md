@@ -10,7 +10,7 @@ The grouping is done on the numeric form of the timestamps, not on their text fo
 
 ## Called by
 
-- [15_economic_analysis_finalize.R](15_economic_analysis_finalize.md)
+- [finalize.R](finalize.md)
 
 ## What it calls, in order of appearance
 

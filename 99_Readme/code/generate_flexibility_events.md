@@ -27,7 +27,7 @@ One accepted event sets its covered rows, everything else is 0 (Flex_Act: 0/1). 
 
 ## Called by
 
-- [09_flexibility_price_emulation.R](09_flexibility_price_emulation.md)
+- [prepare_flexibility_prices.R](prepare_flexibility_prices.md)
 
 ## What it calls, in order of appearance
 
@@ -39,7 +39,7 @@ One accepted event sets its covered rows, everything else is 0 (Flex_Act: 0/1). 
 
 ## Input data
 
-- Main_df    : Data frame. Must already have the Sched_*/Pilot_* market timeline columns (08_market_columns_setup.R) and the Flex_* columns (from Energy_Prices_df).
+- Main_df    : Data frame. Must already have MarketUTC and the Sched_*/Pilot_* market timeline columns (prepare_market_calendar()) and the Flex_* columns (from Energy_Prices_df).
 - parameters : List. Uses:
     - parameters$market:
         - market_resolution

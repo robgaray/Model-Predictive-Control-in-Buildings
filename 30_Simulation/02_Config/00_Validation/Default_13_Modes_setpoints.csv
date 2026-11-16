@@ -1,8 +1,7 @@
-# Default values for 13_Modes_setpoints.csv, used by 20_GUI/01_Configure_Simulation/GUI_config.R
-# to fill in missing or invalid entries when loading 13_Modes_setpoints.csv.
-# Setpoint modes & associated heating and cooling setpoints
+# -------------------------------------------------------------
+# Modes
 mode,heating,cooling
-text,degC,degC
+-,degC,degC
 1,5,45
 2,21,25
 3,22,25

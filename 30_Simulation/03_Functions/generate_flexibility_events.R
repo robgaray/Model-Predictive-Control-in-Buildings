@@ -40,9 +40,10 @@
 # the most up-to-date decision for that moment).
 # -------------------------------------------------------------
 # Inputs
-# Main_df    : Data frame. Must already have the Sched_*/Pilot_*
-#              market timeline columns (08_market_columns_setup.R) and
-#              the Flex_* columns (from Energy_Prices_df).
+# Main_df    : Data frame. Must already have MarketUTC and the
+#              Sched_*/Pilot_* market timeline columns
+#              (prepare_market_calendar()) and the Flex_* columns (from
+#              Energy_Prices_df).
 # parameters : List. Uses:
 #                - parameters$market:
 #                    - market_resolution
@@ -82,17 +83,6 @@
 #    one on the segments the day leaves free.
 # 4. Try an echo of every placed event, advanced or delayed.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by 09_flexibility_price_emulation.R when Complex_Market_Config == "yes".
-# -------------------------------------------------------------
-# functions/scripts called
-#   - allocate_flex_events_per_day(): draws the events of each
-#     calendar day and shares them out among the markets of that day
-#   - is_market_active()
-#   - compute_available_segments()
-#   - place_flex_candidate()
-#   - try_flex_echo()
-# -------------------------------------------------------------
 
 generate_flexibility_events <- function(Main_df, parameters) {
 
@@ -117,18 +107,17 @@ generate_flexibility_events <- function(Main_df, parameters) {
   decay_rate      <- parameters$flexibility_price_emulation$decay_rate
 
   # The cap on events is declared per DAY, and a market's period is
-  # rarely a day. Every market used to draw its candidates against the
-  # whole daily cap regardless of how long it answers for, so a day
-  # covered by three Scheduling markets and twenty-four Piloting ones
-  # could carry many times the events its cap names.
+  # rarely a day. If every market drew its candidates against the whole
+  # daily cap, regardless of how long it answers for, a day covered by
+  # three Scheduling markets and twenty-four Piloting ones could carry
+  # many times the events its cap names. Scaling the cap by the length
+  # of each market's own period would not prevent it either: the
+  # production Piloting markets each cover a full day, so each of the
+  # twenty-four would get the whole daily cap.
   # The cap is therefore drawn ONCE PER CALENDAR DAY and shared out
   # among the markets of that day, in allocate_flex_events_per_day().
-  # Scaling the cap by the length of each market's own period, which is
-  # what this function used to do, did not fix it: the production
-  # Piloting markets each cover a full day, so each of the twenty-four
-  # got the whole daily cap and the day carried up to six events
-  # against a cap of two.
   time_num <- as.numeric(Main_df$time)
+  slot_num <- as.numeric(Main_df$MarketUTC)
 
   # ---- 1. Enumerate market events (Bid_time order) ----
   extract_market_events <- function(role) {
@@ -199,7 +188,7 @@ generate_flexibility_events <- function(Main_df, parameters) {
     sched_events$quota <- allocated[both$role == "Sched"]
     pilot_events$quota <- allocated[both$role == "Pilot"]
 
-    rm(both, allocated)
+    rm(list = c("both", "allocated"))
   }
 
   # ---- 2. Scheduling: echo pass + new candidates, per market event ----
@@ -298,7 +287,8 @@ generate_flexibility_events <- function(Main_df, parameters) {
     }
   }
 
-  # ---- 3. Piloting: candidates gated by exponential decay, no overlap check ----
+  # ---- 3. Piloting: candidates gated by exponential decay, no overlap check
+  # ----
   E_pilot <- data.frame(
     t_start_sec = numeric(0), duration_sec = numeric(0),
     price_com = numeric(0), price_exec = numeric(0),
@@ -355,8 +345,10 @@ generate_flexibility_events <- function(Main_df, parameters) {
   write_events <- function(events_df) {
     if (nrow(events_df) == 0) return(invisible(NULL))
     for (CONT_007 in seq_len(nrow(events_df))) {
-      rows <- which(time_num >= events_df$t_start_sec[CONT_007] &
-                     time_num <  events_df$t_start_sec[CONT_007] + events_df$duration_sec[CONT_007])
+      # An event covers the rows whose time step falls in it, which are
+      # the rows of the market intervals it spans.
+      rows <- which(slot_num >= events_df$t_start_sec[CONT_007] &
+                     slot_num <  events_df$t_start_sec[CONT_007] + events_df$duration_sec[CONT_007])
       if (length(rows) == 0) next
       down_com[rows]  <<- events_df$price_com[CONT_007]
       down_exec[rows] <<- events_df$price_exec[CONT_007]

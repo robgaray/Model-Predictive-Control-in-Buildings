@@ -29,12 +29,6 @@
 #    defaulted. validate_inputs() already refuses such a code, so
 #    this only guards a direct call.
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - run_market_process()
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
-# -------------------------------------------------------------
 
 map_optimization_aim <- function(aim_raw) {
 

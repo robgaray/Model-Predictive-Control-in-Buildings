@@ -5,10 +5,11 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Applies the last cell edit of each of the five editable tables
-# (modes, the two occupancy tables, and the two market tables) to
-# the reactive state, so a save never misses an edit the browser
-# has not yet reported.
+# Applies the last cell edit of each of the two editable tables of
+# the system (the two market schedules) to the reactive state, so a
+# save never misses an edit the browser has not yet reported. The
+# tables of the assets are brought up to date by
+# update_asset_from_inputs().
 # -------------------------------------------------------------
 # Inputs
 #   rv               : The reactiveValues object holding the
@@ -19,7 +20,7 @@
 #   None; rv is updated in place.
 # -------------------------------------------------------------
 # Code outline
-# 1. Apply the last edit of each table with
+# 1. Apply the last edit of each table of the system with
 #    apply_text_table_edit().
 # -------------------------------------------------------------
 # Usage instructions
@@ -27,32 +28,22 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   flush_table_edits(rv, input)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# apply_text_table_edit()
-# -------------------------------------------------------------
 
 flush_table_edits <- function(rv, input) {
-  rv$modes <- apply_text_table_edit(
-    rv$modes,
-    input$modes_cell_text_edit
-  )
-  rv$occupancy_type <- apply_text_table_edit(
-    rv$occupancy_type,
-    input$occupancy_type_cell_text_edit
-  )
-  rv$occupancy_month <- apply_text_table_edit(
-    rv$occupancy_month,
-    input$occupancy_month_cell_text_edit
-  )
-  rv$sched <- apply_text_table_edit(
-    rv$sched,
-    input$sched_cell_text_edit
-  )
-  rv$pilot <- apply_text_table_edit(
-    rv$pilot,
-    input$pilot_cell_text_edit
-  )
+
+  # -------------------------------------------------------------
+  # 1. Apply the pending edits of the tables of the system
+  # -------------------------------------------------------------
+  {
+    rv$sched <- apply_text_table_edit(
+      rv$sched,
+      input$sched_cell_text_edit
+    )
+    rv$pilot <- apply_text_table_edit(
+      rv$pilot,
+      input$pilot_cell_text_edit
+    )
+  }
+
+  return(invisible(NULL))
 }

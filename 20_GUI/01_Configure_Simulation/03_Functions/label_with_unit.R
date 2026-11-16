@@ -11,8 +11,7 @@
 # Inputs
 #   param_name       : Character. Name of the parameter.
 #   file_key         : Character. File name of the configuration
-#                      file, as Parameter_Units.csv names it;
-#                      NULL shows no units.
+#                      file, as the catalogue names it.
 # -------------------------------------------------------------
 # Outputs
 #   Character scalar: the label, with the unit in brackets when
@@ -26,14 +25,6 @@
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   label_with_unit(param_name, file_key)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - GUI_config.R
-#   - build_group_editor()
-#   - build_param_editor()
-# -------------------------------------------------------------
-# functions/scripts called
-# get_param_unit()
 # -------------------------------------------------------------
 
 label_with_unit <- function(param_name, file_key) {

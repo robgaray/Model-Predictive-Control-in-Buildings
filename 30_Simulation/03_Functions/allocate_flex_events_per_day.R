@@ -59,11 +59,8 @@
 # 2. The sequential share-out
 # -------------------------------------------------------------
 # Usage instructions
-# quota <- allocate_flex_events_per_day(day, weight, trades_flex, max_periods_day)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by generate_flexibility_events(), once for the whole run,
-# before either placement loop.
+# quota <- allocate_flex_events_per_day(day, weight, trades_flex,
+# max_periods_day)
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - A day whose markets none of them trade flexibility gets nothing,
@@ -79,9 +76,6 @@
 #     proportionality is very close but not exact. Measured over 20000
 #     days on the production table the observed shares follow the
 #     expected ones to the third figure.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 allocate_flex_events_per_day <- function(day, weight, trades_flex, max_periods_day) {
@@ -143,7 +137,7 @@ allocate_flex_events_per_day <- function(day, weight, trades_flex, max_periods_d
     }
   }
 
-  rm(eligible)
+  rm(list = "eligible")
 
   return(quota)
 }

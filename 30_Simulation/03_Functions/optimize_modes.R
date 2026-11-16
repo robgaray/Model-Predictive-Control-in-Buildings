@@ -10,34 +10,54 @@
 # are constrained to integer values through custom population,
 # crossover, and mutation operators.
 # It performs the following steps:
-#   1. Defines the optimization vector based on the number of modes
-#      and the number of market periods in the target period.
+#   1. Lays out the chromosome (chromosome_layout()): one block per
+#      asset with genes, one block after the other, each with one
+#      gene per market period of the target period, bounded by the
+#      number of options of the genes of its asset.
 #      It also sizes the elitism against the number of distinct
 #      chromosomes the space holds, because ga()'s own default can
 #      exceed it and inject an NA row into the population.
-#   2. Initializes parallelization to speed up the optimization process.
+#      It also adds to the table of the system the working columns
+#      every evaluation writes (piece_working_columns()), and lays
+#      out the view of each asset of the piece (piece_layout()),
+#      once, so that every evaluation of the genetic algorithm
+#      reuses it and adds no column.
+#   2. Sends the data of this optimization to the worker cluster
+#      of the simulation, when parallel = 1.
 #   3. Calls the GA optimizer with custom integer-handling operators
 #      to find the optimal control mode sequence that maximizes the
 #      reward function.
-#   4. Post-processes the optimization results to extract the optimal
-#      control modes for each market period.
+#   4. Post-processes the optimization results: the best chromosome
+#      is decoded into the control of each asset
+#      (decode_chromosome()).
+# When no asset of the registry has genes (for example a system of
+# photovoltaic installations only), the chromosome is empty: there
+# is nothing to search, the genetic algorithm is not called, and
+# the function returns an empty control list.
 # -------------------------------------------------------------
 # Inputs
-#   period_chunk   : Data frame. Simulation data for the optimization
-#                    horizon. Must contain a 'MarketUTC' column used to
-#                    derive the set of target periods, plus all columns
-#                    required by period_calculation() (called inside
-#                    evaluate_control()).
+#   piece          : List. The piece of the optimization horizon, as
+#                    build_market_piece() gives it: the table of the
+#                    system and the table of each asset. The table of
+#                    the system holds a 'MarketUTC' column used to
+#                    derive the set of target periods. Together the
+#                    tables hold the columns required by
+#                    period_calculation() (called inside
+#                    evaluate_control()). Its working columns are
+#                    added and it is laid out (piece_layout()) once,
+#                    before the genetic algorithm.
 #   timestamps     : Named list. Timestamp metadata. Must contain:
 #                      timestamps$target_periods : POSIXct vector of
 #                                                  market period timestamps.
 #   parameters     : Named list. Model parameters passed through to
 #                    period_calculation() and reward_function().
 #                    The following sub-elements are extracted internally:
-#                      parameters$setpoint_modes
-#                      parameters$control$Deadband
-#                      parameters$optimization, as returned by
-#                        load_optimization_parameters():
+#                      parameters$assets, the asset registry: each
+#                        asset with genes takes a block of the
+#                        chromosome (for a building, its
+#                        setpoint_modes and its control$Deadband)
+#                      parameters$optimization, as loaded from
+#                        01_Optimization_parameters.csv:
 #                          - population_size
 #                          - iteration_number
 #                          - run_number
@@ -48,74 +68,121 @@
 #                    interface consistency).
 #   marginal_context : Named list or NULL. Passed through to the fitness
 #                    function and, via clusterExport(), to worker processes.
+#   worker_cluster : Cluster of worker processes, as returned by
+#                    start_worker_cluster(), when parallel = 1;
+#                    NULL otherwise. It is used, not stopped.
 # -------------------------------------------------------------
 # Outputs
-#   set_point_optimized : Data frame with setpoint columns and hysteresis
-#                         deadbands for the optimal control modes,
-#                         as returned by convert_modes_to_setpoints().
+#   controls : Named list, one element per asset with genes, named
+#              by its asset_id (an empty list when no asset has
+#              genes): the control of the asset for the best
+#              chromosome, as returned by the operation decode_genes
+#              of its type of model (for a Building, the setpoint
+#              columns with their hysteresis deadbands, from
+#              convert_modes_to_setpoints()).
 # -------------------------------------------------------------
 # Code outline
-# 1. Define GA chromosome structure for mode selection (integer vector)
+# 1. Lay out the chromosome and the views of the piece
+# 1a. Leave when the chromosome is empty
 # 1b. Size the elitism against the search space
 # 2. Configure genetic algorithm parameters with custom operators
 # 3. Initialize parallelization
 # 4. Run GA optimization with mode fitness function
-# 5. Stop cluster (if parallel)
-# 6. Post-process: extract best mode solution and convert to setpoints
+# 5. Release the cluster reference
+# 6. Post-process: decode the best chromosome into the control of
+#    each asset
 # -------------------------------------------------------------
 # Usage instructions
-# result <- optimize_modes(period_chunk, timestamps, parameters, simulation_control)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by optimize_control_step.R when control_type is "modes".
+# controls <- optimize_modes(piece, timestamps, parameters,
+#                            simulation_control, marginal_context,
+#                            worker_cluster)
 # -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
-#   - Parallelization uses parallel_workers worker processes, or all
-#     logical cores but one when it is 0. The cluster is stopped and
-#     sequential execution restored after the GA run.
+#   - With parallel = 1, the GA runs on worker_cluster, created
+#     once for the whole simulation by start_worker_cluster(). This
+#     function only sends it the data of this optimization, and
+#     does not stop it.
+#   - ga() always receives a cluster, so that it always
+#     evaluates its population through doRNG's %dorng%,
+#     which draws one random number of the main process per
+#     generation. In series it is an empty object of class
+#     "cluster", with the sequential foreach backend
+#     registered. The result is then the same in series and
+#     in parallel, whatever the number of workers.
 #   - Worker processes (PSOCK clusters) do not inherit the global
-#     environment: every function it holds is exported to them, and the
-#     data of this optimization by name, via clusterExport().
-#   - The GA uses real-type encoding with custom integer operators: n_periods
-#     genes, each representing a mode index (1 to n_modes).
+#     environment: start_worker_cluster() exports every function of
+#     the simulator, and this function the data of this
+#     optimization by name, via clusterExport(). With parallel = 1
+#     the fitness function is given the global environment as its
+#     own, so that the workers find both there.
+#   - The GA uses real-type encoding with custom integer operators:
+#     one block of genes per asset with genes, each gene a whole
+#     number from 1 to the number of options of its asset (for a
+#     building, a mode index from 1 to its number of modes). The
+#     operators read the bounds of each gene separately, so blocks
+#     with different bounds need nothing of them.
 #   - The custom operators read the selected parent chromosomes from the
 #     current GA population to keep the representation valid from the start.
 #   - Only the first solution row of the GA result (ga_result@solution[1,])
 #     is used if multiple equally-fit solutions exist.
 # -------------------------------------------------------------
-# functions/scripts called
-#   ga_population_int()            - custom population generator
-#   ga_crossover_int()             - custom crossover operator
-#   ga_mutation_int()              - custom mutation operator
-#   fitness_funct_optimize_mode()  - GA fitness function
-#   maxmode()                      - pairs the best GA solution with target_periods
-#   convert_modes_to_setpoints()   - maps mode selections to setpoint values
-#
-# Handed to the worker processes, not called here
-#   The GA evaluates its candidates in worker processes, which receive
-#   every function of the global environment through clusterExport:
-#   evaluate_control(), period_calculation(), reward_function() and
-#   everything they reach run there, underneath this function, without
-#   being called by its body. They are listed apart for that reason:
-#   the section above is what the body invokes.
-# -------------------------------------------------------------
-optimize_modes <- function(period_chunk,
+optimize_modes <- function(piece,
                            timestamps,
                            parameters,
                            simulation_control,
-                           marginal_context = NULL
+                           marginal_context = NULL,
+                           worker_cluster
                            ) {
   
-  # 1. Define GA chromosome structure for mode selection (integer vector)
+  # 1. Lay out the chromosome and the views of the piece
   # -------------------------------------------------------------
-  # One integer gene per market period, bounded in [1, n_modes].
-  # Each gene directly encodes a valid mode index.
+  # One block per asset with genes, one block after the other, in
+  # the order of the asset registry. A block holds one integer gene
+  # per market period, bounded in [1, number of options of its
+  # asset]. What a gene means belongs to the type of model of its
+  # asset: the genes of a building are its setpoint modes. With a
+  # single building, the chromosome is one gene per market period.
+  # The working columns of the system are added to the piece and the
+  # view of each asset is laid out once, so that every evaluation of
+  # the genetic algorithm reuses the layout and adds no column.
   # -------------------------------------------------------------
   {
-    n_periods    <- length(timestamps$target_periods)
-    n_modes      <- length(unique(parameters$setpoint_modes$mode))
-    lower_bounds <- rep(1, n_periods)
-    upper_bounds <- rep(n_modes, n_periods)
+    # chromosome_layout is called to give the blocks of the
+    # chromosome, which the fitness function and step 6 decode, and
+    # the bounds of each gene, which ga() and its operators keep.
+    gene_layout <- chromosome_layout(
+      parameters  = parameters,
+      n_intervals = length(timestamps$target_periods)
+    )
+
+    # piece_working_columns is called to add to the table of the
+    # system the working columns every evaluation writes, so that no
+    # evaluation adds a column and the layout below describes the
+    # piece in all of them, here and in the worker processes.
+    piece <- piece_working_columns(
+      piece = piece
+    )
+
+    # piece_layout is called to lay out the view of each asset of the
+    # piece once, before the genetic algorithm evaluates its
+    # candidates on it, here and in the worker processes, which
+    # receive this piece.
+    piece <- piece_layout(
+      piece        = piece,
+      column_order = parameters$joined_cols
+    )
+  }
+
+  # 1a. Leave when the chromosome is empty
+  # -------------------------------------------------------------
+  # With no gene there is nothing to search: ga() is not called, no
+  # random number is drawn, and the control of every asset is the one
+  # its plan already holds.
+  # -------------------------------------------------------------
+  {
+    if (gene_layout$n_genes == 0) {
+      return(list())
+    }
   }
 
   # 1b. Size the elitism against the search space
@@ -127,24 +194,24 @@ optimize_modes <- function(period_chunk,
   # and comes back NA, which puts an NA row into the population; the
   # next generation hands that row to the fitness function and the run
   # stops in convert_modes_to_setpoints().
-  # The space holds n_modes^n_periods chromosomes, which overflows for
-  # any realistic horizon, so it is only computed when the exponent
-  # stays small enough to matter: above the population size the cap
-  # cannot bind anyway.
+  # The space holds the product of the number of options of every
+  # gene, which overflows for any realistic horizon, so it is only
+  # computed when its logarithm stays small enough to matter: above
+  # the population size the cap cannot bind anyway.
   # -------------------------------------------------------------
   {
     population_size <- parameters$optimization$population_size
 
-    distinct_chromosomes <- if (n_periods * log(n_modes) > log(population_size)) {
+    distinct_chromosomes <- if (sum(log(gene_layout$upper)) > log(population_size)) {
       population_size
     } else {
-      min(n_modes ^ n_periods, population_size)
+      min(prod(gene_layout$upper), population_size)
     }
 
     elitism_size <- max(1, min(round(population_size * 0.05),
                                distinct_chromosomes))
 
-    rm(distinct_chromosomes)
+    rm(list = "distinct_chromosomes")
   }
 
   # 2. Configure genetic algorithm parameters with custom operators
@@ -161,75 +228,49 @@ optimize_modes <- function(period_chunk,
 
   # 3. Initialize parallelization
   # -------------------------------------------------------------
-  # If parallel is enabled, create a cluster and export all objects
-  # needed by the fitness function to the worker processes.
-  # On Windows (PSOCK clusters), child processes do not inherit the
-  # global environment, so explicit export is required.
+  # ga() evaluates the population in one of two ways. Given a
+  # cluster, it runs a foreach loop with doRNG's %dorng%, which
+  # draws one random number of the main process per
+  # generation. Given FALSE, it runs a plain loop that draws
+  # none. The two ways would follow different random
+  # sequences, and the result would depend on parallel. So
+  # ga() always receives a cluster:
+  # - parallel = 1: worker_cluster, the cluster of worker
+  #   processes that simulate() creates once for the whole
+  #   simulation, with every function exported and the C++
+  #   engine compiled. Only the data of this optimization is
+  #   sent to it here: on Windows (PSOCK clusters), worker
+  #   processes do not inherit the global environment.
+  # - parallel = 0: an empty object of class "cluster", which
+  #   ga() only stores, with the sequential foreach backend
+  #   registered. The loop then runs in this process, one
+  #   candidate after another.
+  # doRNG is listed in 00_Libraries.txt, so it is always
+  # installed.
   # -------------------------------------------------------------
   {
     if (parameters$debug_and_config$parallel == 1) {
-      n_cores <- parameters$debug_and_config$parallel_workers
-      if (is.null(n_cores) || n_cores == 0) {
-        n_cores <- max(1, parallel::detectCores(logical = TRUE) - 1)
+      if (is.null(worker_cluster)) {
+        stop("parallel = 1 but no worker cluster was started")
       }
-      cl      <- makeCluster(n_cores)
-      registerDoParallel(cl)
-
-      # clusterSetRNGStream is called to give every worker process a
-      # reproducible random number stream derived from the run's seed.
-      # set.seed() in Main.R only affects the main process, so without
-      # this call the GA's random operators would differ between runs
-      # even with the seed fixed. The seed is only applied when it is
-      # non-zero, mirroring Main.R's "0 means do not fix" convention.
-      # The number of workers is parallel_workers, or all logical cores
-      # but one when it is 0. The result does not depend on it.
-      if (!is.null(parameters$debug_and_config$random_seed) &&
-          parameters$debug_and_config$random_seed != 0) {
-        parallel::clusterSetRNGStream(cl, iseed = parameters$debug_and_config$random_seed)
-      }
-
-      # Every function the simulation has loaded lives in the global
-      # environment, and a worker process starts with none of them. All
-      # of them are exported, rather than a list kept by hand: a hand-kept
-      # list silently misses the next function added, and the run then
-      # stops inside a worker. The C++ entry points travel too, but are
-      # replaced below when the module is compiled on each worker.
-      project_functions <- Filter(
-        function(name) is.function(get(name, envir = globalenv())),
-        ls(globalenv())
-      )
-      clusterExport(
-        cl,
-        varlist = project_functions,
-        envir   = globalenv()
-      )
-      rm(project_functions)
+      cl <- worker_cluster
 
       # The data of this optimization, from this function's environment
       clusterExport(
         cl,
         varlist = c(
-          "period_chunk",
+          "piece",
           "parameters2",
           "timestamps",
-          "n_periods",
-          "n_modes",
+          "gene_layout",
           "simulation_control",
           "marginal_context"
         ),
         envir = environment()
       )
-
-      # Compile C++ simulation module on each worker process
-      clusterExport(
-        cl,
-        "cpp_source_path",
-        envir = globalenv()
-      )
-      clusterEvalQ(
-        cl,
-        Rcpp::sourceCpp(cpp_source_path)
-      )
+    } else {
+      registerDoSEQ()
+      cl <- structure(list(), class = "cluster")
     }
   }
 
@@ -238,12 +279,36 @@ optimize_modes <- function(period_chunk,
   # ga() is called with type="real-valued" and custom population,
   # crossover, and mutation functions that preserve the integer
   # representation by operating on chromosomes stored in the GA population.
+  # With parallel = 1 the fitness function is evaluated in the worker
+  # processes. It then takes the global environment as its own, where
+  # each worker holds the functions of the simulator and the data of
+  # this optimization. Defined here, it would carry the environment of
+  # the simulator with it, whose compiled functions do not work in
+  # another process. In series it keeps this function's environment.
   # -------------------------------------------------------------
   {
+    # fitness_funct_optimize_mode is wired in as the GA's fitness
+    # function so every candidate chromosome is scored through the
+    # same period_calculation()/evaluate_control()/reward_function()
+    # pipeline used elsewhere, keeping the reward calculation
+    # consistent across optimization paths.
+    fitness_function <- function(x) fitness_funct_optimize_mode(
+                                      x                  = as.integer(round(x)),
+                                      layout             = gene_layout,
+                                      timestamps         = timestamps,
+                                      parameters         = parameters2,
+                                      piece              = piece,
+                                      simulation_control = simulation_control,
+                                      marginal_context   = marginal_context
+                                    )
+    if (parameters$debug_and_config$parallel == 1) {
+      environment(fitness_function) <- globalenv()
+    }
+
     ga_result <- ga(
       type       = "real-valued",
-      lower      = lower_bounds,
-      upper      = upper_bounds,
+      lower      = gene_layout$lower,
+      upper      = gene_layout$upper,
       popSize    = parameters$optimization$population_size,
       elitism    = elitism_size,
       maxiter    = parameters$optimization$iteration_number,
@@ -253,70 +318,45 @@ optimize_modes <- function(period_chunk,
       population = ga_population_int,
       crossover  = ga_crossover_int,
       mutation   = ga_mutation_int,
-      parallel   = if (parameters$debug_and_config$parallel == 1) cl else FALSE,
+      parallel   = cl,
       monitor    = FALSE,
-      # fitness_funct_optimize_mode is wired in as the GA's fitness
-      # function so every candidate chromosome is scored through the
-      # same period_calculation()/evaluate_control()/reward_function()
-      # pipeline used elsewhere, keeping the reward calculation
-      # consistent across optimization paths.
-      fitness    = function(x) fitness_funct_optimize_mode(
-                                 x                 = as.integer(round(x)),
-                                 n_modes           = n_modes,
-                                 n_periods         = n_periods,
-                                 timestamps        = timestamps,
-                                 parameters        = parameters2,
-                                 period_chunk      = period_chunk,
-                                 simulation_control = simulation_control,
-                                 marginal_context  = marginal_context
-                               )
+      fitness    = fitness_function
     )
+    rm(list = "fitness_function")
   }
 
-  # 5. Stop cluster (if parallel)
+  # 5. Release the cluster reference
   # -------------------------------------------------------------
-  # rm(cl) + gc() force the PSOCK connection objects to be released
-  # right away; otherwise R's automatic gc cycles may not reach them
-  # before the session ends, and they get closed with a warning at exit.
+  # The worker cluster belongs to the simulation and stays open for
+  # the next optimization: simulate() stops it when the loop
+  # ends. Only the local reference is removed here.
   # -------------------------------------------------------------
   {
-    if (parameters$debug_and_config$parallel == 1) {
-      stopCluster(cl)
-      registerDoSEQ()
-      rm(cl)
-      gc(verbose = FALSE)
-    }
+    rm(list = "cl")
   }
 
-  # 6. Post-process: extract best mode solution and convert to setpoints
+  # 6. Post-process: decode the best chromosome into the control of
+  #    each asset
   # -------------------------------------------------------------
-  # Extract best solution as integer vector, pair with target_periods
-  # to build mode data frame, then convert to setpoints.
+  # Extract best solution as integer vector, then decode each of its
+  # blocks with the model of its asset.
   # -------------------------------------------------------------
   {
     best_solution <- as.integer(round(ga_result@solution[1, ]))
+    rm(list = "ga_result")
 
-    # Create mode data frame
-    setpoint_modes_df_optimized <- maxmode(
+    # decode_chromosome is called to turn each block of the best
+    # solution into the control of its asset: for a building, the
+    # setpoints of each period with their deadbands.
+    controls <- decode_chromosome(
       x              = best_solution,
-      n_modes        = n_modes,
-      n_periods      = n_periods,
-      target_periods = timestamps$target_periods
+      layout         = gene_layout,
+      target_periods = timestamps$target_periods,
+      parameters     = parameters
     )
-    rm(ga_result, best_solution)
-
-    # Convert modes to setpoints with deadbands
-    setpoint_modes_df_optimized <- convert_modes_to_setpoints(
-      setpoint_modes_df = setpoint_modes_df_optimized,
-      setpoint_modes    = parameters$setpoint_modes,
-      Deadband          = parameters$control$Deadband,
-      target_periods    = timestamps$target_periods,
-      pad_heating       = parameters$control$pad_heating,
-      pad_cooling       = parameters$control$pad_cooling
-    )
-
-    rm(population_size, elitism_size)
+    rm(list = c("best_solution", "gene_layout", "population_size",
+                "elitism_size"))
   }
 
-  return(setpoint_modes_df_optimized)
+  return(controls)
 }

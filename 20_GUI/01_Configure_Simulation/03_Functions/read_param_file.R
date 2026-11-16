@@ -26,12 +26,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   read_param_file(filename)
 # -------------------------------------------------------------
-# Where this function/script is used
-# load_default_param_list(), load_param_file_safe()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 read_param_file <- function(filename) {
   read.csv(

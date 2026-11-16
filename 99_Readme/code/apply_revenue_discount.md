@@ -11,10 +11,12 @@ The sign is read per interval, not on the total Each market interval carries its
 
 ## Called by
 
+- [choose_recovery.R](choose_recovery.md)
 - [compute_marginal_distribution_cost.R](compute_marginal_distribution_cost.md)
 - [compute_marginal_energy_cost.R](compute_marginal_energy_cost.md)
 - [compute_marginal_flex_revenue.R](compute_marginal_flex_revenue.md)
 - [compute_recovery_energy_cost.R](compute_recovery_energy_cost.md)
+- [economic_terms.R](economic_terms.md)
 
 ## What it calls, in order of appearance
 

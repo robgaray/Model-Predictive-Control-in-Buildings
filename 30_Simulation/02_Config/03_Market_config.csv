@@ -1,16 +1,24 @@
 # Market definition and horizon parameters
 parameter,value,unit
+#
+# Market definition
 market_resolution,15,min
-Complex_Market_Config,yes,text (yes/no)
+Complex_Market_Config,yes,text
+#
+# Scheduling markets
 Optimization_horizon_scheduling,36,h
 Implementation_horizon_scheduling,24,h
 Anticipation_scheduling,12,h
-optimization_aim_scheduling,E,text (code E/E+F)
+optimization_aim_scheduling,E,text
+#
+# Piloting markets
 Optimization_horizon_piloting,12,h
 Implementation_horizon_piloting,6,h
 Anticipation_piloting,1,h
-optimization_aim_piloting,E,text (code O/O+F)
-Max_flex_periods_day,2,-
+optimization_aim_piloting,E,text
+#
+# Flexibility price emulation
+Max_flex_periods_day,2,-(count)
 Max_flex_com_price,0.5,EUR/kWh
 Max_flex_exec_price,1,EUR/kWh
 Max_flex_period_duration,2,h

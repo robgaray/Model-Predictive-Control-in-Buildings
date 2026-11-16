@@ -44,12 +44,6 @@
 # Usage instructions
 # discounted <- apply_revenue_discount(cost_by_market, discount_by_market)
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - compute_marginal_distribution_cost()
-#   - compute_marginal_energy_cost()
-#   - compute_marginal_flex_revenue()
-#   - compute_recovery_energy_cost()
-# -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - A zero entry is left as it is: it is neither income nor expense,
 #     and discounting it would change nothing anyway.
@@ -57,9 +51,6 @@
 #     construction, so this function is a no-op there. It is still
 #     applied, so that a future term of either sign is weighted by the
 #     same rule without anyone having to remember to add it.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 apply_revenue_discount <- function(value_by_interval, discount_by_interval) {

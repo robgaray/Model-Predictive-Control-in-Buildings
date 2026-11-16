@@ -5,19 +5,19 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Adds one energy market operation - the move a single market made on
-# a single target slot, already resolved into its four elementary
-# components by split_market_operation() - to the two economic_analysis
-# tables.
+# Adds the energy market operations of one market - the move it made
+# on each of its target slots, already resolved into its four
+# elementary components by split_market_operation() - to the two
+# economic_analysis tables, slot by slot, in the order of the slots.
 # It is the single place where a market flow becomes a reported
-# number, so that economic_analysis$market and economic_analysis$slot cannot drift apart
-# from each other or from the commitment matrices.
+# number, so that economic_analysis$market and economic_analysis$slot cannot
+# drift apart from each other or from the commitment matrices.
 # The same operation is reported twice, from two different angles:
 #   - on one row of economic_analysis$market: the market that owns this slot,
 #     which accumulates the operation's quantities and its cash flow.
 #   - on one row of economic_analysis$slot: the slot itself, which accumulates
 #     the operation's costs, revenues and the working quantities that
-#     15_economic_analysis_finalize.R later turns into fractions.
+#     finalize() later turns into fractions.
 # -------------------------------------------------------------
 # Sign convention
 # Cash_flow is signed as an inflow: selling energy (either a new sale
@@ -42,19 +42,22 @@
 # where no energy was ever exported (and cost where none was
 # imported).
 # A consequence of this is that Cost_energy_bought and
-# Revenue_energy_sold are no longer non-negative magnitudes: a slot
+# Revenue_energy_sold are not always non-negative magnitudes: a slot
 # whose position was mostly unwound reports a negative cost (net
 # avoided cost) or a negative revenue (net avoided revenue).
 # -------------------------------------------------------------
 # Inputs
 # economic_analysis : Named list. The accumulators, as built by
-#                 13_economic_analysis_setup.R.
-# operation     : Named list. One split_market_operation() result, with
-#                 scalar components (one target slot at a time).
-# dest_row      : Integer. Row of economic_analysis$market that reports this
-#                 slot, already resolved by the attribution rule in
-#                 integrate_market_process.R.
-# dest_slot     : Integer. Row of economic_analysis$slot for this slot.
+#                 prepare_economic_analysis().
+# operation     : Named list. One split_market_operation() result,
+#                 with one element per target slot.
+# dest_row      : Integer vector, one element per target slot. Row of
+#                 economic_analysis$market that reports each slot,
+#                 already resolved by the attribution rule in
+#                 settle_market.R. Several slots can share a row.
+# dest_slot     : Integer vector, one element per target slot. Row of
+#                 economic_analysis$slot for each slot; no two slots
+#                 share a row.
 # is_scheduling : Logical. TRUE when the decision producing this
 #                 operation is a Scheduling market. Only used to feed
 #                 the "committed in Scheduling" working quantity of
@@ -63,23 +66,19 @@
 #                 row when that market owns the slot.
 # -------------------------------------------------------------
 # Outputs
-# Named list. The updated economic_analysis accumulators.
+# Named list. The updated economic_analysis accumulators. Its tables
+# are changed in place (add_to_table_cells()), so the tables of the
+# economic_analysis passed in hold the same values.
 # -------------------------------------------------------------
 # Code outline
 # 1. Aggregate the four elementary components into cost, revenue and
 #    their unwinding-only counterparts
-# 2. Accumulate on the owning economic_analysis$market row
-# 3. Accumulate on the economic_analysis$slot row
+# 2. Accumulate on the owning economic_analysis$market row, in place
+# 3. Accumulate on the economic_analysis$slot row, in place
 # -------------------------------------------------------------
 # Usage instructions
-# economic_analysis <- accumulate_market_operation(economic_analysis, operation, dest_row, dest_slot, is_scheduling)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by integrate_market_process.R, once per target interval of
-# every Scheduling and Piloting market execution.
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
+# economic_analysis <- accumulate_market_operation(economic_analysis, operation,
+# dest_row, dest_slot, is_scheduling)
 # -------------------------------------------------------------
 
 accumulate_market_operation <- function(economic_analysis,
@@ -113,33 +112,73 @@ accumulate_market_operation <- function(economic_analysis,
     unwind_pl  <- operation$val_sell_back - operation$val_buy_back
   }
 
+  # -------------------------------------------------------------
   # 2. Accumulate on the owning economic_analysis$market row
+  # Each value is added in place by add_to_table_cells(), so the
+  # column of the table is not copied. Several target slots can share
+  # a market row: their values are added in the order of the slots.
+  # -------------------------------------------------------------
   {
-    economic_analysis$market$Energy_bought[dest_row]   <- economic_analysis$market$Energy_bought[dest_row]   + operation$qty_buy_new
-    economic_analysis$market$Energy_rebought[dest_row] <- economic_analysis$market$Energy_rebought[dest_row] + operation$qty_buy_back
-    economic_analysis$market$Energy_sold[dest_row]     <- economic_analysis$market$Energy_sold[dest_row]     + operation$qty_sell_new
-    economic_analysis$market$Energy_resold[dest_row]   <- economic_analysis$market$Energy_resold[dest_row]   + operation$qty_sell_back
+    market_additions <- list(
+      Energy_bought   = operation$qty_buy_new,
+      Energy_rebought = operation$qty_buy_back,
+      Energy_sold     = operation$qty_sell_new,
+      Energy_resold   = operation$qty_sell_back,
+      Cash_flow       = cash_flow,
+      PL_rebuy_resale = unwind_pl
+    )
 
-    economic_analysis$market$Cash_flow[dest_row]       <- economic_analysis$market$Cash_flow[dest_row]       + cash_flow
-    economic_analysis$market$PL_rebuy_resale[dest_row] <- economic_analysis$market$PL_rebuy_resale[dest_row] + unwind_pl
-  }
-
-  # 3. Accumulate on the economic_analysis$slot row
-  {
-    economic_analysis$slot$Cost_energy_bought[dest_slot]  <- economic_analysis$slot$Cost_energy_bought[dest_slot]  + cost_total
-    economic_analysis$slot$Revenue_energy_sold[dest_slot] <- economic_analysis$slot$Revenue_energy_sold[dest_slot] + revenue_total
-    economic_analysis$slot$Cash_flow[dest_slot]           <- economic_analysis$slot$Cash_flow[dest_slot]           + cash_flow
-
-    economic_analysis$slot$Qty_rebuy_resale[dest_slot] <- economic_analysis$slot$Qty_rebuy_resale[dest_slot] + unwind_qty
-    economic_analysis$slot$Val_rebuy_resale[dest_slot] <- economic_analysis$slot$Val_rebuy_resale[dest_slot] + unwind_val
-
-    if (is_scheduling) {
-      economic_analysis$slot$Qty_scheduling[dest_slot] <- economic_analysis$slot$Qty_scheduling[dest_slot] +
-        operation$qty_buy_new + operation$qty_sell_new
+    for (CONT_001 in names(market_additions)) {
+      # add_to_table_cells is called to add the values to the market
+      # row that owns each slot.
+      add_to_table_cells(
+        table   = economic_analysis$market,
+        rows    = dest_row,
+        columns = CONT_001,
+        values  = market_additions[[CONT_001]]
+      )
     }
+
+    rm(list = c("market_additions", "CONT_001"))
   }
 
-  rm(cost_total, revenue_total, cash_flow, unwind_qty, unwind_val, unwind_pl)
+  # -------------------------------------------------------------
+  # 3. Accumulate on the economic_analysis$slot row
+  # The quantity committed in Scheduling adds the new purchase and
+  # then the new sale, one after the other, in that order.
+  # -------------------------------------------------------------
+  {
+    slot_additions <- list(
+      Cost_energy_bought  = cost_total,
+      Revenue_energy_sold = revenue_total,
+      Cash_flow           = cash_flow,
+      Qty_rebuy_resale    = unwind_qty,
+      Val_rebuy_resale    = unwind_val
+    )
+    if (is_scheduling) {
+      slot_additions <- c(
+        slot_additions,
+        list(Qty_scheduling = operation$qty_buy_new,
+             Qty_scheduling = operation$qty_sell_new)
+      )
+    }
+
+    for (CONT_002 in seq_along(slot_additions)) {
+      # add_to_table_cells is called to add the values to the row of
+      # each slot.
+      add_to_table_cells(
+        table   = economic_analysis$slot,
+        rows    = dest_slot,
+        columns = names(slot_additions)[CONT_002],
+        values  = slot_additions[[CONT_002]]
+      )
+    }
+
+    rm(list = c("slot_additions", "CONT_002"))
+  }
+
+  rm(list = c("cost_total", "revenue_total", "cash_flow", "unwind_qty",
+              "unwind_val", "unwind_pl"))
 
   return(economic_analysis)
 }

@@ -19,9 +19,9 @@
 # that it validates that magnitude, so the file must say how.
 # -------------------------------------------------------------
 # Inputs
-#   validation_config : Data frame. Content of a validation file that
-#                       follows Parameter_config.csv's convention,
-#                       with the columns:
+#   validation_config : Data frame. Content of a validation table of
+#                       00_Validation/, one rule per row, with the
+#                       columns:
 #                         - file_name
 #                         - parameter_name
 #                         - type
@@ -49,10 +49,6 @@
 # Usage instructions
 # bounds <- get_validation_bounds(bounding_validation_config, "Main_df", "Text")
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by validate_Main_df(), validate_model_parameters() and
-# load_market_parameters().
-# -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - An options field with an empty side ("-1," or ",60") means the
 #     magnitude is unbounded on that side, and that side is returned
@@ -60,9 +56,6 @@
 #     result is padded before being read.
 #   - A rule whose two sides are both empty is rejected: it would
 #     declare a validation that checks nothing.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
 # -------------------------------------------------------------
 
 get_validation_bounds <- function(validation_config, file_name, parameter_name) {
@@ -105,7 +98,7 @@ get_validation_bounds <- function(validation_config, file_name, parameter_name) 
     )
   }
 
-  rm(rule, options_str, parts, bounds)
+  rm(list = c("rule", "options_str", "parts", "bounds"))
 
   return(result)
 }

@@ -29,12 +29,6 @@
 # 2. Draw one whole mode number per gene and per individual,
 #    uniformly between those bounds.
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - optimize_modes()
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none - uses only base R)
-# -------------------------------------------------------------
 ga_population_int <- function(object) {
   
   # Extract bounds from GA object

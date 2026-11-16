@@ -5,27 +5,34 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Checks one parameter value against the rules of
-# Parameter_config.csv, the same rules the simulation applies:
+# Checks one parameter value against its rule of the parameter
+# catalogue, the same rule the simulation applies:
 #   - type:
 #       - Integer
 #       - Real
 #       - Options
-#   - range or list of options
+#       - Text
+#   - range (min and max, an empty end meaning no bound) or list
+#     of options
+#   - output: only a rule whose output is Error makes a value
+#     invalid; a breach of a rule whose output is Warning is
+#     accepted, as the simulation only warns about it
 # It is used when loading, to decide what counts as valid, and again
 # right before saving.
 # An empty value is never valid. A parameter with no rule is
 # accepted.
-# The tolerance of the Integer check is integer_tolerance, read from
-# 02_Config/GUI_fallback_values.csv into gui_fallback by GUI_config.R.
+# The tolerance of the Integer check is the integer_tolerance of
+# validation_config. When it is NA, an Integer must be exactly a
+# whole number.
 # -------------------------------------------------------------
 # Inputs
 #   value            : The value to check or escape.
 #   file_name        : Character. File name of the configuration
-#                      file, as Parameter_config.csv names it.
+#                      file, as the catalogue names it.
 #   param_name       : Character. Name of the parameter.
-#   validation_config: Data frame. The rules of
-#                      Parameter_config.csv.
+#   validation_config: Named list. The rules of the catalogue and
+#                      the integer tolerance, as load_gui_catalogue()
+#                      returns them.
 # -------------------------------------------------------------
 # Outputs
 #   Logical scalar: TRUE when the value is valid.
@@ -35,6 +42,8 @@
 # 2. Refuse an empty value; accept a parameter with no rule.
 # 3. Check a number against its type and range, or a text against
 #    its options.
+# 4. Let a breach invalidate the value only when the rule's output
+#    is Error.
 # -------------------------------------------------------------
 # Usage instructions
 # Sourced by GUI_config.R into the app's own environment, with
@@ -45,49 +54,65 @@
 #     param_name,
 #     validation_config)
 # -------------------------------------------------------------
-# Where this function/script is used
-# load_param_file_safe(), validate_param_df_gui()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 check_param_valid <- function(value, file_name, param_name, validation_config) {
-  rules <- validation_config[
-    trimws(as.character(validation_config$file_name)) == file_name &
-      trimws(as.character(validation_config$parameter_name)) == param_name,
-  ]
 
-  value_char <- trimws(as.character(value))
-  if (length(value_char) == 0 || is.na(value_char) || !nzchar(value_char)) {
-    return(FALSE)
+  # 1. Find the rule of the parameter
+  # -------------------------------------------------------------
+  {
+    rules <- validation_config$rules
+    rule  <- rules[rules$file == file_name & rules$parameter == param_name, ,
+                   drop = FALSE]
   }
 
-  if (nrow(rules) == 0) {
-    return(TRUE)
-  }
-
-  type        <- trimws(as.character(rules$type[1]))
-  options_str <- trimws(as.character(rules$options[1]))
-
-  if (type %in% c("Integer", "Real")) {
-    value_num <- suppressWarnings(as.numeric(value_char))
-    if (is.na(value_num)) return(FALSE)
-    if (type == "Integer" && abs(value_num - round(value_num)) > gui_fallback$integer_tolerance) return(FALSE)
-    if (nzchar(options_str)) {
-      range_vals <- suppressWarnings(as.numeric(trimws(strsplit(options_str, ",")[[1]])))
-      if (length(range_vals) == 2 && !anyNA(range_vals) &&
-          (value_num < range_vals[1] || value_num > range_vals[2])) {
-        return(FALSE)
-      }
+  # 2. Refuse an empty value; accept a parameter with no rule
+  # -------------------------------------------------------------
+  {
+    value_char <- trimws(as.character(value))
+    if (length(value_char) == 0 || is.na(value_char) || !nzchar(value_char)) {
+      return(FALSE)
     }
-    return(TRUE)
+
+    if (nrow(rule) == 0) {
+      return(TRUE)
+    }
   }
 
-  if (type == "Options") {
-    opts <- trimws(strsplit(options_str, ",")[[1]])
-    return(value_char %in% opts)
+  # 3. Check a number against its type and range, or a text against
+  # its options
+  # -------------------------------------------------------------
+  {
+    type   <- rule$type[1]
+    breach <- FALSE
+
+    if (type %in% c("Integer", "Real")) {
+      value_num <- suppressWarnings(as.numeric(value_char))
+      if (is.na(value_num)) {
+        breach <- TRUE
+      } else {
+        tolerance <- validation_config$integer_tolerance
+        if (is.null(tolerance) || is.na(tolerance)) {
+          tolerance <- 0
+        }
+        low  <- suppressWarnings(as.numeric(rule$min[1]))
+        high <- suppressWarnings(as.numeric(rule$max[1]))
+        breach <- (type == "Integer" &&
+                     abs(value_num - round(value_num)) > tolerance) ||
+          (!is.na(low) && value_num < low) ||
+          (!is.na(high) && value_num > high)
+        rm(tolerance, low, high)
+      }
+      rm(value_num)
+    } else if (type == "Options") {
+      options <- trimws(strsplit(rule$options[1], ",")[[1]])
+      breach  <- !value_char %in% options
+      rm(options)
+    }
   }
 
-  TRUE
+  # 4. Let a breach invalidate the value only when the output is Error
+  # -------------------------------------------------------------
+  {
+    return(!(breach && rule$output[1] == "Error"))
+  }
 }

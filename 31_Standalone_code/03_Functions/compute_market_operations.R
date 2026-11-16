@@ -9,7 +9,10 @@
 # interval of the control horizon (from i_begin_horizon to the last
 # interval before i_end_control). Each is the move from what was
 # committed before this market (the plan itinerary of the input) to
-# what is committed after it (the plan itinerary of the output):
+# what is committed after it (the plan itinerary of the output). The
+# operations are those of the system, because the grid only sees its
+# net flow: there are no operations per asset. The plan itinerary of
+# the system is the one that is moved:
 #   - Energy: the move of the net energy (Elec_total) is split by
 #     split_market_operation() into new purchase, resale of an earlier
 #     purchase, new sale and rebuy of an earlier sale.
@@ -22,7 +25,11 @@
 # -------------------------------------------------------------
 # Inputs
 #   checked         : Named list, as returned by validate_inputs().
+#                     Uses system, the plan itinerary of the system
+#                     before this market, and prices.
 #   itineraries_out : Named list, as returned by aggregate_to_slots().
+#                     Uses system, the plan itinerary of the system
+#                     after this market.
 # -------------------------------------------------------------
 # Outputs
 #   Data frame, one row per committed interval, with the columns (kWh):
@@ -39,13 +46,6 @@
 # Usage instructions
 # operations <- compute_market_operations(checked, itineraries_out)
 # -------------------------------------------------------------
-# Where this function/script is used
-#   - optimize_market(): builds the operations of the output.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - split_market_operation(): splits the move of the net energy
-#   - value_flex_operation(): splits the move of each flexibility leg
-# -------------------------------------------------------------
 
 compute_market_operations <- function(checked,
                                       itineraries_out
@@ -55,13 +55,15 @@ compute_market_operations <- function(checked,
   # 1. Committed intervals, before and after
   # -------------------------------------------------------------
   {
-    after <- itineraries_out$plan[-nrow(itineraries_out$plan), , drop = FALSE]
+    after <- itineraries_out$system$itineraries$plan[
+      -nrow(itineraries_out$system$itineraries$plan), , drop = FALSE
+    ]
 
     input_rows <- match(as.numeric(after$time), as.numeric(checked$slot_time))
-    before     <- checked$itineraries$plan[input_rows, , drop = FALSE]
+    before     <- checked$system$itineraries$plan[input_rows, , drop = FALSE]
     prices     <- checked$prices[input_rows, , drop = FALSE]
 
-    rm(input_rows)
+    rm(list = "input_rows")
   }
 
   # -------------------------------------------------------------
@@ -119,7 +121,7 @@ compute_market_operations <- function(checked,
     Flex_up_rebought   = flex_up$up_bought
   )
 
-  rm(after, before, prices, energy, flex_down, flex_up)
+  rm(list = c("after", "before", "prices", "energy", "flex_down", "flex_up"))
 
   return(operations)
 }

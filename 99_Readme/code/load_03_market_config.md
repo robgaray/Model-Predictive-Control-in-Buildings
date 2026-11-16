@@ -4,7 +4,7 @@
 
 ## Function
 
-Loads market configuration from 03_Market_config.csv, which also holds the six limits of the flexibility price emulation, used by both the basic and the complex modes of 09_flexibility_price_emulation.R:
+Loads market configuration from 03_Market_config.csv, which also holds the six limits of the flexibility price emulation, used by both the basic and the complex modes of prepare_flexibility_prices():
 
 - Max_flex_periods_day
 - Max_flex_com_price
@@ -13,22 +13,20 @@ Loads market configuration from 03_Market_config.csv, which also holds the six l
 - Max_flex_probability_down
 - Max_flex_probability_up
 
-It validates raw values against Parameter_config.csv, calls load_market_parameters() for structured loading with the horizon clamping logic of Validation_Market_Config.csv, resolves the raw scheduling/piloting aim codes (O/E/O+F/E+F) to internal text labels ("energy"/"flexibility"/"operation"/"operationflex") via map_optimization_aim(), and sets parameters$control$optimization_aim. Stores the result in parameters$market. Sourced from 02_load_all_parameters.R. Requires parameters$control and parameters$optimization to be already loaded.
+It validates the values against the parameter catalogue, checks that both optimization horizons are a whole number of market intervals, resolves the raw scheduling/piloting aim codes (O/E/O+F/E+F) to internal text labels ("energy"/"flexibility"/"operation"/"operationflex") via map_optimization_aim(). Stores the result in parameters$market. Sourced from load_all_parameters(). Requires parameters$optimization to be already loaded.
 
 ## Called by
 
-- [02_load_all_parameters.R](02_load_all_parameters.md)
+- [load_configuration_files.R](load_configuration_files.md)
 
 ## What it calls, in order of appearance
 
-- [read_and_validate_parameter_csv.R](read_and_validate_parameter_csv.md)
-- [load_market_parameters.R](load_market_parameters.md)
+- [load_parameter_file.R](load_parameter_file.md)
 - [map_optimization_aim.R](map_optimization_aim.md) &nbsp;(2 call sites)
 
 ## Input data
 
-- paths$market_file : path of 03_Market_config.csv, resolved by 01_initialization.R.
-- Its validation table, Validation_Market_Config.csv, read alongside it.
+- paths$market_file : path of 03_Market_config.csv, resolved by initialize_simulator().
 - parameters : the list being assembled, to which this script adds one sub-list.
 
 ## Output data
@@ -40,13 +38,12 @@ It validates raw values against Parameter_config.csv, calls load_market_paramete
 ### Code outline
 
 1. Read the file and validate every value.
-2. Turn the raw values into the market sub-list.
-3. Translate each aim letter into its internal name.
-4. Store the result in parameters$market.
+2. Translate each aim letter into its internal name.
+3. Check the horizons against the market resolution.
 
 ### Usage instructions
 
-Not called: sourced by 02_load_all_parameters.R, which supplies paths and parameters and takes the updated parameters back.
+Not called: sourced by load_all_parameters(), which supplies paths and parameters and takes the updated parameters back.
 
 ## Diagram
 

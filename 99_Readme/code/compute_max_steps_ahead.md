@@ -13,8 +13,8 @@ The largest distance found is turned into steps of market_resolution, rounded up
 
 ## Called by
 
-- [11_full_market_information_setup.R](11_full_market_information_setup.md)
-- [12_market_commitments_setup.R](12_market_commitments_setup.md)
+- [prepare_commitments.R](prepare_commitments.md)
+- [prepare_market_information.R](prepare_market_information.md)
 
 ## What it calls, in order of appearance
 
@@ -22,11 +22,12 @@ The largest distance found is turned into steps of market_resolution, rounded up
 
 ## Input data
 
-- parameters : Named list. Uses:
-    - market$market_resolution (min)
-    - market$Complex_Market_Config ("yes"/"no")
-    - market$Anticipation_scheduling, market$Optimization_horizon_scheduling, market$Anticipation_piloting and market$Optimization_horizon_piloting (h), in basic mode
-    - market_config_scheduling and market_config_piloting (data frames with closure, end and end_optimization, in h), in complex mode
+- market                   : List, parameters$market. Uses:
+    - market_resolution (min)
+    - Complex_Market_Config ("yes"/"no")
+    - Anticipation_scheduling, Optimization_horizon_scheduling, Anticipation_piloting and Optimization_horizon_piloting (h), in basic mode
+- market_config_scheduling : data frame, parameters$market_config_scheduling. Closure, end and end_optimization [h] of each market, in complex mode.
+- market_config_piloting   : data frame, parameters$market_config_piloting. The same columns, in complex mode.
 
 ## Output data
 
@@ -42,7 +43,11 @@ The largest distance found is turned into steps of market_resolution, rounded up
 ### Usage instructions
 
 ```r
-max_steps_ahead <- compute_max_steps_ahead(parameters)
+max_steps_ahead <- compute_max_steps_ahead(
+  market                   = parameters$market,
+  market_config_scheduling = parameters$market_config_scheduling,
+  market_config_piloting   = parameters$market_config_piloting
+  )
 ```
 
 ## Diagram

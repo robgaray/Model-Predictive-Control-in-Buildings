@@ -14,8 +14,8 @@ Returns NULL whenever no candidate can be placed (max_duration_hours shorter tha
 
 ## Called by
 
-- [09_flexibility_price_emulation.R](09_flexibility_price_emulation.md)
 - [generate_flexibility_events.R](generate_flexibility_events.md)
+- [prepare_flexibility_prices.R](prepare_flexibility_prices.md)
 
 ## What it calls, in order of appearance
 

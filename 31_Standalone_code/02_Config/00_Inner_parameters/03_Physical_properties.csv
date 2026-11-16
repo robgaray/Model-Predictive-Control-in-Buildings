@@ -1,6 +1,15 @@
-# Physical properties of air
+# Physical properties and reference conditions
 parameter,value,unit
 #
 # Properties of air
 Cp_air,1.005,kJ/(kg.K)
 dens_air,1.204,kg/m3
+#
+# Reference conditions of photovoltaic modules
+PV_STC_irradiance,1000,W/m2
+PV_STC_cell_temperature,25,degC
+PV_NOCT_irradiance,800,W/m2
+PV_NOCT_ambient_temperature,20,degC
+#
+# Sun
+Solar_constant,1361,W/m2

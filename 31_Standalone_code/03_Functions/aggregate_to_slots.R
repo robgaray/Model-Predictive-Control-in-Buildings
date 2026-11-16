@@ -5,57 +5,62 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Turns the working table back into the three itineraries returned
-# by the script, one value per market interval, from the interval
-# that starts at i_begin_horizon to the closing interval, the one that
-# starts at i_end_control.
-# Each variable is aggregated by its own nature:
-#   - Ti, Te           : state at the start of the interval, read on
-#                        the row of that instant.
-#   - setpoints        : the value of the interval, read on its first
-#                        time step.
-#   - Elec_total and the commitments Elec_flex_down/Elec_flex_up: the
-#                        sum of the time steps of the interval.
-# The closing interval only carries the state (Ti, Te): it passes the
-# state reached at i_end_control to the next market and commits no
-# energy, so its other variables are missing (NA).
+# Turns the piece after the market process back into the itineraries
+# returned by the script, one value per market interval, from the
+# interval that starts at i_begin_horizon to the closing interval, the
+# one that starts at i_end_control. It gives them for the system and
+# for each asset of the call.
+# The itineraries of an asset are those of its type of model: the
+# operation slot_output of its contract turns its table into them,
+# each variable aggregated by its own nature (a state is read at the
+# start of the interval, a control on its first time step and an
+# energy is summed over the steps of the interval).
+# The itineraries of the system are its net electricity in each of
+# the three itineraries, the sum of the assets, and the flexibility
+# committed on the plan. Energies are summed over the time steps of
+# the interval.
+# The closing interval only carries the state of the assets: it
+# passes the state reached at i_end_control to the next market and
+# commits no energy, so the energy of the system and of the assets,
+# and the commitments, are missing (NA) there.
 # -------------------------------------------------------------
 # Inputs
-#   period_chunk : Data frame. Working table after run_market_process().
-#   checked      : Named list, as returned by validate_inputs().
-#   parameters   : Named list. Uses market$market_resolution.
+#   piece      : List. The piece after run_market_process().
+#   checked    : Named list, as returned by validate_inputs().
+#   parameters : Named list. Uses market$market_resolution and assets
+#                (the assets of the call).
 # -------------------------------------------------------------
 # Outputs
-#   Named list with plan, plan_flex_down and plan_flex_up, each a
-#   data frame with the columns:
-#     - time
-#     - Ti, Te
-#     - STP_heat, STP_heat_low, STP_heat_high
-#     - STP_cool, STP_cool_low, STP_cool_high
-#     - Elec_total
-#   plan also carries Elec_flex_down and Elec_flex_up.
+#   Named list:
+#     - system : list with itineraries, a list of plan,
+#                plan_flex_down and plan_flex_up, each a data frame
+#                with time and Elec_total (kWh, the net electricity of
+#                the system); plan also carries Elec_flex_down and
+#                Elec_flex_up (kWh)
+#     - assets : list with one entry per asset of the call, named by
+#                its asset id, each a list with itineraries: the
+#                plan, plan_flex_down and plan_flex_up that the
+#                operation slot_output of its type of model gives
 # -------------------------------------------------------------
 # Code outline
 # 1. Output intervals
-# 2. Itineraries
+# 2. Itineraries of the system
+# 3. Itineraries of each asset
 # -------------------------------------------------------------
 # Usage instructions
-# itineraries <- aggregate_to_slots(period_chunk, checked, parameters)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - optimize_market(): builds the itineraries of the output.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
+# itineraries <- aggregate_to_slots(piece, checked, parameters)
 # -------------------------------------------------------------
 
-aggregate_to_slots <- function(period_chunk,
+aggregate_to_slots <- function(piece,
                                checked,
                                parameters
                                ) {
 
   # -------------------------------------------------------------
   # 1. Output intervals
+  # slots is the list of the output intervals that the operation
+  # slot_output of each type of model receives: out_time, n_out,
+  # row_at_start, first_row and slot_rows.
   # -------------------------------------------------------------
   {
     resolution_sec <- parameters$market$market_resolution * 60
@@ -65,56 +70,85 @@ aggregate_to_slots <- function(period_chunk,
     n_out     <- length(out_time)
     committed <- seq_len(n_out - 1)
 
-    row_at_start <- match(as.numeric(out_time), as.numeric(period_chunk$time))
-    first_row    <- match(as.numeric(out_time[committed]),
-                          as.numeric(period_chunk$MarketUTC))
-    slot_rows    <- match(as.numeric(period_chunk$MarketUTC),
-                          as.numeric(out_time[committed]))
+    slots <- list(
+      out_time     = out_time,
+      n_out        = n_out,
+      row_at_start = match(as.numeric(out_time),
+                           as.numeric(piece$system$time)),
+      first_row    = match(as.numeric(out_time[committed]),
+                           as.numeric(piece$system$MarketUTC)),
+      slot_rows    = match(as.numeric(piece$system$MarketUTC),
+                           as.numeric(out_time[committed]))
+    )
 
-    sum_by_slot <- function(values) {
-      totals <- rep(NA_real_, n_out)
-      totals[committed] <- vapply(committed, function(k) {
-        sum(values[which(slot_rows == k)])
-      }, numeric(1))
-      return(totals)
-    }
-
-    rm(resolution_sec)
+    rm(list = c("resolution_sec", "out_time", "n_out", "committed"))
   }
 
   # -------------------------------------------------------------
-  # 2. Itineraries
+  # 2. Itineraries of the system
   # -------------------------------------------------------------
   {
-    setpoint_columns <- c("STP_heat", "STP_heat_low", "STP_heat_high",
-                          "STP_cool", "STP_cool_low", "STP_cool_high")
-    itineraries <- list()
+    system_itineraries <- list()
 
     for (CONT_001 in c("plan", "plan_flex_down", "plan_flex_up")) {
-      itinerary <- data.frame(time = out_time)
-      itinerary$Ti <- period_chunk[[paste0("Ti_", CONT_001)]][row_at_start]
-      itinerary$Te <- period_chunk[[paste0("Te_", CONT_001)]][row_at_start]
+      itinerary <- data.frame(time = slots$out_time)
 
-      for (CONT_002 in setpoint_columns) {
-        values <- rep(NA_real_, n_out)
-        values[committed] <- period_chunk[[paste0(CONT_002, "_", CONT_001)]][first_row]
-        itinerary[[CONT_002]] <- values
-      }
-
-      itinerary$Elec_total <- sum_by_slot(period_chunk[[paste0("Elec_total_", CONT_001)]])
+      # sum_over_slots is called to add up the net electricity of the
+      # system over the steps of each committed interval.
+      itinerary$Elec_total <- sum_over_slots(
+        values = system_net_energy(piece$system, CONT_001),
+        slots  = slots
+      )
 
       if (CONT_001 == "plan") {
-        itinerary$Elec_flex_down <- sum_by_slot(period_chunk$Elec_flex_down_plan)
-        itinerary$Elec_flex_up   <- sum_by_slot(period_chunk$Elec_flex_up_plan)
+        # sum_over_slots is called to add up the flexibility committed
+        # on each leg over the steps of each committed interval.
+        itinerary$Elec_flex_down <- sum_over_slots(
+          values = piece$system$Elec_flex_down_plan,
+          slots  = slots
+        )
+        itinerary$Elec_flex_up   <- sum_over_slots(
+          values = piece$system$Elec_flex_up_plan,
+          slots  = slots
+        )
       }
 
-      itineraries[[CONT_001]] <- itinerary
+      system_itineraries[[CONT_001]] <- itinerary
     }
-
-    rm(CONT_001, CONT_002, itinerary, values, setpoint_columns)
+    rm(list = c("CONT_001", "itinerary"))
   }
 
-  rm(out_time, n_out, committed, row_at_start, first_row, slot_rows, sum_by_slot)
+  # -------------------------------------------------------------
+  # 3. Itineraries of each asset
+  # -------------------------------------------------------------
+  {
+    asset_itineraries <- list()
 
-  return(itineraries)
+    for (CONT_002 in names(piece$assets)) {
+      asset <- parameters$assets[[CONT_002]]
+
+      # model_type_contract is called to take the operations of the
+      # type of model of the asset.
+      model <- model_type_contract(asset$asset_type)
+
+      # The operation slot_output of the model is called to turn the
+      # table of the asset into its three itineraries per interval.
+      asset_itineraries[[CONT_002]] <- list(
+        itineraries = model$slot_output(
+          asset_df = piece$assets[[CONT_002]]$df,
+          slots    = slots,
+          asset    = asset
+        )
+      )
+      rm(list = c("asset", "model"))
+    }
+    rm(list = "CONT_002")
+  }
+
+  rm(list = "slots")
+
+  return(list(
+    system = list(itineraries = system_itineraries),
+    assets = asset_itineraries
+  ))
 }

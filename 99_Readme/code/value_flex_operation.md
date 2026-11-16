@@ -10,7 +10,7 @@ Why this is not calc_differential_cost()/split_market_operation() Energy has a s
 ## Called by
 
 - [compute_marginal_flex_revenue.R](compute_marginal_flex_revenue.md)
-- [integrate_market_process.R](integrate_market_process.md)
+- [settle_market.R](settle_market.md)
 
 ## What it calls, in order of appearance
 
@@ -20,7 +20,7 @@ Why this is not calc_differential_cost()/split_market_operation() Energy has a s
 
 - E_orig, E_new : Numeric vectors, same length. Explicit flexibility commitment before/after the change, for one or more target slots: Elec_flex_down_plan for the down leg, -Elec_flex_up_plan for the up leg.
 - The four prices below are numeric vectors, same length as E_orig:
-- the effective price (commitment + execution, weighted by activation probability) of selling/buying back the down/up leg in each target slot.
+- the price of selling/buying back the down/up leg in each target slot, as the caller values it. settle_market() settles at the commitment price; reward_function() values the commitment term at the commitment price and the execution term at the execution price times the activation probability.
     - price_down_sell
     - price_down_buy
     - price_up_sell
@@ -44,7 +44,8 @@ Why this is not calc_differential_cost()/split_market_operation() Energy has a s
 ### Usage instructions
 
 ```r
-op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy, price_up_sell, price_up_buy)
+op <- value_flex_operation(E_orig, E_new, price_down_sell, price_down_buy,
+  price_up_sell, price_up_buy)
 ```
 
 ## Diagram

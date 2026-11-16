@@ -8,7 +8,6 @@ Reads the admissible bounds of one magnitude out of a validation configuration t
 
 ## Called by
 
-- [load_market_parameters.R](load_market_parameters.md)
 - [validate_Main_df.R](validate_Main_df.md)
 - [validate_model_parameters.R](validate_model_parameters.md)
 
@@ -18,7 +17,7 @@ Reads the admissible bounds of one magnitude out of a validation configuration t
 
 ## Input data
 
-- validation_config : Data frame. Content of a validation file that follows Parameter_config.csv's convention, with the columns:
+- validation_config : Data frame. Content of a validation table of 00_Validation/, one rule per row, with the columns:
     - file_name
     - parameter_name
     - type

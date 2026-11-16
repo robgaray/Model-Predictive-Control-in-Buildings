@@ -21,17 +21,6 @@
 # 1. Trim the name and decide: anything that is not empty, not NA
 #    and not "0" marks an active market.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by 14_simulation.R (to guard calls to run_market_process()) and
-# by generate_flexibility_events.R (to enumerate active market
-# events). Handed to an apply, rather than called directly, by
-# 13_economic_analysis_setup.R, 11_full_market_information_setup.R,
-# 12_market_commitments_setup.R and resolve_marginal_context(), which
-# flag one row of Main_df at a time with it.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
-# -------------------------------------------------------------
 
 is_market_active <- function(market_name_raw) {
   market_name_chr <- trimws(as.character(market_name_raw)[1])

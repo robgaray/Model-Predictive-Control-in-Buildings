@@ -2,6 +2,13 @@
 
 This project is a test environment for Model Predictive Control in Buildings. Much more could be written here, but it is easier to explore each subsection below to understand the project and see if it is useful for a given case.
 
+### Version 6 note:
+This is an early release of Version 6, while the code is ready for release, the documentation is yet to be fully verified.
+
+The current documentation has been machine-updated.
+
+The user should expect a v6.1 release soon with a better documented readme.
+
 ## Index
 
 1. [Content of this repository](#1-content-of-this-repository)
@@ -80,13 +87,17 @@ The Model Predictive Control system consists of the following:
 
 - A full year worth of meteorological data and electricity prices `30_Simulation/01_Data/Meteo_df.rds` and `30_Simulation/01_Data/Energy_Prices_df.rds` (or .csv)
 
-- A semi physical (RC) building energy model linked to a heat pump model `30_Simulation/02_Config/11_Model_parameters.csv`
+- A semi physical (RC) building energy model linked to a heat pump model `30_Simulation/02_Config/20_Assets/Building_001/11_Model_parameters.csv`
+
+- A photovoltaic generation model, with no control, for the photovoltaic installations of the system `30_Simulation/02_Config/20_Assets/<asset_id>/17_Photovoltaic_parameters.csv`
+
+- An electric battery model, for the batteries of the system, which charge from the system and discharge into it `30_Simulation/02_Config/20_Assets/<asset_id>/19_Battery_parameters.csv`
 
 - A genetic algorithm to perform the predictive optimization
 
 - A policy to assess the goodness of a particular solution
 
-- A large set of configuration files allowing for the parametrization of the simulation `30_Simulation/02_Config/`
+- A large set of configuration files allowing for the parametrization of the simulation `30_Simulation/02_Config/`, with a folder for each asset of the system in `30_Simulation/02_Config/20_Assets/`
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -94,21 +105,21 @@ The Model Predictive Control system consists of the following:
 
 The energy model is based on a reduced order (RC) building model with integrated HVAC and heat pump models. The details of the model, including the building physics, thermostat, heating and cooling systems, ventilation, shading, and occupancy are described in [Model](99_Readme/Model.md).
 
+A system can also hold photovoltaic installations. They have no control: they produce electricity from the solar radiation and the outdoor temperature of the weather file, with the tilt and the orientation of their modules and the position of the sun, and the optimizer takes no decision on them. Their production is part of the net electricity of the system, which is what the markets buy and sell. Their model is described in [Model](99_Readme/Model.md#photovoltaic-installation).
+
+A system can also hold electric batteries. A battery takes electricity from the system to charge, and gives it back to the system when it discharges. On each market interval the optimizer chooses one of five modes for it: charge only with the electricity the rest of the system would give to the grid, charge as much as it can, discharge only to cover the electricity the rest of the system takes from the grid, discharge as much as it can, or stop. The battery always stays within its limits: its lowest and highest state of charge, and its largest charge and discharge power. When the simulation runs the real operation, the battery keeps the mode of the plan, so the electricity it exchanges follows the real consumption and production of the other assets, which may differ from the plan. Its model is described in [Model](99_Readme/Model.md#battery).
+
 [back to top](#model-predictive-control-for-buildings)
 
 # 5. Control modes & setpoints
 
-2 control modes are foreseen:
+The control is mode based: the optimizer decides, for every market period, one mode from a pre-defined set of modes in the `13_Modes_setpoints.csv` file of the building (`30_Simulation/02_Config/20_Assets/Building_001/13_Modes_setpoints.csv`). Each mode has pre-set heating and cooling setpoints. The same file sets `Deadband` [degC], the width of the hysteresis band of the thermostat around each setpoint.
 
-- Setpoint based: Here, setpoints for heating and cooling are freely set by the optimized within a pre-defined range, set in `30_Simulation/02_Config/12_Temperature_Setpoints.csv`. This control mode is likely to be discontinued soon.
+A battery is controlled by modes too, but its five modes are fixed and need no file: they are described in [Model](99_Readme/Model.md#battery).
 
-- Mode based: Here, the optimizer decide from a pre-defined set of modes in the `30_Simulation/02_Config/13_Modes_setpoints.csv` file. Each mode has pre-set heating and cooling setpoints.
+Even if simulations are performed at shorter timesteps, modes are defined in agreement with a market resolution (typically 15 minutes or one hour).
 
-The control mode is flagged through the `control_type` parameter in `30_Simulation/02_Config/02_Control.csv`.
-
-Even if simulations are performed at shorter timesteps, setpoints and modes are defined in agreement with a market resolution (typically 15 minutes or one hour).
-
-Although still in early stages of research, it seems that Mode-based optimization is a faster and better approach.
+The setpoint-based control, in which the optimizer set the heating and cooling setpoints freely within a range, is no longer part of the repository - see [Discontinued items](#20-discontinued-items).
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -116,7 +127,7 @@ Although still in early stages of research, it seems that Mode-based optimizatio
 
 A policy that incorporates heating costs and comfort is used. The reward it produces is dimensionless, and it is built from two terms that are each brought to a pure number by their own weight.
 
-- Comfort: System temperature is compared with reference temperatures at every time step. If the building is outside its comfort band, a penalty is given for every hour spent that way, weighted by the `alpha_comfort` [1/h] parameter. The plan is measured against the more restrictive of two bands: the occupancy band (the service band of `09_Reward_parameters.csv` while occupied, the setback band otherwise) and the scheduling band (the service band tightened before occupancy and according to the season by the corrections of `10_Operational_temperature_corrections.csv`). Inside a flexibility window, from the Commitment Phase to the end of the Recovery Phase, the flexibility itineraries are measured against the occupancy band.
+- Comfort: System temperature is compared with reference temperatures at every time step. If the building is outside its comfort band, a penalty is given for every hour spent that way, weighted by the `alpha_comfort` [1/h] parameter of the building, which each building sets in its own `18_Comfort_parameters.csv`. The plan is measured against the more restrictive of two bands: the occupancy band (the service band of `18_Comfort_parameters.csv` while occupied, the setback band otherwise) and the scheduling band (the service band tightened before occupancy and according to the season by the corrections of `10_Operational_temperature_corrections.csv`). Inside a flexibility window, from the Commitment Phase to the end of the Recovery Phase, the flexibility itineraries are measured against the occupancy band. Outside occupancy, the temperature is checked against the setback band. The setback band is not a comfort target. It is defined to keep the building out of regions of undesired behavior, for the integrity of the system.
 
 - Energy (and flexibility): The cost of Energy is aimed to be minimized. Accordingly, the cost of heating is considered as a negative reward. Every economic term is weighted by the `alpha_cost` [1/€] parameter. Shall there be a revenue, (i.e. by selling energy to the grid, or trading flexibility), this is incorporated in the same way with a possitive value.
 
@@ -136,11 +147,13 @@ The discount belongs to the decision and stops there. It changes which candidate
 
 ## Reward definition in the context of flexibilized behavior
 
-For the cases where the optimization aim is flexibility, a more complex reward formula definition is used:
+The reward has the same terms whatever the optimization aim. The flexibility terms are 0 when nothing is committed. With the energy aim no new flexibility is sold, but the flexibility already sold is valued: a plan that cannot hold it pays for buying part of it back. Inside the control horizon that is what the market settles. After it, the commitment cannot change yet, so the reward counts the buyback a later market will have to make, and never counts more flexibility than was sold. Every economic term values only the change against what earlier markets already committed, so an itinerary identical to the committed one is valued 0. The terms are:
 
 - Comfort is assessed for the three itineraries: baseline operation, the extreme case where all the downward flexibility is activated, and the extreme case where all the upward flexibility is activated.
 
-- The revenues for flexibility commitments are incorporated, and they are split in two. The commitment itself is paid for whether or not the service is ever called, so it is valued at the commitment price alone. The activation is conditional, so it is valued at the execution price weighted by the likelihood of activation, and it also carries the energy the building would have to move while returning to its planned state.
+- The revenues for flexibility commitments are incorporated, and they are split in two. The commitment itself is paid for whether or not the service is ever called, so it is valued at the commitment price alone. The activation is conditional, so it is valued at the execution price weighted by the likelihood of activation. It also carries the cost of the energy the assets would have to move while returning to their planned state, valued as the change against the cost of the itineraries already committed.
+
+- When the system holds a battery, the energy it leaves stored has a value, because it is energy that will not have to be bought later. It is valued at the mean price at which the market buys energy over its horizon, after the losses of discharging it. For the plan, the energy left stored at the end of the optimization horizon is valued: a plan that leaves more energy stored than the plan already committed earns the value of the difference, and one that leaves less pays it. For each flexibility itinerary, the energy the battery is left with above or below the plan is valued in the same way, weighted by the likelihood of activation, together with the cost of its return. When the change is a gain, it is discounted as a future income, with the discount of the last interval of the horizon.
 
 - Both directions of the service are searched for: reducing the load (downward flexibility) and increasing it (upward flexibility). Once a flexibility event is over, the system that did not provide the service may hold or reduce its power, but never increase it, which is an interpretation of the legal regulation of HVAC systems.
 
@@ -170,13 +183,13 @@ The following picture shows the structure of Day Ahead (DA), Intra Day (ID) and 
 
 Source: [OMIE, Mercado de Electricidad (2026/06/13)](https://www.omie.es/es/mercado-de-electricidad)
 
-Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code in `30_Simulation/Main.R`:
+Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code of `run_simulation()`, in `30_Simulation/03_Functions/run_simulation.R`:
 
-9. Initialise market columns in Main_df
+7. Initialise market columns in Main_df, and the table of the market events
 
-10. Flexibility generation (conditional)
+8. Flexibility generation (conditional)
 
-11. Energy/flexibility price signals (buy/sell derivation)
+9. Energy/flexibility price signals (buy/sell derivation)
     
     
 
@@ -202,7 +215,7 @@ In these cases the following optimization aims are considered:
 
 In all cases, the [policy](#6-policy) weights economic costs/revenues and comfort levels.
 
-Every market, Scheduling and Piloting alike, plans against the same comfort band (`Scheduling_T_*`): the more restrictive of the occupancy band (`Service_T_*`) and the scheduling band, which is the service band of `30_Simulation/02_Config/09_Reward_parameters.csv` tightened while the building is prepared for occupancy and according to the season, as set in `30_Simulation/02_Config/10_Operational_temperature_corrections.csv`. Inside a flexibility window the flexibility itineraries are measured against the occupancy band. The executed operation is checked against the occupancy band (`Service_T_*`).
+Every market, Scheduling and Piloting alike, plans against the same comfort band (`Scheduling_T_*`): the more restrictive of the occupancy band (`Service_T_*`) and the scheduling band, which is the service band of `30_Simulation/02_Config/20_Assets/Building_001/18_Comfort_parameters.csv` tightened while the building is prepared for occupancy and according to the season, as set in `30_Simulation/02_Config/20_Assets/Building_001/10_Operational_temperature_corrections.csv`. Inside a flexibility window the flexibility itineraries are measured against the occupancy band. The executed operation is checked against the occupancy band (`Service_T_*`).
 
 More information on the flexibility market, revenues and how to consider this in the policy is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
@@ -230,11 +243,7 @@ As a result, the formula defined in the [Policy](#6-policy) considers:
 
 The MPC system optimizes the performance of HVAC systems in the building by considering different setpoints/operation modes in the future and their effect in the system. A Genetic Algorithm is used for this, particularly the ga() function in the GA library.
 
-In this function, the setpoints/modes the prediction/optimization are encoded as the vector X. Depending on which operational mode is used, two different optimization processes are performed:
-
-- Setpoints are real-type values and these are limited with upper and lower bounds. These bounds are linked to the limits established in the setpoint dataframe. Real-type optimization is performed.
-
-- Operation modes are a set of pre-defined modes. In these cases, vector X directly contains integer mode indices (1 to n_modes) for each market period. The GA uses real-type encoding with custom population, crossover, and mutation operators that maintain integer constraints throughout the optimization, avoiding one-hot encoding or rounding artifacts.
+In this function, the modes of the prediction/optimization are encoded as the vector X. Operation modes are a set of pre-defined modes, so vector X directly contains integer mode indices (1 to n_modes) for each market period. The GA uses real-type encoding with custom population, crossover, and mutation operators that maintain integer constraints throughout the optimization, avoiding one-hot encoding or rounding artifacts.
 
 The genetic algorithm performs a large number of simulations with different values of X in batches. Each batch is a "generation". From each batch to the following one, the values of X evolve in a process that resembles human evolution. That is the reason for the name of "genetic algorithm".
 
@@ -251,6 +260,8 @@ Genetic algorithms in this work are parametrized with the following parameters:
 - Mutation probability: probability that a value of a solution is changed at random (`pmutation`)
 
 They are set in `30_Simulation/02_Config/01_Optimization_parameters.csv`.
+
+The genetic algorithm decides only the assets that take decisions: the buildings, with one mode of their `13_Modes_setpoints.csv` for each market period, and the batteries, with one of their five modes for each market period. When the system has several of them, they are decided together: the vector X holds the modes of all of them. When the system has none, for example when it holds photovoltaic installations only, the genetic algorithm does not run: every market simulates the plan with the forecast of the weather, as a market with the Operation aim does.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -282,7 +293,7 @@ As a result of this process:
 
 # 12. Flexibility events
 
-When operating in flexibility mode, the building receives incentives to flexibilize its behavior. It is allowed to commit upwards and downwards flexibility. Thus, three linked paths are assessed together:
+When operating in flexibility mode, the system receives incentives to flexibilize its behavior. It is allowed to commit upwards and downwards flexibility. Thus, three linked paths are assessed together:
 
 - Standard path (no flexibility)
 
@@ -292,11 +303,11 @@ When operating in flexibility mode, the building receives incentives to flexibil
 
 Flexibility commitments are defined through an event-like approach, with threee phases:
 
-- Commitment. Initially, the building modifies its behavior
+- Commitment. Initially, the system modifies its behavior
 
 - Neutral. Once the commited flexibility is executed, some time is provided where loads equal the standard path. This time is defined to allow for trading in continuous-intra-day markets for the recovery phase.
 
-- Recovery. Here, a recovery path is defined (through the above-mentioned trading) to recover the standard path.
+- Recovery. Here, a recovery path is defined (through the above-mentioned trading) to recover the standard path. A battery only has to recover when it could not otherwise go on with its plan until the end of the control horizon. When the recovery is optional, the market chooses the option that pays more (see [Flexibility_Events](99_Readme/Flexibility_Events.md#batteries)).
 
 More details on how the flexibility price signals are generated is available in [Flexibility_Events](99_Readme/Flexibility_Events.md).
 
@@ -304,9 +315,13 @@ More details on how the flexibility price signals are generated is available in 
 
 # 13. Parametrization and Graphic User Interface
 
-This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `30_Simulation/02_Config/`, or through the Graphic User Interface provided in `20_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify all configuration files without manual CSV editing.
+This computational code has many parameters that can be modified to adapt the model to different buildings, contexts, and simulation settings. Parameters can be edited directly in the CSV files located under `30_Simulation/02_Config/`, or through the Graphic User Interface provided in `20_GUI/01_Configure_Simulation/GUI_config.R`, which offers an intuitive way to modify the configuration files without manual CSV editing. The files of `00_Inner_parameters/`, which hold internal settings of the simulation engine, are edited by hand.
 
-The files of `30_Simulation/02_Config/00_Inner_parameters/` are the inner parameters of the code rather than of a study: the libraries it loads, its computing parameters, the columns `Main_df` must hold, the physical properties of air and the paths of every configuration file.
+The configuration has two levels. The files directly under `30_Simulation/02_Config/` configure the system as a whole, and their values are common to every asset: the optimizer, the markets, the prices, the flexibility events, the reward, the forecast and the run. The reward file (`09_Reward_parameters.csv`) holds the weight of cost and the discount of future revenue, which are common to every asset. The comfort weight and the comfort bands are not in it: each building has its own. The assets of the system are listed in `12_Asset_registry.csv`, and each asset has its own folder, `30_Simulation/02_Config/20_Assets/<asset_id>/`, with the files that describe it. For a building, these are the corrections of its reference temperatures (`10_Operational_temperature_corrections.csv`), its thermal model and heat pump (`11_Model_parameters.csv`), its modes and the deadband of its hysteresis (`13_Modes_setpoints.csv`), its occupancy (`14_Use_Patterns.csv`) and its comfort, that is its comfort weight and its comfort bands (`18_Comfort_parameters.csv`). For a photovoltaic installation, its folder holds one file, `17_Photovoltaic_parameters.csv`, with its location, the treatment of the solar radiation, the orientation of its modules, the area and efficiency of its modules and their losses, its temperature coefficient, its NOCT and the efficiency and power of its inverter. For a battery, its folder holds one file, `19_Battery_parameters.csv`, with its capacity, its lowest, highest and initial state of charge, its largest charge and discharge power, its charge and discharge efficiencies and its self-discharge. The shipped configuration has one building, `Building_001`. To add a building, raise the number of buildings in the Graphic User Interface. To do it by hand, add a row to `12_Asset_registry.csv` with its id and its type, for example `Building_002,Building`, and create its folder, `30_Simulation/02_Config/20_Assets/Building_002/`, with the same five files. A photovoltaic installation or a battery is added in the same way, for example `Photovoltaic_001,Photovoltaic` or `Battery_001,Battery`, with its one file. A system needs at least one asset, of any type. All the buildings of a system share the weather, the markets and the prices. The markets buy and sell the net electricity of the whole system, and they sell its flexibility as one. The distribution cost is paid on all the energy the system exchanges with the grid, in both directions: when the system exports, the energy it sells pays it too.
+
+The Graphic User Interface edits every asset of the system. Its first tab, `Assets`, has one selector per type of model, for example `Building assets [count]`, with the number of assets of that type. Each asset has its own tab, named by its asset id, with one tab inside it for each file of its folder. Every value shows its unit in square brackets, and a value with no unit shows `[-]`. When a number is raised, each new asset takes the name of its type and the lowest free number, for example `Building_002`. The `Reward Function` tab shows the weight of cost and the discount of future revenue, and below them one `alpha_comfort` box for each building, labelled with its asset id, for example `Building_001 [1/h]`. Each box is saved in the comfort file (`18_Comfort_parameters.csv`) of its building, so the boxes appear and disappear as buildings are added and removed. The tab inside each building named `Comfort parameters` holds only its comfort bands. Changing a number never moves you to another tab, and the tab of a new asset is not opened by itself. If its folder already exists, the asset takes the values of that folder. If not, it takes the default values of the repository, which are shown in red until they are saved. A tab is titled in red while it has something pending: values that took a default, or changes that are not saved yet. The tab of an asset is also red while the asset is not in the registry on disk. The red goes when the configuration is saved, and also when a changed value is typed back to the saved one. When a number is lowered, the assets with the highest numbers leave the simulation, after a confirmation. Their folders stay on disk, and the simulation does not read them. The interface writes nothing until a save button is pressed. Every save button checks and writes the whole configuration at once: the files of the system, the asset registry and the files of every asset. If any value is wrong, nothing is written, and the interface lists what must be corrected, with the values each one accepts.
+
+The files of `30_Simulation/02_Config/00_Inner_parameters/` are the inner parameters of the code rather than of a study: the libraries it loads, its computing parameters, the columns the simulation data must hold (those of `Main_df` and those of the table of each type of asset), the physical properties of air, the reference conditions of photovoltaic modules, the solar constant and the paths of every configuration file, of the system and of each asset.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -314,11 +329,13 @@ The files of `30_Simulation/02_Config/00_Inner_parameters/` are the inner parame
 
 The simulation reads two input data files (weather and energy prices) and writes a set of CSV/RDS output files per run:
 
-- Full timestep-by-timestep results
+- Full timestep-by-timestep results of the whole system
+
+- Full timestep-by-timestep results of each asset of the system, one file per asset
 
 - A simulation summary
 
-- Two economic analysis tables.
+- Three economic analysis tables.
 
 File locations, the general content and purpose of each file, and a full documentation is available in [Input-Output files](99_Readme/Input_Output_Files.md).
 
@@ -330,7 +347,7 @@ Three objects are used to document economic operations:
 
 - `full_market_information`: Prices for all Energy and Flexibility flows in each market along the simulation.
 
-- `market_commitments`: Commitments made by the building in each market.
+- `market_commitments`: Commitments made by the system in each market.
 
 - `economic_analysis`: Information on economic flows associated to the commitments. Aggregated by market or by market slot.
 
@@ -348,6 +365,8 @@ This code is developed in R 4.5.0.
 
 The simulation is built out of one entry point, `Main.R`, a set of scripts that it sources in order, and a set of functions that those scripts call. `Main.R` sources a large number of scripts, one after another: first the initialization and the parameters, then the climate priority, the period subset, the occupancy and scheduling profiles and the reference temperatures, then the market timeline, the flexibility events and the price signals, then the price matrices, the commitments and the economic accumulators, then the simulation loop itself, and finally the economic analysis and the output files.
 
+The code that models one type of asset is in a folder of its own: the building is in `30_Simulation/05_Models/01_Building/`, the photovoltaic installation in `30_Simulation/05_Models/02_Photovoltaic/` and the battery in `30_Simulation/05_Models/03_Battery/`. The rest of the code operates the system as a whole, whatever its assets.
+
 Every piece of code the simulation reaches has its own page, with what it does, what calls it, what it calls in order of appearance, what it receives, what it sends out, and a block diagram. The whole map, and how to read it, is in [Code structure](99_Readme/Code_Structure.md).
 
 This repository is currently under development, with a rapid evolution in features, and associated changes in code structure, and data formats. Regretfully, this is not properly documented. Sorry.
@@ -362,11 +381,17 @@ Hyperparameter tuning for the GA function is unfeasible on a personal computer. 
 
 The simulation in `30_Simulation/` runs a whole year of markets. But this is not suitable for third parties to execute the optimizer externally.
 
-For this, a standalone version of the optimizer is provided. Here Energy and flexibility commitments are optimized for one market. And the third-party is free to call the optimizer with the most appropiate context information, store its output, etc.
+For this, a standalone version of the optimizer is provided. Here energy and flexibility commitments are optimized for one market, for a system of one or more assets: buildings, photovoltaic installations and electric batteries. Each call names the assets it operates. And the third-party is free to call the optimizer with the most appropriate context information, store its output, etc.
 
 `31_Standalone_code/` holds that program. The code is mostly written in R and shall be executed with Rscript, but it is meant to be called by other tools, in R or in any other language. 
 
 How it works, the full list of inputs and outputs, and how to call it from other tools are explained in [Standalone code](99_Readme/Standalone_Code.md).
+
+## Examples
+
+`50_Examples/` holds example analyses. Each one is a self-contained folder that simulates a building, draws figures and writes a report. It carries its own copy of the simulator, so you can copy it out of the repository and run it.
+
+The first example studies how the building is operated in the day-ahead, intra-day and continuous intra-day markets. It is explained in [Market operation analysis](50_Examples/01_Market_Operation/README.md).
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -377,6 +402,12 @@ The current version of this work is Version v5.1. It has the following changes f
 ### Overall
 
 - Relevant code re-structurations. The code is far from being stable and bugs are solved on the run (sorry for this).
+
+### V6
+
+- Development of a multi-asset environment, the current environment allows to consider multiple assets of the same type as well as different asset types.
+- Incorporation of a PV model
+- Incorporation of a Battery model
 
 ### V5.1
 
@@ -424,17 +455,17 @@ See [Discontinued items](#20-discontinued-items) below for functionality that us
 
 # 19. Known Issues
 
-## Calibration of the price forecast
+## Documentation
 
-Each market process optimizes over a horizon, and it trades a set of market intervals inside that horizon. For those intervals it has a published price, which is what the optimizer is entitled to know when it takes its decision. The optimizer, however, values the whole optimization horizon, which is longer, so for the stretch beyond the control horizon it needs a price it cannot know.
+The current documentation is a machine updated set of documents over V5.1 texts. It is yet to be checked and improved.
 
-That price is produced by `imperfect_price_forecast()`, which follows the same formulation as the weather forecast: a blend of the true value and a historical average, with the weight of the history growing along the forecast stretch. The history comes from `market_price_history()`, which looks for what the same market paid for the same time of day on previous days and falls back to the nearest earlier market that traded that hour.
+## Calibration of the price estimate
 
-What is not settled is how inaccurate that forecast should be. `price_forecast_n_days_back` and `price_forecast_weight_history` set it, and their current values are a starting point, not a calibration. Two consequences follow, and both need the deep test battery to be resolved:
+Each market process optimizes over a horizon, and it trades a set of market intervals inside that horizon. For those intervals it has a published price. The optimizer, however, values the whole optimization horizon, which is longer, so for the stretch beyond the control horizon it needs a price that has not been published yet.
 
-- A simulation run on a short subset has almost no history to average, so the forecast stays close to the true price and the intended inaccuracy does not materialise. Any scenario meant to exercise the forecast has to include enough previous days.
+With `price_forecast_type = inaccurate`, that price is estimated from what the markets already know (`price_estimate_sources()`). The price of an interval is the one the last earlier market that traded it had. If no earlier market traded it, it is the price of the same interval one day before, from the market itself or from the last earlier market that traded it. If neither exists, it is the mean of the market's own published prices.
 
-- Whether the resulting error is realistic, in the sense of being corrected by subsequent markets rather than accumulating, has not been measured.
+What is not settled is how good that estimate is. Whether its error is realistic, in the sense of being corrected by subsequent markets rather than accumulating, has not been measured.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -445,6 +476,8 @@ The following components were part of earlier versions of this repository but ha
 - **Supercomputer execution scripts** (`31_SCC_Simulation/`) - the adapted `Main_SCC.R` and SLURM job-array scripts used to run parametric simulations on the DIPC supercomputing facility. Present through V2.
 - **Post-processing / analysis scripts** (`40_PostProcess/`) - hyperparameter-analysis and flexibility/time-series plotting scripts for reviewing parametric simulation batches (`01_Hyperparameter_Analysis`, `02_Flexibility_Analysis`). Present through V2.
 - **Parametric-simulation GUI** (`20_GUI/02_Configure_Parametric_Simulations/`) - a Shiny application (`GUI_parametric.R`) to define and deploy parametric simulation batches on the supercomputer described above. Present through V2.
+- **Setpoint-based control** - the optimization in which the GA set the heating and cooling setpoints of every market period freely, as real values within the ranges of `12_Temperature_Setpoints.csv`, selected with `control_type = setpoints` in `02_Control.csv` (`optimize_setpoints()`, `fitness_funct_optimize_setpoint()`, `convert_setpoints()` and the loading of that file). Mode-based control, faster and better in the tests, is the only control left. Present through V5.1.
+- **Setpoint padding** - the setpoints `pad_heating` and `pad_cooling` of `02_Control.csv`, given to the market periods that had no mode. Every market period now needs a mode, and the simulation stops if one is missing. The file `02_Control.csv` was removed with them. Present through V5.1.
 
 [back to top](#model-predictive-control-for-buildings)
 
@@ -462,7 +495,7 @@ The following contributions are acknowledged:
 
 # 22. Future works
 
-This is V5 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
+This is V6 of an ongoing work. The aim and complexity of this work are expected to increase, particularly with regards to the following topics:
 
 - Incorporate the execution of flexibility to the simulation. Currently load profile is optimized considering flexibility commitments, but these are not executed.
 
@@ -470,7 +503,7 @@ This is V5 of an ongoing work. The aim and complexity of this work are expected 
 
 - "Improve" imperfect forecasts. Different possibilities are being considered, such as non-controlled heat sources/sinks, or using different models for forecasts and simulation, among others. Also, self-identification of hidden states in the models for forecasting (although this is known in the simulator, the forecast should self-define this state).
 
-- Generalize the MPC approach to aggregated systems (i.e. building + PV) or other systems (i.e. swimming pool heating).
+- Generalize the MPC approach to other systems (i.e. swimming pool heating). Buildings, photovoltaic installations and electric batteries can already be combined in one system.
 
 - ...
 

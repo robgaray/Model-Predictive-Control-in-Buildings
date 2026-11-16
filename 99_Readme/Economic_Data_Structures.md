@@ -24,13 +24,13 @@ Each of the three items above is not itself a data frame - it is a named list th
 
 All 13 + 12 = 25 data frames in these two lists share the same shape, because they are all indexed the same way:
 
-- One row per **market event** (a `MarketUTC` interval where a Scheduling or Piloting market actually clears)
+- One row per **market event** (the market interval in which a Scheduling or Piloting market clears: the interval its clearing instant falls in)
 
 - One column per **future step ahead** of that event.
 
 The actual configuration:
 
-- Column `time` (POSIXct): the market event's own `MarketUTC`.
+- Column `time` (POSIXct): the market interval the event's clearing instant falls in (`instant_market_slot()`).
 
 - Columns `"0"`, `"1"`, ..., up to `as.character(max_steps_ahead - 1):
   
@@ -42,7 +42,7 @@ The actual configuration:
 
 - Row count: one row per distinct clearing timestamp, across **both** Scheduling and Piloting
   
-  - If a Scheduling and a Piloting market ever clear at the exact same instant, they share one row, indexed by that shared `MarketUTC` 
+  - If a Scheduling and a Piloting market ever clear at the exact same instant, they share one row, indexed by that shared interval 
   
   - How often Scheduling and Piloting clear, and therefore how many rows these tables have, is entirely a property of the market configuration files, unrelated to `Main_df`'s own row count.
 
@@ -68,13 +68,13 @@ Read-only price lookup with prices to be applied to all future slots in each mar
 | `Flex_unit_cost_up_exec_buy_df`    | €/kWh | Execution-side price component of buying back up-flexibility                         |
 | `Flex_unit_cost_up_exec_sell_df`   | €/kWh | Execution-side price component of selling up-flexibility                             |
 
-Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code in `30_Simulation/Main.R`:
+Currently, the code develops a dummy market price signal dataset based on simplified data. But the user can bypass it by adapting the behavior of the following blocks of code of `run_simulation()`, in `30_Simulation/03_Functions/run_simulation.R`:
 
-9. Initialise market columns in Main_df
+7. Initialise market columns in Main_df, and the table of the market events
 
-10. Flexibility generation (conditional)
+8. Flexibility generation (conditional)
 
-11. Energy/flexibility price signals (buy/sell derivation)
+9. Energy/flexibility price signals (buy/sell derivation)
 
 
 
@@ -101,9 +101,9 @@ A cell that no market has touched yet is genuinely 0, not an unknown value.
 
 ### `economic_analysis`
 
-The final economic picture, viewed from two angles: what each market did (`market`), and what happened to each delivery slot regardless of which market did it (`slot`).
+The final economic picture, viewed from three angles: what each market did (`market`), what each decision itself totalled (`decision`), and what happened to each delivery slot regardless of which market did it (`slot`).
 
-Sign convention throughout both tables: positive = income to the building, negative = expense. The one deliberate exception is noted below.
+Sign convention throughout the three tables: positive = income to the building, negative = expense. The one deliberate exception is noted below.
 
 ### `economic_analysis$market`
 
@@ -121,7 +121,7 @@ Rows are ordered by time, and within the same timestamp by Scheduling, then Pilo
 
 | Column                                 | Type      | Unit | Meaning                                                                                                                                                                  | `NA`?                                                                                                                                |
 | -------------------------------------- | --------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `time`                                 | POSIXct   | -    | the market's (or slot's) `MarketUTC`                                                                                                                                     | No                                                                                                                                   |
+| `time`                                 | POSIXct   | -    | the market interval the clearing instant falls in, or the slot's `MarketUTC` for an Execution row                                                                        | No                                                                                                                                   |
 | `market_name`                          | Character | -    | market code (`"DA"`, `"cID2"`, ...) or `"EXEC"` for Execution rows                                                                                                       | No                                                                                                                                   |
 | `market_type`                          | Character | -    | `"Scheduling"`, `"Piloting"` or `"Execution"`                                                                                                                            | No                                                                                                                                   |
 | `Energy_bought`                        | Numeric   | kWh  | new import volume                                                                                                                                                        | No                                                                                                                                   |
@@ -134,22 +134,38 @@ Rows are ordered by time, and within the same timestamp by Scheduling, then Pilo
 | `PL_rebuy_resale`                      | Numeric   | €    | net cash flow of the unwinding operations alone (energy resales as income, energy and flexibility buybacks as expense), valued at the prices of the market that performed them | No                                                                                                                                   |
 | `Flex_executed`                        | Numeric   | kWh  | committed down- and up-flexibility volume actually activated (Execution rows only)                                                                                        | `NA` on Scheduling/Piloting rows - flexibility execution has no meaning for a market decision, only for a delivered slot             |
 | `Flex_executed_cash_flow`              | Numeric   | €    | cash flow of that activation                                                                                                                                             | `NA` on Scheduling/Piloting rows, same reason                                                                                        |
-| `Distribution_cost`                    | Numeric   | €    | always <= 0; distribution cost of the energy delivered in this slot                                                                                                      | `NA` on Scheduling/Piloting rows - distribution is only charged at delivery (Execution), not at the time a market commitment is made |
+| `Distribution_cost`                    | Numeric   | €    | always <= 0; distribution cost of the energy exchanged with the grid in this slot, imported or exported                                                                                                      | `NA` on Scheduling/Piloting rows - distribution is only charged at delivery (Execution), not at the time a market commitment is made |
 
-`Flex_executed`, `Flex_executed_cash_flow` and `Distribution_cost` are numeric (not `NA`) on Execution rows. `Distribution_cost` carries the distribution cost of the energy delivered in the slot, which is 0 or negative.
+`Flex_executed`, `Flex_executed_cash_flow` and `Distribution_cost` are numeric (not `NA`) on Execution rows. `Distribution_cost` carries the distribution cost of the energy exchanged with the grid in the slot, imported or exported, which is 0 or negative.
 
 Flexibility execution is not simulated yet, so `Flex_executed` and `Flex_executed_cash_flow` report 0 on every Execution row until it is.
 
+### `economic_analysis$decision`
+
+One row per Scheduling market event and one per Piloting market event: the same events as `economic_analysis$market`, without the Execution rows. Each row holds the totals of one decision, added by `settle_market()` when the market clears. They belong to the decision, not to the rows of `Main_df` it planned.
+
+| Column | Unit | Description |
+| --- | --- | --- |
+| `time` | - | The market interval the clearing instant falls in |
+| `clearing_time` | - | The instant of the row of `Main_df` where the market clears |
+| `market_name` | - | The market (DA, ID1, cID1...) |
+| `market_type` | - | Scheduling or Piloting |
+| `Energy_purchase_cost` | € | Cost of the energy bought by the decision, net of resales (negative) |
+| `Energy_sell_revenue` | € | Revenue of the energy sold by the decision, net of buybacks |
+| `Flex_sell_revenue` | € | Revenue of the flexibility sold by the decision |
+| `Flex_purchase_cost` | € | Cost of the flexibility bought back by the decision (negative) |
+| `Reward` | - | The total reward of the decision over its optimization horizon, the value the optimizer maximised. It is not a reward of the executed trajectory |
+
 ### `economic_analysis$slot`
 
-One row per `MarketUTC` interval of the whole simulation - the energy actually delivered in that slot, and how the position for that slot was built up across every market that traded it.
+One row per `MarketUTC` interval of the whole simulation - the energy actually exchanged with the grid in that slot, and how the position for that slot was built up across every market that traded it.
 
 **Shape**: one row per market slot x 16 columns.
 
 | Column                     | Type               | Unit | Meaning                                                                                                                      | `NA`?                                                 |
 | -------------------------- | ------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `time`                     | POSIXct            | -    | the slot's `MarketUTC`                                                                                                       | No                                                    |
-| `Energy_in`, `Energy_out`  | Numeric            | kWh  | energy actually delivered into/out of the building in this slot (from `Elec_total_exec`)                                     | No                                                    |
+| `Energy_in`, `Energy_out`  | Numeric            | kWh  | energy actually exchanged with the grid in this slot: into the system (`Energy_in`) or out of it (`Energy_out`), from `Elec_total_exec`                                     | No                                                    |
 | `Frac_scheduling`          | Numeric (fraction) | -    | share of this slot's gross energy (`Energy_in + Energy_out`) committed in Scheduling                                         | `NA` when the slot moved no energy at all - see below |
 | `Frac_rebuy_resale`        | Numeric (fraction) | -    | share unwound (bought back or resold) after being first committed                                                            | `NA`, same reason                                     |
 | `Frac_execution`           | Numeric (fraction) | -    | share adjusted at Execution rather than by an earlier market                                                                 | `NA`, same reason                                     |

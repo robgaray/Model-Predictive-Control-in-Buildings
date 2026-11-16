@@ -1,0 +1,23 @@
+# 19_Battery_parameters.csv
+# Configuration file: electric battery
+# -------------------------------------------------------------
+# The parameters of one electric battery, which charges from the
+# system and discharges into it. The energy it stores at the start
+# of a call is not a parameter: it is the stored energy of the plan
+# itinerary at i0, given in the input of the call.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Capacity
+Capacity,10,kWh
+SOC_min,0.1,-
+SOC_max,0.9,-
+#
+# Power
+Charge_power_max,5,kW
+Discharge_power_max,5,kW
+#
+# Efficiency
+Charge_efficiency,0.95,-
+Discharge_efficiency,0.95,-
+Self_discharge,0.05,%/day

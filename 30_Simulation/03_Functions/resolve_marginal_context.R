@@ -13,23 +13,29 @@
 # candidate evaluated by the fitness function is priced against the
 # same fixed baseline and prices.
 # Both the base-energy track and the explicit-flexibility track are
-# always resolved: reward_function() selects which of them it needs
-# based on parameters$control$optimization_aim ("energy" only needs
-# the base track; "flexibility"/"operationflex" also need the
-# explicit-flexibility track), not on whether the market is
-# Scheduling or Piloting - unlike integrate_market_process(), which
-# only ever commits the explicit-flexibility track economically for
-# Piloting, reward_function() has no such prefix-based distinction:
-# a Scheduling market configured with a "flexibility" aim explores
-# flexibility exactly the same way Piloting does.
+# always resolved, and reward_function() values both whatever the
+# aim and whatever the market family. A market with the "energy"
+# aim places no new window, but the flexibility earlier markets
+# sold is restated over its plan: inside the control horizon any
+# change of it is settled at this market's prices, and beyond it the
+# part the plan can no longer hold is valued as the re-purchase a
+# later market will have to make. The explicit-flexibility track is
+# what values that obligation. A Scheduling market with a
+# "flexibility" aim explores flexibility exactly the same way
+# Piloting does.
 # Reuses exactly the same row/column resolution as
-# integrate_market_process.R (row_m_full on the full market-resolution
+# settle_market.R (row_m_full on the full market-resolution
 # grid for column offsets; row_m, the sparse row of the current event
 # in full_market_information's own row set, for price lookups) and the
 # same per-interval SUM aggregation of Main_df's existing *_plan
 # columns, so that the baseline priced here is guaranteed to match
-# what integrate_market_process() will later treat as E_orig for the
+# what settle_market() will later treat as E_orig for the
 # same market event.
+# The event is keyed by the market interval its clearing instant
+# falls in (instant_market_slot()), and every target interval is a
+# MarketUTC interval: the interval of the time steps the market
+# values. The row at Period_Begin is not one of them, since its time
+# step ends the interval before the market's period.
 # -------------------------------------------------------------
 # Inputs
 # row_index               : Integer. Current simulation row index
@@ -48,14 +54,23 @@
 #                           intervals on the full market-resolution
 #                           grid; used only to compute future-step
 #                           column offsets (col_j).
+# market_index            : Data frame. The market events of both
+#                           families and the periods they trade, as
+#                           market_event_index() lists them for
+#                           "Sched" and "Pilot", one after the other.
+#                           It is where the earlier prices are looked
+#                           up beyond the control horizon.
 # full_market_information : Named list of 13 market-event price data
 #                           frames (read-only), as built by
-#                           11_full_market_information_setup.R.
-# parameters              : Named list. Only parameters$forecast is
-#                           read, for the price forecast:
-#                           price_forecast_type, and when it is
-#                           "inaccurate", price_forecast_n_days_back
-#                           and price_forecast_weight_history.
+#                           prepare_market_information().
+# parameters              : Named list. Reads:
+#                             - parameters$market$market_resolution,
+#                               to key the market events
+#                             - parameters$reward$Revenue_discount_per_hour
+#                             - parameters$forecast$price_forecast_type:
+#                               with "inaccurate", the prices beyond
+#                               the control horizon are estimated from
+#                               what the markets already know
 # -------------------------------------------------------------
 # What is valued and what is committed
 # These are two different sets of market intervals, and keeping them
@@ -63,14 +78,20 @@
 # The intervals returned here are those of the OPTIMIZATION HORIZON,
 # because the optimizer decides the setpoints of that whole horizon and
 # every energy flow and unit cost of it has to reach the reward. Their
-# prices are the published ones inside the control horizon and a
-# forecast beyond it.
+# prices are the published ones inside the control horizon and an
+# estimate beyond it.
 # The intervals that are COMMITTED are only those of the control
-# horizon, and they are built inside integrate_market_process() from
-# idx_ctrl, not here. The stretch valued with forecast prices therefore
+# horizon, and they are built inside settle_market() from
+# idx_ctrl, not here. The stretch valued with estimated prices therefore
 # never reaches the settlement: the next market finds those hours with
 # nothing booked on them and values them again with prices it does
 # know, which is what keeps the double counting away with no artifice.
+# The flexibility earlier markets sold beyond the control horizon is
+# the exception: it is booked, and no market changes it until it
+# falls inside a control horizon. There the candidate is valued at
+# most at the commitment that stands (beyond_control_by_market): a
+# restatement that holds it is worth nothing, and one that falls short
+# costs the re-purchase the later market will have to make.
 # -------------------------------------------------------------
 # Outputs
 # Named list with:
@@ -80,6 +101,11 @@
 #   E_orig_base_by_market    : Numeric vector. Main_df$Elec_total_plan
 #                              summed per target interval, before this
 #                              market's optimization.
+#   E_orig_gross_by_market   : Numeric vector. The absolute value of
+#                              Main_df$Elec_total_plan summed per
+#                              target interval, before this market's
+#                              optimization: the gross volume the
+#                              distribution cost is settled on.
 #   E_orig_expflex_down_by_market :
 #                              Numeric vector. Main_df$Elec_flex_down_plan
 #                              summed per target interval, before this
@@ -147,36 +173,41 @@
 #   discount_origin_time       : POSIXct scalar. The decision instant H
 #                              the factors are counted from, this
 #                              market event's own market interval.
+#   beyond_control_by_market   : Logical vector. TRUE for the target
+#                              intervals after the close of the
+#                              control horizon, where the flexibility
+#                              a candidate is valued at is capped at
+#                              the commitment that stands.
+#   stored_energy_price        : Numeric scalar (EUR/kWh). The mean of
+#                              the prices at which the market buys
+#                              energy over its horizon
+#                              (P_import_buy_by_market): the price at
+#                              which the energy that the assets leave
+#                              stored is valued.
+#   stored_energy_discount     : Numeric scalar (-). The revenue
+#                              discount factor of the last interval
+#                              of the horizon, the one applied to
+#                              the value of that energy when it is an
+#                              income.
 # -------------------------------------------------------------
 # Code outline
 # 1. Market row (full grid and sparse) and target market intervals
 # 2. Baseline commitments before this market (SUM aggregation)
 # 3. Current-market prices per target interval
-# 4. Price forecast beyond the control horizon
-# 5. Revenue discount factors of the horizon
+# 4. Price estimate beyond the control horizon
+# 5. Revenue discount factors and value of the stored energy
 # -------------------------------------------------------------
 # Usage instructions
-# marginal_context <- resolve_marginal_context(row_index, Main_df, simulation_control, market_time, full_market_information)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by 14_simulation.R, once per Scheduling/Piloting market process,
-# right before run_market_process(), using Main_df in its
-# pre-optimization state. The result is passed into
-# run_market_process() as marginal_context.
-# -------------------------------------------------------------
-# functions/scripts called
-#   is_market_active() - tells which of the two market families the
-#                        current event belongs to
-#   imperfect_price_forecast() - degrades the prices of the intervals
-#                        beyond the control horizon
-#   revenue_discount_factor() - builds the revenue discount factor of
-#                        each target interval
+# marginal_context <- resolve_marginal_context(row_index, Main_df,
+# simulation_control, market_time, market_index,
+# full_market_information, parameters)
 # -------------------------------------------------------------
 
 resolve_marginal_context <- function(row_index,
                                      Main_df,
                                      simulation_control,
                                      market_time,
+                                     market_index,
                                      full_market_information,
                                      parameters) {
 
@@ -188,9 +219,15 @@ resolve_marginal_context <- function(row_index,
   # (sparse, market-event) row set, used for price lookups.
   # -------------------------------------------------------------
   {
-    row_m_full <- match(Main_df$MarketUTC[row_index], market_time)
+    # instant_market_slot is called to key the current event by the
+    # market interval its clearing instant falls in.
+    event_slot <- instant_market_slot(
+      time              = Main_df$time[row_index],
+      market_resolution = parameters$market$market_resolution
+    )
+    row_m_full <- match(event_slot, market_time)
     market_rows <- full_market_information$Elec_unit_cost_import_buy_df$time
-    row_m <- match(Main_df$MarketUTC[row_index], market_rows)
+    row_m <- match(event_slot, market_rows)
 
     # The intervals to VALUE are those of the whole optimization horizon,
     # not just those of the control horizon. The optimizer decides the
@@ -198,10 +235,10 @@ resolve_marginal_context <- function(row_index,
     # unit cost of that horizon has to reach the reward; otherwise the
     # tail of the horizon is chosen with no economic consequence at all.
     # What stays bounded to the control horizon is the COMMITMENT, and
-    # that lives in integrate_market_process(), which builds its own
+    # that lives in settle_market(), which builds its own
     # interval set from idx_ctrl and is not touched by this widening.
     # The separation is what keeps the double counting away without any
-    # artifice: the stretch valued with forecast prices never reaches
+    # artifice: the stretch valued with estimated prices never reaches
     # the settlement, so the next market finds those hours with nothing
     # booked on them and values them again with prices it does know.
     idx_target_market <- match(
@@ -211,25 +248,35 @@ resolve_marginal_context <- function(row_index,
     market_utc <- market_time[idx_target_market]
 
     # Close of the control horizon. Everything at or before it has a
-    # published price; everything after it has to be forecast.
+    # published price; everything after it has to be estimated, and no
+    # flexibility commitment of it may change.
     end_control_time <- max(Main_df$MarketUTC[simulation_control$indexes_global$idx_ctrl])
+    beyond_control_by_market <- market_utc > end_control_time
 
-    # Which market family this event belongs to, needed by the price
-    # forecast to look for the same market on previous days.
-    market_role <- if (is_market_active(Main_df$Sched_Market_Name[row_index])) "Sched" else "Pilot"
-    market_name <- as.character(Main_df[[paste0(market_role, "_Market_Name")]][row_index])
-
-    rm(market_rows)
+    rm(list = "market_rows")
   }
 
   # 2. Baseline commitments before this market (SUM aggregation)
   # -------------------------------------------------------------
-  # Same aggregation as integrate_market_process()'s E_orig_*_by_market,
+  # Same aggregation as settle_market()'s E_by_market$orig,
   # over Main_df in its pre-optimization state.
   # -------------------------------------------------------------
   {
+    # system_net_energy gives the planned net electricity of the
+    # system, which is aggregated per market interval.
     E_orig_base_by_market <- as.numeric(tapply(
-      Main_df$Elec_total_plan[simulation_control$indexes_global$idx_horizon],
+      system_net_energy(Main_df, "plan")[simulation_control$indexes_global$idx_horizon],
+      Main_df$MarketUTC[simulation_control$indexes_global$idx_horizon], sum
+    ))
+
+    # The gross volume of each interval, the sum of the absolute energy
+    # of its time steps, is what the distribution cost is settled on:
+    # each time step pays for the energy it exchanges, in either
+    # direction.
+    # The planned net electricity is read again with
+    # system_net_energy.
+    E_orig_gross_by_market <- as.numeric(tapply(
+      abs(system_net_energy(Main_df, "plan")[simulation_control$indexes_global$idx_horizon]),
       Main_df$MarketUTC[simulation_control$indexes_global$idx_horizon], sum
     ))
 
@@ -288,11 +335,20 @@ resolve_marginal_context <- function(row_index,
     # guard, not a modelling choice: it should not trigger with the
     # horizons of the configuration, and it keeps an NA from reaching
     # the reward if it ever does.
+    # .subset2() reads a column without the method of data frames, and
+    # gives NULL when the column does not exist.
     price_at <- function(signal_df, col_j) {
-      if (col_j %in% names(signal_df)) return(signal_df[[col_j]][row_m])
+      signal_column <- .subset2(signal_df, col_j)
+      if (!is.null(signal_column)) return(signal_column[row_m])
       last_col <- tail(setdiff(names(signal_df), "time"), 1)
       signal_df[row_m, last_col]
     }
+
+    # The first row of Main_df of each target interval, found with a
+    # single match() instead of comparing the times of every row
+    # again for each interval.
+    first_row_by_market <- match(as.numeric(market_utc),
+                                 as.numeric(Main_df$MarketUTC))
 
     for (CONT_001 in seq_along(idx_target_market)) {
       i_target <- idx_target_market[CONT_001]
@@ -309,10 +365,9 @@ resolve_marginal_context <- function(row_index,
       # independent signals, so a market interval can be very likely to be
       # called for a load reduction and unlikely for a load increase, or
       # the other way round.
-      mkt_target              <- market_utc[CONT_001]
-      rows_ts                 <- which(Main_df$MarketUTC == mkt_target)
-      Flex_Probab_down_target <- Main_df$Flex_Probab_down[rows_ts[1]]
-      Flex_Probab_up_target   <- Main_df$Flex_Probab_up[rows_ts[1]]
+      first_row               <- first_row_by_market[CONT_001]
+      Flex_Probab_down_target <- Main_df$Flex_Probab_down[first_row]
+      Flex_Probab_up_target   <- Main_df$Flex_Probab_up[first_row]
 
       p_up_buy_by_market[CONT_001]   <- price_at(full_market_information$Flex_unit_cost_up_com_buy_df, col_j) +
         price_at(full_market_information$Flex_unit_cost_up_exec_buy_df, col_j) * Flex_Probab_up_target
@@ -334,92 +389,101 @@ resolve_marginal_context <- function(row_index,
       flex_probab_down_by_market[CONT_001] <- Flex_Probab_down_target
       flex_probab_up_by_market[CONT_001]   <- Flex_Probab_up_target
 
-      rm(mkt_target, rows_ts, Flex_Probab_down_target, Flex_Probab_up_target)
+      rm(list = c("first_row", "Flex_Probab_down_target",
+                  "Flex_Probab_up_target"))
     }
     # intersect with ls(): if idx_target_market were ever empty the
     # loop would not run and CONT_001/i_target/col_j would not exist,
     # and an unconditional rm() would abort with "object not found".
-    rm(list = intersect(c("CONT_001", "i_target", "col_j", "price_at"), ls()))
+    rm(list = intersect(c("CONT_001", "i_target", "col_j", "price_at",
+                          "first_row_by_market"), ls()))
   }
 
-  # 4. Price forecast beyond the control horizon
+  # 4. Price estimate beyond the control horizon
   # -------------------------------------------------------------
   # Everything read above is the TRUE price of each interval, which for
   # the stretch that exceeds the control horizon is information the
-  # optimizer cannot have when it decides. Each signal is therefore
-  # passed through imperfect_price_forecast(), which leaves the
-  # published stretch untouched and degrades the rest.
-  # The activation probabilities are left as they are: they are not a
-  # price and the assignment asks for a forecast of prices.
+  # optimizer cannot have when it decides. With price_forecast_type
+  # "inaccurate", that stretch takes instead the price the markets
+  # already know, by the rules of price_estimate_sources():
+  #   1. the price of the last earlier market that traded the interval;
+  #   2. otherwise, the price of the same interval one day before, from
+  #      this market or from the last earlier market that traded it;
+  #   3. otherwise, the mean of this market's published prices.
+  # The sources depend on the market structure alone, so they are
+  # resolved once and applied to every price signal. The activation
+  # probabilities are not prices and are left as they are.
   # -------------------------------------------------------------
   {
     price_forecast_type <- parameters$forecast$price_forecast_type
 
     if (!is.null(price_forecast_type) && price_forecast_type == "inaccurate") {
 
-      n_days_back    <- parameters$forecast$price_forecast_n_days_back
-      weight_history <- parameters$forecast$price_forecast_weight_history
+      # price_estimate_sources is called to say, for each interval
+      # beyond the control horizon, where its price is read from.
+      sources <- price_estimate_sources(
+        target_times      = market_utc,
+        end_control_time  = end_control_time,
+        event_slot        = event_slot,
+        events            = market_index,
+        market_resolution = parameters$market$market_resolution
+      )
 
-      forecast_signal <- function(values, signal_df) {
-        imperfect_price_forecast(
-          target_times     = market_utc,
-          true_values      = values,
-          end_control_time = end_control_time,
-          market_name      = market_name,
-          role             = market_role,
-          signal_df        = signal_df,
-          Main_df          = Main_df,
-          market_time      = market_time,
-          n_days_back      = n_days_back,
-          weight_history   = weight_history
+      # estimate_price_signal is called through this helper for each
+      # price signal, to read every interval from its source.
+      estimate_signal <- function(values, signal_df) {
+        estimate_price_signal(
+          values    = values,
+          signal_df = signal_df,
+          sources   = sources
         )
       }
 
-      P_import_buy_by_market  <- forecast_signal(P_import_buy_by_market,
+      P_import_buy_by_market  <- estimate_signal(P_import_buy_by_market,
                                                  full_market_information$Elec_unit_cost_import_buy_df)
-      P_import_sell_by_market <- forecast_signal(P_import_sell_by_market,
+      P_import_sell_by_market <- estimate_signal(P_import_sell_by_market,
                                                  full_market_information$Elec_unit_cost_import_sell_df)
-      P_export_buy_by_market  <- forecast_signal(P_export_buy_by_market,
+      P_export_buy_by_market  <- estimate_signal(P_export_buy_by_market,
                                                  full_market_information$Elec_unit_cost_export_buy_df)
-      P_export_sell_by_market <- forecast_signal(P_export_sell_by_market,
+      P_export_sell_by_market <- estimate_signal(P_export_sell_by_market,
                                                  full_market_information$Elec_unit_cost_export_sell_df)
-      distribution_rate_by_market <- forecast_signal(distribution_rate_by_market,
-                                                 full_market_information$Elec_unit_cost_distribution_df)
+      distribution_rate_by_market <- estimate_signal(distribution_rate_by_market,
+                                                     full_market_information$Elec_unit_cost_distribution_df)
 
-      p_down_com_buy_by_market   <- forecast_signal(p_down_com_buy_by_market,
-                                                 full_market_information$Flex_unit_cost_down_com_buy_df)
-      p_down_com_sell_by_market  <- forecast_signal(p_down_com_sell_by_market,
-                                                 full_market_information$Flex_unit_cost_down_com_sell_df)
-      p_up_com_buy_by_market     <- forecast_signal(p_up_com_buy_by_market,
-                                                 full_market_information$Flex_unit_cost_up_com_buy_df)
-      p_up_com_sell_by_market    <- forecast_signal(p_up_com_sell_by_market,
-                                                 full_market_information$Flex_unit_cost_up_com_sell_df)
-      p_down_exec_buy_by_market  <- forecast_signal(p_down_exec_buy_by_market,
-                                                 full_market_information$Flex_unit_cost_down_exec_buy_df)
-      p_down_exec_sell_by_market <- forecast_signal(p_down_exec_sell_by_market,
-                                                 full_market_information$Flex_unit_cost_down_exec_sell_df)
-      p_up_exec_buy_by_market    <- forecast_signal(p_up_exec_buy_by_market,
-                                                 full_market_information$Flex_unit_cost_up_exec_buy_df)
-      p_up_exec_sell_by_market   <- forecast_signal(p_up_exec_sell_by_market,
-                                                 full_market_information$Flex_unit_cost_up_exec_sell_df)
+      p_down_com_buy_by_market   <- estimate_signal(p_down_com_buy_by_market,
+                                                    full_market_information$Flex_unit_cost_down_com_buy_df)
+      p_down_com_sell_by_market  <- estimate_signal(p_down_com_sell_by_market,
+                                                    full_market_information$Flex_unit_cost_down_com_sell_df)
+      p_up_com_buy_by_market     <- estimate_signal(p_up_com_buy_by_market,
+                                                    full_market_information$Flex_unit_cost_up_com_buy_df)
+      p_up_com_sell_by_market    <- estimate_signal(p_up_com_sell_by_market,
+                                                    full_market_information$Flex_unit_cost_up_com_sell_df)
+      p_down_exec_buy_by_market  <- estimate_signal(p_down_exec_buy_by_market,
+                                                    full_market_information$Flex_unit_cost_down_exec_buy_df)
+      p_down_exec_sell_by_market <- estimate_signal(p_down_exec_sell_by_market,
+                                                    full_market_information$Flex_unit_cost_down_exec_sell_df)
+      p_up_exec_buy_by_market    <- estimate_signal(p_up_exec_buy_by_market,
+                                                    full_market_information$Flex_unit_cost_up_exec_buy_df)
+      p_up_exec_sell_by_market   <- estimate_signal(p_up_exec_sell_by_market,
+                                                    full_market_information$Flex_unit_cost_up_exec_sell_df)
 
-      # The effective prices are rebuilt from the forecast halves, so
+      # The effective prices are rebuilt from the estimated halves, so
       # that the two families stay consistent with each other.
       p_down_buy_by_market  <- p_down_com_buy_by_market  + p_down_exec_buy_by_market  * flex_probab_down_by_market
       p_down_sell_by_market <- p_down_com_sell_by_market + p_down_exec_sell_by_market * flex_probab_down_by_market
       p_up_buy_by_market    <- p_up_com_buy_by_market    + p_up_exec_buy_by_market    * flex_probab_up_by_market
       p_up_sell_by_market   <- p_up_com_sell_by_market   + p_up_exec_sell_by_market   * flex_probab_up_by_market
 
-      rm(n_days_back, weight_history, forecast_signal)
+      rm(list = c("sources", "estimate_signal"))
     }
 
-    rm(price_forecast_type)
+    rm(list = "price_forecast_type")
   }
 
-  # 5. Revenue discount factors of the horizon
+  # 5. Revenue discount factors and value of the stored energy
   # -------------------------------------------------------------
   # The decision instant H is this market event's own market interval,
-  # the one the optimization is being run at. Every valued interval is
+  # the one its clearing instant falls in. Every valued interval is
   # then discounted by its distance from it, so that the reward prefers
   # what pays sooner. The factors travel in the context, next to the
   # prices, because they are resolved from the same market row and are
@@ -429,9 +493,15 @@ resolve_marginal_context <- function(row_index,
   # build the same factors for the Recovery Phase rows that fall beyond
   # this market's target intervals, exactly as it reads their prices
   # from the period_chunk.
+  # The energy the assets leave stored at the end of the horizon is
+  # valued at the mean price at which the market buys energy over
+  # the horizon. When that value is an income it is discounted with
+  # the factor of the last interval of the horizon, since that is
+  # where the energy is left. market_utc is sorted, so its last
+  # element is that interval.
   # -------------------------------------------------------------
   {
-    discount_origin_time <- Main_df$MarketUTC[row_index]
+    discount_origin_time <- event_slot
 
     revenue_discount_per_hour <- parameters$reward$Revenue_discount_per_hour
     if (is.null(revenue_discount_per_hour)) {
@@ -448,14 +518,19 @@ resolve_marginal_context <- function(row_index,
       origin_time       = discount_origin_time,
       discount_per_hour = revenue_discount_per_hour
     )
+
+    stored_energy_price    <- mean(P_import_buy_by_market)
+    stored_energy_discount <-
+      revenue_discount_by_market[length(revenue_discount_by_market)]
   }
 
-  rm(row_m, row_m_full, idx_target_market, end_control_time, market_role,
-     market_name)
+  rm(list = c("row_m", "row_m_full", "idx_target_market", "end_control_time",
+              "event_slot"))
 
   return(list(
     market_utc               = market_utc,
     E_orig_base_by_market    = E_orig_base_by_market,
+    E_orig_gross_by_market   = E_orig_gross_by_market,
     E_orig_expflex_down_by_market = E_orig_expflex_down_by_market,
     E_orig_expflex_up_by_market   = E_orig_expflex_up_by_market,
     P_import_buy_by_market   = P_import_buy_by_market,
@@ -479,6 +554,9 @@ resolve_marginal_context <- function(row_index,
     flex_probab_up_by_market   = flex_probab_up_by_market,
     revenue_discount_by_market = revenue_discount_by_market,
     revenue_discount_per_hour  = revenue_discount_per_hour,
-    discount_origin_time       = discount_origin_time
+    discount_origin_time       = discount_origin_time,
+    beyond_control_by_market   = beyond_control_by_market,
+    stored_energy_price        = stored_energy_price,
+    stored_energy_discount     = stored_energy_discount
   ))
 }

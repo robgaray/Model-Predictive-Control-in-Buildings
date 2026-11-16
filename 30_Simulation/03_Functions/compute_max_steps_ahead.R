@@ -25,17 +25,21 @@
 # partial step.
 # -------------------------------------------------------------
 # Inputs
-#   parameters : Named list. Uses:
-#                - market$market_resolution (min)
-#                - market$Complex_Market_Config ("yes"/"no")
-#                - market$Anticipation_scheduling,
-#                  market$Optimization_horizon_scheduling,
-#                  market$Anticipation_piloting and
-#                  market$Optimization_horizon_piloting (h), in basic
-#                  mode
-#                - market_config_scheduling and market_config_piloting
-#                  (data frames with closure, end and end_optimization,
-#                  in h), in complex mode
+#   market                   : List, parameters$market. Uses:
+#                              - market_resolution (min)
+#                              - Complex_Market_Config ("yes"/"no")
+#                              - Anticipation_scheduling,
+#                                Optimization_horizon_scheduling,
+#                                Anticipation_piloting and
+#                                Optimization_horizon_piloting (h), in
+#                                basic mode
+#   market_config_scheduling : data frame,
+#                              parameters$market_config_scheduling.
+#                              Closure, end and end_optimization [h] of
+#                              each market, in complex mode.
+#   market_config_piloting   : data frame,
+#                              parameters$market_config_piloting.
+#                              The same columns, in complex mode.
 # -------------------------------------------------------------
 # Outputs
 #   Integer scalar. The number of market-resolution steps ahead.
@@ -45,24 +49,23 @@
 # 2. Conversion to market-resolution steps
 # -------------------------------------------------------------
 # Usage instructions
-# max_steps_ahead <- compute_max_steps_ahead(parameters)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - 11_full_market_information_setup.R: width of the price matrices.
-#   - 12_market_commitments_setup.R: width of the market commitment
-#     matrices, when 11_full_market_information_setup.R has not set it.
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
+# max_steps_ahead <- compute_max_steps_ahead(
+#   market                   = parameters$market,
+#   market_config_scheduling = parameters$market_config_scheduling,
+#   market_config_piloting   = parameters$market_config_piloting
+# )
 # -------------------------------------------------------------
 
-compute_max_steps_ahead <- function(parameters) {
+compute_max_steps_ahead <- function(market,
+                                    market_config_scheduling,
+                                    market_config_piloting
+                                    ) {
 
   # -------------------------------------------------------------
   # 1. Distance of the furthest market, in hours
   # -------------------------------------------------------------
   {
-    if (identical(parameters$market$Complex_Market_Config, "yes")) {
+    if (identical(market$Complex_Market_Config, "yes")) {
       market_hours <- function(config_table) {
         if (is.null(config_table) || nrow(config_table) == 0) {
           return(0)
@@ -71,13 +74,13 @@ compute_max_steps_ahead <- function(parameters) {
               as.numeric(config_table$end) +
               as.numeric(config_table$end_optimization))
       }
-      max_hours_ahead <- max(market_hours(parameters$market_config_scheduling),
-                             market_hours(parameters$market_config_piloting))
-      rm(market_hours)
+      max_hours_ahead <- max(market_hours(market_config_scheduling),
+                             market_hours(market_config_piloting))
+      rm(list = "market_hours")
     } else {
       max_hours_ahead <- max(
-        parameters$market$Anticipation_scheduling + parameters$market$Optimization_horizon_scheduling,
-        parameters$market$Anticipation_piloting   + parameters$market$Optimization_horizon_piloting
+        market$Anticipation_scheduling + market$Optimization_horizon_scheduling,
+        market$Anticipation_piloting   + market$Optimization_horizon_piloting
       )
     }
 
@@ -93,8 +96,8 @@ compute_max_steps_ahead <- function(parameters) {
   # 2. Conversion to market-resolution steps
   # -------------------------------------------------------------
   {
-    max_steps_ahead <- as.integer(ceiling(max_hours_ahead * 60 / parameters$market$market_resolution))
-    rm(max_hours_ahead)
+    max_steps_ahead <- as.integer(ceiling(max_hours_ahead * 60 / market$market_resolution))
+    rm(list = "max_hours_ahead")
   }
 
   return(max_steps_ahead)

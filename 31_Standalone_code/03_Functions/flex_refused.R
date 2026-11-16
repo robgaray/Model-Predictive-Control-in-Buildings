@@ -5,17 +5,39 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Tags a period chunk that flex_evaluation_down() or
-# flex_evaluation_up() is returning unbuilt, with the reason why.
+# Pairs a period chunk that a flexibility window is returned with,
+# unbuilt, with the reason why. The window is built by the system,
+# system_flex_window(), with the contribution each asset draws
+# through the operation window_contribution of its type of model
+# (flex_evaluation() for a building). Both use it.
 # -------------------------------------------------------------
 # Why a reason is needed
-# The two builders have four exits that return the chunk untouched:
-# the window does not fit the control horizon, a defensive row check
-# fails, the recovery does not converge, and the two thermal systems
-# would be raised at once. Only the last of those is technical
-# infeasibility in the sense the rule was written for, and only that
-# one should reach the reward as such.
-# Without this tag, the caller would have to guess from the rebuilt
+# A window can be refused for seven reasons, and each returns the chunk
+# untouched. Three are of the system, checked by system_flex_window():
+#   - no_room: a new window does not fit the control horizon;
+#   - below_minimum: a market interval of a new window sells something,
+#     on the net, but less than the minimum flexibility;
+#   - empty_edge: the first or the last market interval of a new
+#     window sells nothing on the net.
+# Four are of an asset, checked when it draws its contribution. For a
+# building, by flex_evaluation():
+#   - row_mismatch: a defensive row check fails;
+#   - no_convergence: the recovery of a new window does not converge;
+#   - opposed_hvac: the two thermal systems would be raised at once.
+# For a battery, by battery_window_contribution():
+#   - no_recovery: the leg of the battery cannot be carried out until
+#     the close of the control horizon, and its Recovery Phase cannot
+#     correct it.
+# An asset that refuses contributes nothing, and the window is refused
+# with its reason only when no asset contributes to it.
+# A new window that is refused is simply not sold. A window that is
+# restated can only be refused by an asset, for row_mismatch or
+# opposed_hvac. derive_flex_itineraries() then has the assets that
+# refuse it hold what the others do not deliver, within the limits of
+# their equipment (system_hold_window()), and reports each of them as
+# not technically feasible on that leg when the window has rows in the
+# guard zone.
+# Without this reason, the caller would have to guess from the rebuilt
 # phases, for instance by testing whether the phase is all zero. That
 # test only holds for the first window of a leg: from the second on the
 # chunk already carries the phases of the earlier ones, so a refusal
@@ -23,49 +45,48 @@
 # silence.
 # -------------------------------------------------------------
 # Inputs
-#   period_chunk : Data frame. The chunk the builder is returning.
+#   period_chunk : Data frame or list. What the builder hands back
+#                  untouched: the chunk of an asset, or the piece of
+#                  the market when the window of the system is refused.
 #   reason       : Character scalar. One of "no_room", "row_mismatch",
-#                  "no_convergence", "opposed_systems".
+#                  "no_convergence", "opposed_hvac", "no_recovery",
+#                  "below_minimum", "empty_edge".
 # -------------------------------------------------------------
 # Outputs
-#   The same data frame, carrying the reason in the attribute
-#   "flex_refusal". A chunk the builder did build carries no such
-#   attribute, so attr(x, "flex_refusal") is NULL exactly when the
-#   window was accepted.
+#   A named list with:
+#   chunk   : The same object handed in.
+#   refusal : Character scalar. The reason.
+#   system_flex_window() returns the same two fields, with refusal
+#   NULL when the window was accepted or when no asset had anything to
+#   offer on it. flex_evaluation() adds a third, drawn.
 # -------------------------------------------------------------
 # Code outline
-# 1. Check the reason is one of the four
-# 2. Tag and return
+# 1. Check the reason is one of the seven
+# 2. Pair and return
 # -------------------------------------------------------------
 # Usage instructions
 # return(flex_refused(period_chunk, "no_room"))
 # and, on the reading side:
-# reason <- attr(built, "flex_refusal")
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - flex_evaluation_down()
-#   - flex_evaluation_up()
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
+# reason <- built$refusal
 # -------------------------------------------------------------
 flex_refused <- function(period_chunk, reason) {
 
-  # 1. Check the reason is one of the four
+  # 1. Check the reason is one of the seven
   # -------------------------------------------------------------
   {
-    known <- c("no_room", "row_mismatch", "no_convergence", "opposed_systems")
+    known <- c("no_room", "row_mismatch", "no_convergence", "opposed_hvac",
+               "no_recovery", "below_minimum", "empty_edge")
     if (!is.character(reason) || length(reason) != 1 || !reason %in% known) {
       stop("flex_refused: reason must be one of ",
            paste(known, collapse = ", "))
     }
   }
 
-  # 2. Tag and return
+  # 2. Pair and return
   # -------------------------------------------------------------
   {
-    attr(period_chunk, "flex_refusal") <- reason
+    refused <- list(chunk = period_chunk, refusal = reason)
   }
 
-  return(period_chunk)
+  return(refused)
 }

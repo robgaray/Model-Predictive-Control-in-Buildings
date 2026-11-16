@@ -8,8 +8,12 @@
 # Loads 14_Use_Patterns.csv without ever stopping the app. An
 # invalid hourly profile takes its default; a month that
 # references a profile that does not exist takes its default
-# mapping; profiles and months missing from the file are added
-# from the defaults. A message is collected for each case.
+# mapping; a month missing from the file is added from the
+# defaults, because every month of the year needs a mapping. The
+# hourly profiles are the ones of the file: a profile of the
+# defaults that the file does not hold is not added, because the
+# user may define fewer profiles than the defaults. A message is
+# collected for each case.
 # A profile with no default takes occupancy_hour_value for every hour,
 # from 02_Config/GUI_fallback_values.csv (gui_fallback, loaded by
 # GUI_config.R); a month with no default maps every weekday to the
@@ -39,12 +43,6 @@
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   load_occupancy_file_safe(filename, default_filename)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# day_type_row_valid(), read_use_patterns_file()
 # -------------------------------------------------------------
 
 load_occupancy_file_safe <- function(filename, default_filename) {
@@ -133,15 +131,6 @@ load_occupancy_file_safe <- function(filename, default_filename) {
         filename, type_name
       ))
     }
-  }
-  missing_types <- setdiff(default_day_types$TYPE, names(type_rows))
-  for (type_name in missing_types) {
-    type_rows[[type_name]] <- default_day_types[default_day_types$TYPE == type_name, ]
-    defaulted_types <- c(defaulted_types, type_name)
-    messages <- c(messages, sprintf(
-      "%s: hourly profile '%s' is missing. Adding it with its default value.",
-      filename, type_name
-    ))
   }
   day_types_result <- do.call(rbind, type_rows)
   rownames(day_types_result) <- NULL

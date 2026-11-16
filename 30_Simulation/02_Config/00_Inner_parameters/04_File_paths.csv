@@ -2,42 +2,58 @@
 # Part of the Model Predictive Control in buildings repository
 # https://github.com/robgaray/Model-Predictive-Control-in-Buildings
 # -------------------------------------------------------------
-# Single source of truth for the file names of every configuration
-# file that lives directly under 30_Simulation/02_Config/. Consumed
-# by 20_GUI/01_Configure_Simulation/GUI_config.R so that the GUI and
-# the rest of the project do not each keep their own hard-coded copy
-# of these file names.
+# The file names of the configuration files of
+# 30_Simulation/02_Config/. The simulation
+# (03_Functions/initialize_simulator.R), the GUI
+# (20_GUI/01_Configure_Simulation/GUI_config.R) and the verification
+# battery read them here, and none of them keeps a list
+# of its own. The GUI falls back on
+# 00_Validation/Default_04_File_paths.csv when this file is missing.
 # -------------------------------------------------------------
 # Structure:
 #   key      : identifier used by the code to look up the path
+#   scope    : "system" for a file common to the whole simulation, or
+#              the type of model (for example "Building") whose every
+#              asset holds the file
 #   filename : path of the file, relative to 30_Simulation/02_Config/
-#   unit     : always "-" (a file path has no physical unit); kept so
-#              a missing value is never ambiguous between "no unit"
+#              for a system file, and relative to the configuration
+#              folder of each asset for a file of a type of model
+#   unit     : always "text" (a file path has no physical unit); kept
+#              so a missing value is never ambiguous between "no unit"
 #              and "unit not yet documented"
 # -------------------------------------------------------------
-key,filename,unit
-library_file,00_Inner_parameters/00_Libraries.txt,-
-needed_cols_file,00_Inner_parameters/02_Needed_cols.csv,-
-parameter_validation_file,00_Validation/Parameter_config.csv,-
-computing_parameters_file,00_Inner_parameters/01_computing_parameters.csv,-
-computing_validation_file,00_Validation/Validation_01_computing_parameters.csv,-
-physical_properties_validation_file,00_Validation/Validation_03_Physical_properties.csv,-
-market_config_validation_file,00_Validation/Validation_Market_Config.csv,-
-bounding_simulation_validation_file,00_Validation/Validation_bounding_simulation.csv,-
-physical_properties_file,00_Inner_parameters/03_Physical_properties.csv,-
-optimization_file,01_Optimization_parameters.csv,-
-control_file,02_Control.csv,-
-market_file,03_Market_config.csv,-
-market_config_scheduling_file,04_Market_config_scheduling.csv,-
-market_config_piloting_file,05_Market_config_piloting.csv,-
-energy_price_file,06_Energy_price_parameters.csv,-
-flexibility_price_emulation_file,07_Flexibility_price_emulation_parameters.csv,-
-flexibility_events_file,08_Flexibility_Event_Configuration.csv,-
-reward_file,09_Reward_parameters.csv,-
-operational_temperature_corrections_file,10_Operational_temperature_corrections.csv,-
-model_file,11_Model_parameters.csv,-
-temperature_setpoints_file,12_Temperature_Setpoints.csv,-
-setpoint_mode_file,13_Modes_setpoints.csv,-
-use_patterns_file,14_Use_Patterns.csv,-
-forecast_file,15_Forecast_parameters.csv,-
-debug_and_config_file,16_Debug_and_config.csv,-
+key,scope,filename,unit
+library_file,system,00_Inner_parameters/00_Libraries.txt,text
+needed_cols_file,system,00_Inner_parameters/02_Needed_cols.csv,text
+parameter_catalogue_file,system,00_Validation/Parameter_catalogue.csv,text
+computing_parameters_file,system,00_Inner_parameters/01_computing_parameters.csv,text
+physical_properties_validation_file,system,00_Validation/Validation_03_Physical_properties.csv,text
+bounding_simulation_validation_file,system,00_Validation/Validation_bounding_simulation.csv,text
+parameter_relations_validation_file,system,00_Validation/Validation_parameter_relations.csv,text
+tolerances_validation_file,system,00_Validation/Validation_tolerances.csv,text
+meteo_validation_file,system,00_Validation/Validation_Meteo_df.csv,text
+energy_prices_validation_file,system,00_Validation/Validation_Energy_Prices_df.csv,text
+system_variables_file,system,01_Model_Descriptions/00_System/Simulation_Variables_System.txt,text
+building_variables_file,system,01_Model_Descriptions/01_Building/Simulation_Variables_Building.txt,text
+photovoltaic_variables_file,system,01_Model_Descriptions/02_Photovoltaic/Simulation_Variables_Photovoltaic.txt,text
+battery_variables_file,system,01_Model_Descriptions/03_Battery/Simulation_Variables_Battery.txt,text
+physical_properties_file,system,00_Inner_parameters/03_Physical_properties.csv,text
+optimization_file,system,01_Optimization_parameters.csv,text
+market_file,system,03_Market_config.csv,text
+market_config_scheduling_file,system,04_Market_config_scheduling.csv,text
+market_config_piloting_file,system,05_Market_config_piloting.csv,text
+energy_price_file,system,06_Energy_price_parameters.csv,text
+flexibility_price_emulation_file,system,07_Flexibility_price_emulation_parameters.csv,text
+flexibility_events_file,system,08_Flexibility_Event_Configuration.csv,text
+reward_file,system,09_Reward_parameters.csv,text
+operational_temperature_corrections_file,Building,10_Operational_temperature_corrections.csv,text
+model_file,Building,11_Model_parameters.csv,text
+asset_registry_file,system,12_Asset_registry.csv,text
+asset_config_folder,system,20_Assets,text
+setpoint_mode_file,Building,13_Modes_setpoints.csv,text
+use_patterns_file,Building,14_Use_Patterns.csv,text
+comfort_file,Building,18_Comfort_parameters.csv,text
+photovoltaic_file,Photovoltaic,17_Photovoltaic_parameters.csv,text
+battery_file,Battery,19_Battery_parameters.csv,text
+forecast_file,system,15_Forecast_parameters.csv,text
+debug_and_config_file,system,16_Debug_and_config.csv,text

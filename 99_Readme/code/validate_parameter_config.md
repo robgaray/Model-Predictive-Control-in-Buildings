@@ -4,17 +4,23 @@
 
 ## Function
 
-Validates a named list of parameter values against the rules defined in Parameter_config.csv for a given file name. For each matching rule the function checks:
+Validates a named list of parameter values against the rules of the parameter catalogue (Parameter_catalogue.csv) for a given file name. For each matching rule the function checks:
 
-- Integer : value is numeric, whole number, and within [min, max]
-- Real    : value is numeric and within [min, max] (when options set)
+- Integer : value is numeric, a whole number within the integer tolerance, and within [min, max]
+- Real    : value is numeric and within [min, max]
 - Options : as.character(value) is one of the allowed options
 - Text    : no additional constraint beyond existence
 
-Validation failures trigger stop() for output == "Error" or warning() for output == "Warning".
+An empty min or max means no bound on that side. A parameter that is missing stops the run (or warns, as the rule says), and the message gives its default value from the catalogue: the value is never filled in silently. Validation failures trigger stop() for output == "Error" or warning() for output == "Warning". Three things stop the run whatever the output of the rules, because they mean the file and its rules do not match:
+
+- a file with no rule at all;
+- a parameter of the file that no rule describes, usually a name written wrong or left over. The message names the closest rule;
+- a rule whose type is none of the four above.
 
 ## Called by
 
+- [load_12_asset_registry.R](load_12_asset_registry.md)
+- [load_parameter_block.R](load_parameter_block.md)
 - [read_and_validate_parameter_csv.R](read_and_validate_parameter_csv.md)
 
 ## What it calls, in order of appearance
@@ -24,8 +30,8 @@ Validation failures trigger stop() for output == "Error" or warning() for output
 ## Input data
 
 - values : the named list of values read from a configuration file.
-- file_name : the name the validation table files its rules under, e.g. "02_Control.csv".
-- validation_config : Parameter_config.csv, already read.
+- file_name : the name the catalogue files its rules under, e.g. "09_Reward_parameters.csv".
+- validation_config : the parameter catalogue, already read by load_parameter_catalogue().
 
 ## Output data
 
@@ -46,7 +52,10 @@ file_name         Character. Base name of the config file
 
 - (e.g. "11_Model_parameters.csv").
 
-validation_config Data frame. Content of Parameter_config.csv.
+validation_config Named list, as load_parameter_catalogue()
+
+- returns it: the rules of the catalogue and the
+- integer tolerance.
 
 ### Returns
 
@@ -54,14 +63,14 @@ invisible(TRUE) on success; stops on first Error-class failure.
 
 ### Code outline
 
-1. Keep the rules filed under this file name, and return at once when there are none.
+1. Keep the rules filed under this file name. Stop when there are none, or when the file holds a parameter no rule describes.
 2. Check each rule against its one value: the type, the range and, for an options rule, the allowed set.
 3. Stop on the first breach, or warn, as the rule's output says.
 
 ### Usage instructions
 
 ```r
-validate_parameter_config(values, "02_Control.csv",
+validate_parameter_config(values, "09_Reward_parameters.csv",
   validation_config)
 ```
 

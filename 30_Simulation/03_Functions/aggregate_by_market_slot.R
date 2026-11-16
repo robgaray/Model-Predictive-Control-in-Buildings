@@ -45,14 +45,6 @@
 # slot_index <- market_slot_index(period_chunk$MarketUTC, market_utc)
 # totals     <- aggregate_by_market_slot(E_candidate, slot_index)
 # -------------------------------------------------------------
-# Where this function/script is used
-# 30_Simulation/03_Functions/compute_marginal_energy_cost.R
-# 30_Simulation/03_Functions/compute_marginal_distribution_cost.R
-# 30_Simulation/03_Functions/compute_marginal_flex_revenue.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
-# -------------------------------------------------------------
 
 aggregate_by_market_slot <- function(values, slot_index) {
 

@@ -1,0 +1,98 @@
+# -------------------------------------------------------------
+# Function: write_rest_net.R
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Overall description
+# Writes, in the view of an asset that reads the net electricity of
+# the rest of the system (the operation reads_rest_net of its
+# contract), the column Elec_rest of an itinerary: on each row, the
+# sum of the electricity of the assets that have already been
+# simulated, in the order of asset_simulation_order(). It is the only
+# place where the name of the column is written. The sum is that of
+# sum_asset_energy(), and it is 0 on each row when no asset has been
+# simulated yet.
+# -------------------------------------------------------------
+# Inputs
+#   view      : Data frame. The view of the asset, with the column
+#               Elec_rest_<itinerary>.
+#   assets    : Named list, one entry per asset, each with df, its
+#               table. The tables of the assets in asset_ids hold the
+#               electricity of the itinerary.
+#   asset_ids : Character vector. The assets simulated before this
+#               one. It may be empty.
+#   itinerary : Character scalar. One of "exec", "plan",
+#               "plan_flex_down" and "plan_flex_up".
+#   rows      : Integer vector. The rows of the tables of the assets
+#               that correspond to the rows of the view, in order.
+# -------------------------------------------------------------
+# Outputs
+#   Data frame. The view with Elec_rest_<itinerary> written on every
+#   row (kWh, positive when the rest imports). The run stops if rows
+#   does not have as many elements as the view has rows.
+# -------------------------------------------------------------
+# Code outline
+# 1. Check the rows
+# 2. Add the electricity of the assets simulated before
+# 3. Write the column
+# -------------------------------------------------------------
+# Usage instructions
+# view <- write_rest_net(
+#   view      = view,
+#   assets    = piece$assets,
+#   asset_ids = c("Building_001", "Photovoltaic_001"),
+#   itinerary = "plan",
+#   rows      = seq_len(nrow(view))
+# )
+# -------------------------------------------------------------
+
+write_rest_net <- function(view,
+                           assets,
+                           asset_ids,
+                           itinerary,
+                           rows
+                           ) {
+
+  # -------------------------------------------------------------
+  # 1. Check the rows
+  # -------------------------------------------------------------
+  {
+    if (length(rows) != nrow(view)) {
+      stop("write_rest_net: rows has ", length(rows),
+           " elements and the view has ", nrow(view), " rows")
+    }
+  }
+
+  # -------------------------------------------------------------
+  # 2. Add the electricity of the assets simulated before
+  # -------------------------------------------------------------
+  {
+    # system_net_energy_column is called to name the column of the
+    # electricity of the itinerary in the table of each asset.
+    energy_column <- system_net_energy_column(itinerary)
+
+    if (length(asset_ids) == 0) {
+      rest_energy <- numeric(length(rows))
+    } else {
+      # sum_asset_energy is called to add the electricity of the
+      # itinerary of the assets simulated before, on the rows of the
+      # view.
+      rest_energy <- sum_asset_energy(
+        assets  = assets[asset_ids],
+        columns = energy_column,
+        rows    = rows
+      )[[energy_column]]
+    }
+  }
+
+  # -------------------------------------------------------------
+  # 3. Write the column
+  # -------------------------------------------------------------
+  {
+    view[[paste0("Elec_rest_", itinerary)]] <- rest_energy
+    rm(list = c("energy_column", "rest_energy"))
+  }
+
+  return(view)
+}

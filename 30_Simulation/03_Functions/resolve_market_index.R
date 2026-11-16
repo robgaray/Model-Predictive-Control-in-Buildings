@@ -24,13 +24,6 @@
 # 1. Parse the timestamp, stopping if it is not readable.
 # 2. Locate it in the time vector, stopping if it is not there.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by 14_simulation.R only (no longer called from
-# run_market_process()).
-# -------------------------------------------------------------
-# functions/scripts called
-# (none)
-# -------------------------------------------------------------
 
 resolve_market_index <- function(time_raw,
                                  column_name,

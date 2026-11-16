@@ -4,11 +4,11 @@
 
 ## Function
 
-Loads the scheduling market configuration table from 04_Market_config_scheduling.csv, validates required columns and non-empty content, and stores the data frame in parameters$market_config_scheduling. Sourced from 02_load_all_parameters.R.
+Loads the scheduling market configuration table from 04_Market_config_scheduling.csv, validates required columns and non-empty content, and stores the data frame in parameters$market_config_scheduling. Sourced from load_all_parameters().
 
 ## Called by
 
-- [02_load_all_parameters.R](02_load_all_parameters.md)
+- [load_configuration_files.R](load_configuration_files.md)
 
 ## What it calls, in order of appearance
 
@@ -16,7 +16,7 @@ Loads the scheduling market configuration table from 04_Market_config_scheduling
 
 ## Input data
 
-- paths$market_config_scheduling_file : path of 04_Market_config_scheduling.csv, resolved by 01_initialization.R.
+- paths$market_config_scheduling_file : path of 04_Market_config_scheduling.csv, resolved by initialize_simulator().
 - parameters : the list being assembled, to which this script adds one sub-list.
 
 ## Output data
@@ -33,7 +33,7 @@ Loads the scheduling market configuration table from 04_Market_config_scheduling
 
 ### Usage instructions
 
-Not called: sourced by 02_load_all_parameters.R, which supplies paths and parameters and takes the updated parameters back.
+Not called: sourced by load_all_parameters(), which supplies paths and parameters and takes the updated parameters back.
 
 ## Diagram
 

@@ -5,13 +5,17 @@
 # Developed by Roberto Garay Martinez
 # -------------------------------------------------------------
 # Overall description
-# Loads a flat parameter,value file without ever stopping the
-# app. Duplicated parameters keep their first value; every
-# parameter of the Default_ file that is missing or invalid in
-# the file takes its default value; and a message is collected
-# for each case, so the app can show it and paint the input in
-# red.
-# When the Default_ file itself cannot be read, the file is
+# Loads the parameters of a configuration file without ever
+# stopping the app: a flat parameter,value file, or the block of
+# parameters of a file that holds a table below it. The caller gives
+# the function that reads the file, so that the content of the file
+# never decides how it is read.
+# Duplicated parameters keep their first value; every parameter the
+# catalogue lists for the file that is missing or invalid in the
+# file takes its default value; and a message is
+# collected for each case, so the app can show it and paint the
+# input in red.
+# When the catalogue holds no defaults for the file, the file is
 # loaded as it is and a message says that nothing could be
 # reconciled.
 # -------------------------------------------------------------
@@ -19,12 +23,17 @@
 #   filename         : Character. Path of the configuration file,
 #                      relative to config_path.
 #   file_label       : Character. File name of the configuration
-#                      file, as Parameter_config.csv and the
-#                      messages name it.
-#   default_filename : Character. Path of the Default_ file,
-#                      relative to config_path.
-#   validation_config: Data frame. The rules of
-#                      Parameter_config.csv.
+#                      file, as the catalogue and the messages
+#                      name it.
+#   validation_config: Named list. The rules of the catalogue and
+#                      the integer tolerance, as load_gui_catalogue()
+#                      returns them.
+#   reader           : Function. Reads the file, from its path
+#                      relative to config_path, into a data frame
+#                      with the columns parameter and value:
+#                      read_param_file for a flat file,
+#                      read_param_block for the block of the modes
+#                      file.
 # -------------------------------------------------------------
 # Outputs
 #   Named list with the elements:
@@ -34,9 +43,10 @@
 #     - messages
 # -------------------------------------------------------------
 # Code outline
-# 1. Read the file.
+# 1. Read the file with the reader given.
 # 2. Flag duplicated parameters, keeping the first value.
-# 3. Read the defaults; without them, return the file as it is.
+# 3. Take the defaults from the catalogue; without them, return the
+#    file as it is.
 # 4. Take each parameter from the file when valid, from the
 #    defaults otherwise.
 # -------------------------------------------------------------
@@ -46,19 +56,14 @@
 #   load_param_file_safe(
 #     filename,
 #     file_label,
-#     default_filename,
-#     validation_config)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# check_param_valid(), read_param_file(), load_default_param_list()
+#     validation_config,
+#     reader)
 # -------------------------------------------------------------
 
-load_param_file_safe <- function(filename, file_label, default_filename, validation_config) {
+load_param_file_safe <- function(filename, file_label, validation_config,
+                                 reader) {
   messages <- character(0)
-  df <- tryCatch(suppressWarnings(read_param_file(filename)), error = function(e) NULL)
+  df <- tryCatch(suppressWarnings(reader(filename)), error = function(e) NULL)
   file_ok <- !is.null(df) && all(c("parameter", "value") %in% names(df))
 
   if (!file_ok) {
@@ -85,12 +90,14 @@ load_param_file_safe <- function(filename, file_label, default_filename, validat
     }
   }
 
-  defaults <- load_default_param_list(default_filename)
+  # load_default_param_list is called to take the default value of every
+  # parameter of this file from the catalogue, in the catalogue order.
+  defaults <- load_default_param_list(validation_config, file_label)
 
   if (is.null(defaults)) {
     messages <- c(messages, sprintf(
-      "Default values file '%s' could not be read, so missing or invalid values in '%s' cannot be reconciled. Loading the file contents as-is.",
-      default_filename, filename
+      "The parameter catalogue holds no default values for '%s', so missing or invalid values in '%s' cannot be reconciled. Loading the file contents as-is.",
+      file_label, filename
     ))
     return(list(df = df, defaulted = character(0), duplicated = duplicated_params,
                 messages = messages))

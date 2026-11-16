@@ -36,12 +36,14 @@
 #   Main_df                 : Data frame with the full time series data.
 #                             Must contain the columns referenced by target_col
 #                             and time_col.
-#   target_col              : Character. Name of the column in Main_df to forecast
-#                             (e.g. "Text" or "SolarR").
-#   i0                      : Integer. Start index of the forecast horizon in Main_df.
-#   i_end_horizon           : Integer. End index of the forecast horizon in Main_df.
-#   n_days_back             : Integer. Number of previous days used to compute the
-#                             historical average for each forecast step.
+#   target_col              : Character. Name of the column in Main_df to
+#                             forecast (e.g. "Text" or "SolarR").
+#   i0                      : Integer. Start index of the forecast horizon in
+#                             Main_df.
+#   i_end_horizon           : Integer. End index of the forecast horizon in
+#                             Main_df.
+#   n_days_back             : Integer. Number of previous days used to compute
+#                             the historical average for each forecast step.
 #   weather_forecast_weight_history : Numeric (0-1). Weight the history
 #                             carries one day ahead of the start of the
 #                             horizon. At i0 the weight is 0 and the
@@ -55,7 +57,11 @@
 #     time              : POSIXct. Time index of the forecasted values,
 #                         matching Main_df[[time_col]][i0:i_end_horizon].
 #     pred_<target_col> : Numeric. Forecasted values of the target column.
-#                         Column name is constructed as paste0("pred_", target_col).
+#                         Column name is constructed as paste0("pred_",
+#                         target_col).
+#   The attribute "no_history" of the tibble holds the number of
+#   instants that found no history. The function writes nothing to
+#   the console: the caller reports it.
 # -------------------------------------------------------------
 # Code outline
 # 1. Horizon, actual values and hours ahead
@@ -67,25 +73,18 @@
 #   i0 = i0, i_end_horizon = i_end_horizon, n_days_back = n_days_back,
 #   weather_forecast_weight_history = 0.3, time_col = "time")
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by context_forecast_step(), once for Text and once for SolarR,
-# before every market process of the simulation.
-# -------------------------------------------------------------
 # EXCEPTIONS AND SPECIAL CASES:
 #   - An instant with no history at all keeps its actual value, and the
-#     console says how many instants that happened to. It means the
-#     series does not reach n_days_back days behind the horizon, which
-#     with the stabilization sized by that same parameter should not
-#     happen; and it makes the forecast of those instants exact, so it
-#     must not pass unnoticed.
+#     attribute "no_history" of the result says how many instants that
+#     happened to. It means the series does not reach n_days_back days
+#     behind the horizon, which with the stabilization sized by that
+#     same parameter should not happen; and it makes the forecast of
+#     those instants exact, so it must not pass unnoticed.
 #   - An actual value that is NA takes the historical average, whatever
 #     the weight.
 #   - The history of one instant averages only the days that were
 #     found: a missing day lowers the count, it does not void the
 #     average.
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none)
 # -------------------------------------------------------------
 
 imperfect_forecast <- function(Main_df,
@@ -127,11 +126,7 @@ imperfect_forecast <- function(Main_df,
     days_found <- rowSums(!is.na(past))
     hist_mean  <- ifelse(days_found > 0, rowMeans(past, na.rm = TRUE), actual)
 
-    if (any(days_found == 0)) {
-      cat("WARNING: imperfect_forecast(", target_col, "): ",
-          sum(days_found == 0), " of ", forecast_steps,
-          " instants found no history and keep their actual value\n", sep = "")
-    }
+    no_history <- sum(days_found == 0)
   }
 
   # 3. Blend
@@ -150,10 +145,12 @@ imperfect_forecast <- function(Main_df,
       forecast = forecasts
     )
     colnames(result)[2] <- paste0("pred_", target_col)
+    attr(result, "no_history") <- no_history
   }
 
-  rm(range, forecast_steps, time_num, values, forecast_times, actual,
-     hours_ahead, past, days_found, hist_mean, w, forecasts)
+  rm(list = c("no_history", "range", "forecast_steps", "time_num", "values",
+              "forecast_times", "actual", "hours_ahead", "past", "days_found",
+              "hist_mean", "w", "forecasts"))
 
   return(result)
 }

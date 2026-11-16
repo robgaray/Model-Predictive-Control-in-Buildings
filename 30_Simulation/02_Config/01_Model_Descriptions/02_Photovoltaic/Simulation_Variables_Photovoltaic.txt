@@ -1,0 +1,49 @@
+# Simulation_Variables_Photovoltaic.txt
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Declarative registry of the variables of a photovoltaic
+# installation. Read by variable_registry_columns() (called from
+# load_all_parameters()) to build the columns of the table of each
+# photovoltaic installation of the asset registry,
+# assets[[asset_id]]$df. An installation has no control, no state and
+# no comfort: its table holds the radiation on its modules, the
+# temperature of its cells, the electricity it produces and its
+# electricity for the system, which is minus the production.
+# The variables of the whole system (its net electricity, its
+# commitments and its cash flows) are declared in
+# 00_System/Simulation_Variables_System.txt and live in Main_df.
+# Elec_total is declared in both: the table of an installation holds
+# its own electricity, and Main_df the sum over the assets.
+#
+# Columns:
+#   variable      : base variable name.
+#   type          : semantic category (state | context | action | energy |
+#                   evaluation). Documentation only, not used to drive
+#                   any logic.
+#   initial_value : generic value used to initialize the variable at
+#                   row 1. The first row of the table is the initial
+#                   condition of the run and the model never writes it.
+#   scenario      : yes -> the variable is expanded into 4 columns,
+#                   <variable>_exec, <variable>_plan,
+#                   <variable>_plan_flex_down and <variable>_plan_flex_up.
+#                   The last two are the two flexibility itineraries:
+#                   downward (load reduction) and upward (load increase).
+#                   no  -> the variable is kept as a single column,
+#                   <variable>, with no suffix.
+#
+# Variables:
+#   G_poa      : solar radiation on the plane of the modules in the
+#                step that ends in the row (W/m2).
+#   T_cell     : temperature of the cells in the same step (degC).
+#   Elec_PV    : electricity produced by the installation in the step
+#                that ends in the row (kWh, never negative).
+#   Elec_total : electricity of the installation for the system in the
+#                same step (kWh): minus Elec_PV.
+# -------------------------------------------------------------
+variable	type	initial_value	scenario
+G_poa	context	0	yes
+T_cell	context	0	yes
+Elec_PV	energy	0	yes
+Elec_total	energy	0	yes

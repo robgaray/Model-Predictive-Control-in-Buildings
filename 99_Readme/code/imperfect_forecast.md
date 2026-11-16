@@ -33,6 +33,7 @@ Why the error is normalised per day and not per horizon A law normalised by the 
 ## Output data
 
 - A tibble with two columns: time              : POSIXct. Time index of the forecasted values, matching Main_df[[time_col]][i0:i_end_horizon]. pred_<target_col> : Numeric. Forecasted values of the target column. Column name is constructed as paste0("pred_", target_col).
+- The attribute "no_history" of the tibble holds the number of instants that found no history. The function writes nothing to the console: the caller reports it.
 
 ## Other notes from the file header
 
@@ -64,7 +65,7 @@ forecast_df <- imperfect_forecast(Main_df, target_col = "Text",
 
 ### Exceptions and special cases
 
-- An instant with no history at all keeps its actual value, and the console says how many instants that happened to. It means the series does not reach n_days_back days behind the horizon, which with the stabilization sized by that same parameter should not happen; and it makes the forecast of those instants exact, so it must not pass unnoticed.
+- An instant with no history at all keeps its actual value, and the attribute "no_history" of the result says how many instants that happened to. It means the series does not reach n_days_back days behind the horizon, which with the stabilization sized by that same parameter should not happen; and it makes the forecast of those instants exact, so it must not pass unnoticed.
 - An actual value that is NA takes the historical average, whatever the weight.
 - The history of one instant averages only the days that were found: a missing day lowers the count, it does not void the average.
 

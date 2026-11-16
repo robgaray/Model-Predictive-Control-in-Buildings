@@ -1,0 +1,35 @@
+# 12_Asset_registry.csv
+# Asset registry configuration file
+# -------------------------------------------------------------
+# The assets the script can operate, one row per asset. Each call
+# names the assets it operates, and they are rows of this file.
+#   - asset_id   : the name of the asset, its type followed by an
+#                  underscore and a number of three digits, for
+#                  example Building_001 or Photovoltaic_001.
+#   - asset_type : the type of model of the asset:
+#                  - Building: the thermal model of a building with a
+#                    heat pump.
+#                  - Photovoltaic: a photovoltaic installation, which
+#                    produces electricity from the solar radiation and
+#                    the outdoor temperature and has no control.
+#                  - Battery: an electric battery, which charges from
+#                    the system and discharges into it, operated in
+#                    one of five modes on each market interval.
+# Each asset has its own configuration folder, 20_Assets/<asset_id>/,
+# with the files of its type of model, named in
+# 00_Inner_parameters/05_File_paths.csv. A Building holds:
+#   - the operational temperature corrections
+#   - the model parameters
+#   - the setpoint modes, with the deadband of their hysteresis
+#   - the comfort weight and the comfort bands
+# A Photovoltaic holds one file, its parameters (location, solar
+# radiation, orientation, modules and inverter). A Battery holds one
+# file, its parameters (capacity, power and efficiency).
+# To add an asset, copy the folder of an asset of the same type under
+# a new asset_id, change its values, and add its row here.
+# -------------------------------------------------------------
+asset_id,asset_type
+text,text
+Building_001,Building
+Photovoltaic_001,Photovoltaic
+Battery_001,Battery

@@ -6,61 +6,73 @@
 # -------------------------------------------------------------
 # Overall description
 # Checks the inputs of one call to optimize_market() and returns them
-# in a normalized form. Every vector of the input carries one value
+# in a normalized form. The call operates a system of assets: one or
+# more of the assets of the asset registry, which share one
+# connection to the grid. Every vector of the input carries one value
 # per market interval, from the interval that starts at i0 to the last
 # interval before i_end_horizon. This function checks that:
+#   - the input has the format of the call: the blocks market,
+#     context, prices, system and assets
+#   - the assets of the call are in the asset registry, each of them
+#     once, and there is at least one
 #   - the four instants are aligned with the market resolution and
 #     ordered (i0 <= i_begin_horizon < i_end_control <= i_end_horizon)
 #   - every block has the time vector of that interval grid, with no
 #     gap and no extra interval
 #   - every value has the right type and lies in its range, with the
-#     rules of 00_Validation/Validation_Inputs.csv
-#   - the plan itinerary gives the state of the building (Ti, Te) at i0
+#     rules of 00_Validation/Parameter_catalogue.csv (the scalars of
+#     the market block) and 00_Validation/Validation_Inputs.csv (the
+#     vectors, which the file groups by scope and block)
+#   - the block of each asset meets the checks of its type of model
+#     (the operation check_input of its contract)
 # Any failure stops execution with a message naming the field.
 # Missing values of the energy and commitment vectors are read as 0:
 # nothing was committed there. Missing setpoints are kept missing and
 # are resolved later, where the process needs them.
-# The three itineraries are required, with the same format. On a first
-# call the two flexibility itineraries carry only missing values.
+# The three itineraries of the system and of each asset are given
+# with the same format. On a first call an itinerary may be missing
+# altogether (null), or carry only missing values.
 # -------------------------------------------------------------
 # Inputs
-#   inputs     : Named list with the blocks market, context, prices
-#                and itineraries, as described in the README of the
-#                script.
-#   parameters : Named list. Uses market$market_resolution and
-#                input_validation.
+#   inputs     : Named list with the blocks market, context, prices,
+#                system and assets, as described in the README of
+#                the script.
+#   parameters : Named list. Uses market$market_resolution,
+#                assets (the asset registry), parameter_catalogue
+#                and input_validation.
 # -------------------------------------------------------------
 # Outputs
 #   Named list:
 #     - market      : list with aim, i0, i_begin_horizon,
 #                     i_end_control, i_end_horizon (POSIXct, UTC),
-#                     T_ext_24h, Overall_Climate and random_seed
+#                     T_ext_24h and random_seed
 #     - slot_time   : POSIXct vector. Start of every market interval
 #                     from i0 to the last one before i_end_horizon
-#     - context     : data frame (time, Text, SolarR, Occupancy)
+#     - context     : data frame (time, Text, SolarR)
 #     - prices      : data frame (time and the 15 price signals)
-#     - itineraries : list with plan, plan_flex_down, plan_flex_up,
-#                     each a data frame or NULL
+#     - system      : list with itineraries, a list of plan,
+#                     plan_flex_down and plan_flex_up. The plan is a
+#                     data frame (time, Elec_total, Elec_flex_down,
+#                     Elec_flex_up) and each flexibility itinerary a
+#                     data frame (time, Elec_total)
+#     - assets      : list with one entry per asset of the call, in
+#                     the order of the asset registry, named by its
+#                     asset id. Each entry holds the scalars of its
+#                     block, its context (a data frame, for the types
+#                     that have one) and its itineraries (a list with
+#                     plan, plan_flex_down and plan_flex_up, each a
+#                     data frame), with the vectors its type declares
+#                     in Validation_Inputs.csv
 # -------------------------------------------------------------
 # Code outline
-# 1. Blocks and names
+# 1. Blocks and assets
 # 2. Market block: instants and scalars
 # 3. Interval grid of every block
 # 4. Types and ranges of the vectors
-# 5. State at i0 and missing values
+# 5. Checks of each asset and missing values
 # -------------------------------------------------------------
 # Usage instructions
 # checked <- validate_inputs(inputs, parameters)
-# -------------------------------------------------------------
-# Where this function/script is used
-#   - optimize_market(): first step of every call.
-# -------------------------------------------------------------
-# functions/scripts called
-#   - parse_utc_time(): reads an instant given as text or POSIXct
-#   - validate_parameter_config(): checks the scalars of the market
-#     block
-#   - validate_dataframe_config(): checks the vectors of the other
-#     blocks
 # -------------------------------------------------------------
 
 validate_inputs <- function(inputs,
@@ -68,39 +80,60 @@ validate_inputs <- function(inputs,
                             ) {
 
   # -------------------------------------------------------------
-  # 1. Blocks and names
+  # 1. Blocks and assets
+  # The assets of the call are those of the block assets. Each one
+  # shall be in the asset registry and appear once.
   # -------------------------------------------------------------
   {
-    required_blocks <- c("market", "context", "prices", "itineraries")
+    required_blocks <- c("market", "context", "prices", "system", "assets")
     missing_blocks  <- setdiff(required_blocks, names(inputs))
+    if (!is.null(inputs$itineraries) || "assets" %in% missing_blocks) {
+      stop("The input is in the format of one building, which the script ",
+           "does not read. The input has the blocks ",
+           paste(required_blocks, collapse = ", "), ". The itineraries ",
+           "of the system go in the block system, and the climate season, ",
+           "the occupancy and the itineraries of each building go in its ",
+           "block of assets. The README of the script describes it.")
+    }
     if (length(missing_blocks) > 0) {
       stop("Input is missing the block(s): ", paste(missing_blocks, collapse = ", "))
     }
-    missing_itineraries <- setdiff(c("plan", "plan_flex_down", "plan_flex_up"),
-                                   names(inputs$itineraries))
+
+    itinerary_names <- c("plan", "plan_flex_down", "plan_flex_up")
+    missing_itineraries <- setdiff(itinerary_names,
+                                   names(inputs$system$itineraries))
     if (length(missing_itineraries) > 0) {
       stop("Input is missing the itinerary(ies): ",
-           paste0("itineraries$", missing_itineraries, collapse = ", "))
+           paste0("system$itineraries$", missing_itineraries, collapse = ", "))
     }
-    rm(missing_itineraries)
+    rm(list = "missing_itineraries")
 
-    itinerary_names   <- c("plan", "plan_flex_down", "plan_flex_up")
-    itinerary_columns <- c("Ti", "Te",
-                           "STP_heat", "STP_heat_low", "STP_heat_high",
-                           "STP_cool", "STP_cool_low", "STP_cool_high",
-                           "Elec_total")
-    commitment_columns <- c("Elec_flex_down", "Elec_flex_up")
-    price_columns <- c("Elec_unit_cost_import_buy", "Elec_unit_cost_import_sell",
-                       "Elec_unit_cost_export_buy", "Elec_unit_cost_export_sell",
-                       "Elec_unit_cost_distribution",
-                       "Flex_unit_cost_down_com_buy", "Flex_unit_cost_down_com_sell",
-                       "Flex_unit_cost_down_exec_buy", "Flex_unit_cost_down_exec_sell",
-                       "Flex_unit_cost_up_com_buy", "Flex_unit_cost_up_com_sell",
-                       "Flex_unit_cost_up_exec_buy", "Flex_unit_cost_up_exec_sell",
-                       "Flex_Probab_down", "Flex_Probab_up")
-    context_columns <- c("Text", "SolarR", "Occupancy")
+    call_assets <- names(inputs$assets)
+    if (length(call_assets) == 0) {
+      stop("The block assets of the input names no asset: the call ",
+           "operates one or more assets of the asset registry")
+    }
+    if (anyDuplicated(call_assets) > 0) {
+      stop("The block assets names an asset more than once: ",
+           paste(unique(call_assets[duplicated(call_assets)]),
+                 collapse = ", "))
+    }
+    unknown_assets <- setdiff(call_assets, names(parameters$assets))
+    if (length(unknown_assets) > 0) {
+      stop("The block assets names assets that are not in the asset ",
+           "registry: ", paste(unknown_assets, collapse = ", "),
+           ". The registry has: ",
+           paste(names(parameters$assets), collapse = ", "))
+    }
+    # The assets of the call keep the order of the registry.
+    call_assets <- intersect(names(parameters$assets), call_assets)
 
-    rm(required_blocks, missing_blocks)
+    price_columns <- parameters$input_validation$parameter_name[
+      parameters$input_validation$scope == "system" &
+        parameters$input_validation$file_name == "prices"
+    ]
+
+    rm(list = c("required_blocks", "missing_blocks", "unknown_assets"))
   }
 
   # -------------------------------------------------------------
@@ -138,34 +171,47 @@ validate_inputs <- function(inputs,
       market$random_seed <- 0
     }
 
-    # validate_parameter_config is called to check the aim, the climate
-    # season and the numeric scalars against Validation_Inputs.csv.
+    # validate_parameter_config is called to check the aim and the
+    # numeric scalars against the rules of the parameter catalogue
+    # for the market block.
     validate_parameter_config(
-      values            = market[c("aim", "T_ext_24h", "Overall_Climate", "random_seed")],
+      values            = market[c("aim", "T_ext_24h", "random_seed")],
       file_name         = "market",
-      validation_config = parameters$input_validation
+      validation_config = parameters$parameter_catalogue
     )
 
-    market$aim             <- toupper(trimws(as.character(market$aim)))
-    market$T_ext_24h       <- as.numeric(market$T_ext_24h)
-    market$Overall_Climate <- trimws(as.character(market$Overall_Climate))
-    market$random_seed     <- as.numeric(market$random_seed)
+    market$aim         <- toupper(trimws(as.character(market$aim)))
+    market$T_ext_24h   <- as.numeric(market$T_ext_24h)
+    market$random_seed <- as.numeric(market$random_seed)
 
-    rm(CONT_001, CONT_002, instant_names)
+    rm(list = c("CONT_001", "CONT_002", "instant_names"))
   }
 
   # -------------------------------------------------------------
   # 3. Interval grid of every block
   # -------------------------------------------------------------
   # Every block is turned into a data frame whose time column must be
-  # exactly the grid of intervals from i0 to i_end_horizon.
+  # exactly the grid of intervals from i0 to i_end_horizon. The
+  # vectors of a block are those that Validation_Inputs.csv declares
+  # for its scope and its name. A block that is missing altogether
+  # (null) is allowed where it is not required: its vectors are all
+  # missing values.
   # -------------------------------------------------------------
   {
     slot_time <- seq(from = market$i0,
                      to   = market$i_end_horizon - resolution_sec,
                      by   = resolution_sec)
 
+    block_columns <- function(scope, block_name) {
+      rules <- parameters$input_validation
+      return(rules$parameter_name[rules$scope == scope &
+                                    rules$file_name == block_name])
+    }
+
     as_block <- function(block, block_name, columns, required) {
+      if (is.null(block) && !required) {
+        block <- list(time = format(slot_time, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
+      }
       if (is.null(block$time)) {
         stop("Input block '", block_name, "' is missing its time vector")
       }
@@ -199,87 +245,184 @@ validate_inputs <- function(inputs,
       return(block_df)
     }
 
-    context <- as_block(inputs$context, "context", context_columns, TRUE)
-    prices  <- as_block(inputs$prices,  "prices",  price_columns,   TRUE)
+    context <- as_block(inputs$context, "context",
+                        block_columns("system", "context"), TRUE)
+    prices  <- as_block(inputs$prices, "prices", price_columns, TRUE)
 
-    itineraries <- list()
+    system_itineraries <- list()
     for (CONT_004 in itinerary_names) {
-      block <- inputs$itineraries[[CONT_004]]
-      columns <- if (CONT_004 == "plan") c(itinerary_columns, commitment_columns) else itinerary_columns
-      itineraries[[CONT_004]] <- as_block(block, CONT_004, columns, FALSE)
+      columns <- block_columns("system", "system_itinerary")
+      if (CONT_004 == "plan") {
+        columns <- c(columns, block_columns("system", "system_commitments"))
+      }
+      system_itineraries[[CONT_004]] <- as_block(
+        inputs$system$itineraries[[CONT_004]],
+        paste0("system$itineraries$", CONT_004),
+        columns,
+        FALSE
+      )
     }
 
-    rm(CONT_004, block, columns)
+    assets <- list()
+    for (CONT_005 in call_assets) {
+      asset_type  <- parameters$assets[[CONT_005]]$asset_type
+      asset_block <- inputs$assets[[CONT_005]]
+      asset_name  <- paste0("assets$", CONT_005)
+
+      # The scalars of the block (for a building, its climate
+      # season) are kept as they come.
+      asset_input <- asset_block[setdiff(names(asset_block),
+                                         c("context", "itineraries"))]
+
+      context_columns <- block_columns(asset_type, "context")
+      if (length(context_columns) > 0) {
+        asset_input$context <- as_block(asset_block$context,
+                                        paste0(asset_name, "$context"),
+                                        context_columns, TRUE)
+      }
+
+      asset_input$itineraries <- list()
+      for (CONT_006 in itinerary_names) {
+        asset_input$itineraries[[CONT_006]] <- as_block(
+          asset_block$itineraries[[CONT_006]],
+          paste0(asset_name, "$itineraries$", CONT_006),
+          block_columns(asset_type, "itinerary"),
+          FALSE
+        )
+      }
+      assets[[CONT_005]] <- asset_input
+      rm(list = c("asset_type", "asset_block", "asset_name", "asset_input",
+                  "context_columns"))
+    }
+
+    rm(list = c("CONT_004", "CONT_005", "CONT_006", "columns"))
   }
 
   # -------------------------------------------------------------
   # 4. Types and ranges of the vectors
   # -------------------------------------------------------------
   {
-    for (CONT_005 in c(context_columns, price_columns)) {
-      block_df <- if (CONT_005 %in% context_columns) context else prices
-      if (any(is.na(block_df[[CONT_005]]))) {
-        stop("Input '", CONT_005, "' contains missing values")
+    system_rules <- parameters$input_validation[
+      parameters$input_validation$scope == "system", , drop = FALSE
+    ]
+
+    for (CONT_007 in c(names(context)[-1], price_columns)) {
+      block_df <- if (CONT_007 %in% names(context)) context else prices
+      if (any(is.na(block_df[[CONT_007]]))) {
+        stop("Input '", CONT_007, "' contains missing values")
       }
     }
 
     # validate_dataframe_config is called once per block to check the
     # type and range of every vector against Validation_Inputs.csv.
-    validate_dataframe_config(context, "context", parameters$input_validation)
-    validate_dataframe_config(prices,  "prices",  parameters$input_validation)
-
-    for (CONT_006 in names(itineraries)) {
-      validate_dataframe_config(itineraries[[CONT_006]], "itinerary",
-                                parameters$input_validation)
+    validate_dataframe_config(context, "context", system_rules)
+    validate_dataframe_config(prices,  "prices",  system_rules)
+    for (CONT_008 in itinerary_names) {
+      validate_dataframe_config(system_itineraries[[CONT_008]],
+                                "system_itinerary", system_rules)
     }
-    validate_dataframe_config(itineraries$plan, "plan_commitments",
-                              parameters$input_validation)
+    validate_dataframe_config(system_itineraries$plan,
+                              "system_commitments", system_rules)
 
-    rm(CONT_005, CONT_006, block_df)
+    for (CONT_009 in names(assets)) {
+      type_rules <- parameters$input_validation[
+        parameters$input_validation$scope ==
+          parameters$assets[[CONT_009]]$asset_type, , drop = FALSE
+      ]
+      if (!is.null(assets[[CONT_009]]$context)) {
+        for (CONT_010 in names(assets[[CONT_009]]$context)[-1]) {
+          if (any(is.na(assets[[CONT_009]]$context[[CONT_010]]))) {
+            stop("Input 'assets$", CONT_009, "$context$", CONT_010,
+                 "' contains missing values")
+          }
+        }
+        validate_dataframe_config(assets[[CONT_009]]$context, "context",
+                                  type_rules)
+      }
+      for (CONT_011 in itinerary_names) {
+        validate_dataframe_config(assets[[CONT_009]]$itineraries[[CONT_011]],
+                                  "itinerary", type_rules)
+      }
+      rm(list = "type_rules")
+    }
+
+    rm(list = c("CONT_007", "CONT_008", "CONT_009", "system_rules", "block_df"))
   }
 
   # -------------------------------------------------------------
-  # 5. State at i0 and missing values
+  # 5. Checks of each asset and missing values
+  # The "O" and "O+F" aims fly the plan as it is, so the control of
+  # each asset must be known over the whole optimization horizon:
+  # the columns of the plan that its operation default_control names
+  # (the setpoints of a building) shall have no missing value from
+  # i_begin_horizon on.
   # -------------------------------------------------------------
   {
-    if (is.na(itineraries$plan$Ti[1]) || is.na(itineraries$plan$Te[1])) {
-      stop("The plan itinerary must give Ti and Te at i0 (its first interval)")
-    }
+    for (CONT_012 in names(assets)) {
+      asset <- parameters$assets[[CONT_012]]
 
-    # The "O" and "O+F" aims fly the plan as it is, so its setpoints
-    # must be known over the whole optimization horizon.
-    if (market$aim %in% c("O", "O+F")) {
-      horizon_slots <- slot_time >= market$i_begin_horizon
-      setpoints     <- itineraries$plan[horizon_slots,
-                                        grep("^STP_", names(itineraries$plan))]
-      if (any(is.na(setpoints))) {
-        stop("Aim '", market$aim, "' flies the plan as it is: the plan ",
-             "itinerary must give every setpoint from i_begin_horizon ",
-             "to i_end_horizon")
+      # model_type_contract is called to take the operations of the
+      # type of model of the asset.
+      model <- model_type_contract(asset$asset_type)
+
+      # The operation check_input of the model is called to make the
+      # checks that belong to the type of the asset.
+      assets[[CONT_012]] <- model$check_input(
+        asset_input = assets[[CONT_012]],
+        parameters  = parameters,
+        asset       = asset
+      )
+
+      if (market$aim %in% c("O", "O+F")) {
+        control_columns <- names(model$default_control(parameters, asset))
+        horizon_slots   <- slot_time >= market$i_begin_horizon
+        control         <- assets[[CONT_012]]$itineraries$plan[
+          horizon_slots, control_columns, drop = FALSE
+        ]
+        if (any(is.na(control))) {
+          stop("Aim '", market$aim, "' flies the plan as it is: the plan ",
+               "itinerary of ", CONT_012, " must give every setpoint from ",
+               "i_begin_horizon to i_end_horizon")
+        }
+        rm(list = c("control_columns", "horizon_slots", "control"))
       }
-      rm(horizon_slots, setpoints)
+
+      # Missing energy is read as 0, in every itinerary of the asset.
+      for (CONT_013 in itinerary_names) {
+        energy_columns <- grep("^Elec_", names(assets[[CONT_012]]$itineraries[[CONT_013]]),
+                               value = TRUE)
+        for (CONT_014 in energy_columns) {
+          missing_values <- is.na(assets[[CONT_012]]$itineraries[[CONT_013]][[CONT_014]])
+          assets[[CONT_012]]$itineraries[[CONT_013]][[CONT_014]][missing_values] <- 0
+        }
+      }
+      rm(list = c("asset", "model"))
     }
 
-    for (CONT_007 in names(itineraries)) {
-      energy_columns <- intersect(c("Elec_total", commitment_columns),
-                                  names(itineraries[[CONT_007]]))
-      for (CONT_008 in energy_columns) {
-        missing_values <- is.na(itineraries[[CONT_007]][[CONT_008]])
-        itineraries[[CONT_007]][[CONT_008]][missing_values] <- 0
+    # Missing energy and commitments of the system are read as 0.
+    for (CONT_015 in itinerary_names) {
+      energy_columns <- grep("^Elec_", names(system_itineraries[[CONT_015]]),
+                             value = TRUE)
+      for (CONT_016 in energy_columns) {
+        missing_values <- is.na(system_itineraries[[CONT_015]][[CONT_016]])
+        system_itineraries[[CONT_015]][[CONT_016]][missing_values] <- 0
       }
     }
 
-    rm(CONT_007, CONT_008, energy_columns, missing_values)
+    rm(list = intersect(c("CONT_012", "CONT_013", "CONT_014", "CONT_015",
+                          "CONT_016", "energy_columns", "missing_values"),
+                        ls()))
   }
 
-  rm(as_block, itinerary_names, itinerary_columns, commitment_columns,
-     price_columns, context_columns, resolution_sec)
+  rm(list = c("as_block", "block_columns", "itinerary_names", "price_columns",
+              "call_assets", "resolution_sec"))
 
   return(list(
-    market      = market,
-    slot_time   = slot_time,
-    context     = context,
-    prices      = prices,
-    itineraries = itineraries
+    market    = market,
+    slot_time = slot_time,
+    context   = context,
+    prices    = prices,
+    system    = list(itineraries = system_itineraries),
+    assets    = assets
   ))
 }

@@ -1,0 +1,25 @@
+# 13_Modes_setpoints.csv
+# Configuration file: setpoint modes of a building
+# -------------------------------------------------------------
+# The modes of the mode-based control of the building, and the
+# deadband of its hysteresis. Each mode has a heating and a cooling
+# setpoint. The low and high thresholds of each system are half a
+# deadband below and above its setpoint. Where the plan carries no
+# setpoint, a row takes the lowest-numbered mode.
+# -------------------------------------------------------------
+parameter,value,unit
+#
+# Hysteresis
+Deadband,0.5,degC
+
+# -------------------------------------------------------------
+# Modes
+mode,heating,cooling
+-,degC,degC
+1,5,45
+2,21,25
+3,22,25
+4,21,23
+5,22,23
+6,24,25
+7,21,22

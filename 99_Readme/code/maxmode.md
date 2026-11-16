@@ -1,6 +1,6 @@
 # maxmode.R
 
-**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/maxmode.R`
+**Function** &nbsp;·&nbsp; `30_Simulation/05_Models/01_Building/03_Functions/maxmode.R`
 
 ## Function
 
@@ -8,8 +8,7 @@ This function processes an integer mode vector (one mode index per market period
 
 ## Called by
 
-- [fitness_funct_optimize_mode.R](fitness_funct_optimize_mode.md)
-- [optimize_modes.R](optimize_modes.md)
+- [decode_building_genes.R](decode_building_genes.md)
 
 ## What it calls, in order of appearance
 

@@ -1,0 +1,43 @@
+# File paths configuration file
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# -------------------------------------------------------------
+# The file names of the configuration files of
+# 31_Standalone_code/02_Config/. The script reads them here, and
+# nothing else writes the name of a configuration file.
+# -------------------------------------------------------------
+# Structure:
+#   key      : identifier used by the code to look up the path
+#   scope    : "system" for a file common to the whole script, or the
+#              type of model (for example "Building") whose every
+#              asset holds the file
+#   filename : path of the file, relative to 02_Config/ for a system
+#              file, and relative to the configuration folder of each
+#              asset for a file of a type of model
+#   unit     : always "text" (a file path has no physical unit)
+# -------------------------------------------------------------
+key,scope,filename,unit
+computing_parameters_file,system,00_Inner_parameters/01_computing_parameters.csv,text
+physical_properties_file,system,00_Inner_parameters/03_Physical_properties.csv,text
+parameter_catalogue_file,system,00_Validation/Parameter_catalogue.csv,text
+physical_properties_validation_file,system,00_Validation/Validation_03_Physical_properties.csv,text
+input_validation_file,system,00_Validation/Validation_Inputs.csv,text
+bounding_simulation_validation_file,system,00_Validation/Validation_bounding_simulation.csv,text
+parameter_relations_validation_file,system,00_Validation/Validation_parameter_relations.csv,text
+tolerances_validation_file,system,00_Validation/Validation_tolerances.csv,text
+optimization_file,system,01_Optimization_parameters.csv,text
+run_config_file,system,03_Run_config.csv,text
+flexibility_events_file,system,08_Flexibility_Event_Configuration.csv,text
+reward_file,system,09_Reward_parameters.csv,text
+asset_registry_file,system,12_Asset_registry.csv,text
+asset_config_folder,system,20_Assets,text
+system_variables_file,system,01_Model_Descriptions/00_System/Simulation_Variables_System.txt,text
+building_variables_file,system,01_Model_Descriptions/01_Building/Simulation_Variables_Building.txt,text
+photovoltaic_variables_file,system,01_Model_Descriptions/02_Photovoltaic/Simulation_Variables_Photovoltaic.txt,text
+battery_variables_file,system,01_Model_Descriptions/03_Battery/Simulation_Variables_Battery.txt,text
+operational_temperature_corrections_file,Building,10_Operational_temperature_corrections.csv,text
+model_file,Building,11_Model_parameters.csv,text
+setpoint_mode_file,Building,13_Modes_setpoints.csv,text
+comfort_file,Building,18_Comfort_parameters.csv,text
+photovoltaic_file,Photovoltaic,17_Photovoltaic_parameters.csv,text
+battery_file,Battery,19_Battery_parameters.csv,text

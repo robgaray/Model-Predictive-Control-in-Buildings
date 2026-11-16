@@ -7,11 +7,11 @@
 parameter,value,unit
 #
 # Repository of R packages
-cran_repository,https://cloud.r-project.org,-(URL)
+cran_repository,https://cloud.r-project.org,text
 #
 # C++ compiler for Windows (Rtools)
-rtools_page,https://cran.r-project.org/bin/windows/Rtools,-(URL)
-rtools_install_root,C:/,-(folder)
+rtools_page,https://cran.r-project.org/bin/windows/Rtools,text
+rtools_install_root,C:/,text
 #
 # Downloads
 download_timeout,3600,s

@@ -7,7 +7,7 @@
 Reads a market configuration table (scheduling or piloting) and:
 
 - validates that it has the required columns and at least one market row
-- drops a leading "text"/unit placeholder row if present
+- drops the units row, the first row under the header, with drop_unit_row(), which stops when that row holds data
 - returns the resulting data frame
 
 ## Called by
@@ -17,6 +17,7 @@ Reads a market configuration table (scheduling or piloting) and:
 
 ## What it calls, in order of appearance
 
+- [drop_unit_row.R](drop_unit_row.md)
 - [map_optimization_aim.R](map_optimization_aim.md)
 
 ## Input data
@@ -27,7 +28,7 @@ Reads a market configuration table (scheduling or piloting) and:
 
 ## Output data
 
-- Data frame. The market configuration table, with the placeholder row (if any) removed, and these columns plus any others present in the file:
+- Data frame. The market configuration table, without its units row, and these columns plus any others present in the file:
     - Market
     - closure
     - begin
@@ -39,22 +40,20 @@ Reads a market configuration table (scheduling or piloting) and:
 
 ### One market per slot
 
-Every row of the table describes a market that clears once a day, at an offset of (begin - closure) hours from midnight. Two rows whose bid times fall inside the same market-resolution slot would be two markets of the same role clearing at the same moment, which the rest of the pipeline cannot represent: build_market_timeline() writes each market's timeline onto the Main_df row of its bid time, so the second one silently overwrites the first, and 13_economic_analysis_setup.R keeps a single row per (slot, market type), so their flows would be merged and the identity of one of them lost. This is rejected here, at read time, rather than left to surface as a wrong number later. The check is per file, so it enforces exactly "no two Scheduling markets in one slot" and "no two Piloting markets in one slot"; a Scheduling and a Piloting market sharing a slot is legitimate and is resolved by the attribution rule in 13_economic_analysis_setup.R.
+Every row of the table describes a market that clears once a day, at an offset of (begin - closure) hours from midnight. Two rows whose bid times fall inside the same market-resolution slot would be two markets of the same role clearing at the same moment, which the rest of the pipeline cannot represent: build_market_timeline() writes each market's timeline onto the Main_df row of its bid time, so the second one silently overwrites the first, and prepare_economic_analysis() keeps a single row per (slot, market type), so their flows would be merged and the identity of one of them lost. This is rejected here, at read time, rather than left to surface as a wrong number later. The check is per file, so it enforces exactly "no two Scheduling markets in one slot" and "no two Piloting markets in one slot"; a Scheduling and a Piloting market sharing a slot is legitimate and is resolved by the attribution rule in prepare_economic_analysis().
 
 ### Code outline
 
 1. Read the CSV file
 2. Validate non-empty content and required columns
-3. Drop a leading "text" placeholder row if present
+3. Drop the units row
 4. Validate at least one market row remains
 5. Validate column types and ranges (numeric closure/begin/end/ end_optimization, valid aim codes)
 6. Validate that no two markets share a market-resolution slot
 
 ### Usage instructions
 
-```r
 market_config_df <- load_market_config_table(paths$market_config_scheduling_file, "04_Market_config_scheduling.csv", parameters$market$market_resolution)
-```
 
 ## Diagram
 

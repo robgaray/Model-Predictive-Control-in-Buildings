@@ -6,10 +6,16 @@
 #                 installed and loaded before readr and dplyr, which
 #                 need cli >= 3.6.1, overriding the system version
 #                 pre-loaded by the R module on SCC environments.
-#   readr       - write_rds(), in 16_data_outputs.R
+#   readr       - write_rds(), in write_outputs()
 #   dplyr       - tibble(), which it re-exports, in imperfect_forecast.R
 #   GA          - ga(), the genetic algorithm of the optimizer
 #   doParallel  - registerDoParallel(), when the optimizer runs parallel
+#   doRNG       - not called directly. ga() evaluates its
+#                 population through doRNG's %dorng% when doRNG
+#                 is installed, and optimize_modes() makes it
+#                 do so in series and in parallel alike, so
+#                 that both follow the same random sequence.
+#                 It must therefore be installed everywhere.
 #   data.table  - setDT(), set() and month()
 #   Rcpp        - sourceCpp(), to build the simulation core
 #
@@ -25,5 +31,6 @@ readr
 dplyr
 GA
 doParallel
+doRNG
 data.table
 Rcpp

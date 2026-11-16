@@ -6,7 +6,7 @@
 # supported.
 # -------------------------------------------------------------
 r_version_from,rtools_folder
--,-
+text,text
 4.2.0,rtools42
 4.3.0,rtools43
 4.4.0,rtools44

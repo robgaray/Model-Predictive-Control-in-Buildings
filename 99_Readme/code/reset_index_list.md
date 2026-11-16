@@ -8,7 +8,8 @@ Returns a zeroed index list, matching the fields of simulation_control$indexes_g
 
 ## Called by
 
-- [14_simulation.R](14_simulation.md)
+- [run_market_role.R](run_market_role.md)
+- [simulate.R](simulate.md)
 
 ## What it calls, in order of appearance
 

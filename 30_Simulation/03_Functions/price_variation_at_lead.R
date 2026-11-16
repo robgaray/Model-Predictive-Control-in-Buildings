@@ -18,7 +18,9 @@
 #   otherwise                               Price_variation_below_1h
 # The edges (24, 5 and 1 h in production) live in
 # 01_computing_parameters.csv. They have to decrease in that order,
-# or a band would be empty; the function stops when they do not.
+# or a band would be empty; a relation of
+# Validation_parameter_relations.csv checks it when the parameters are
+# loaded.
 # -------------------------------------------------------------
 # Inputs
 #   lead_h       : Numeric scalar. Hours between the market event and
@@ -32,20 +34,12 @@
 #   Numeric scalar. The variation of the band the lead falls in [%].
 # -------------------------------------------------------------
 # Code outline
-# 1. Check that the edges decrease.
-# 2. Return the variation of the band the lead falls in.
+# 1. Return the variation of the band the lead falls in.
 # -------------------------------------------------------------
 # Usage instructions
 # tau <- price_variation_at_lead(lead_h       = 6,
 #                                energy_price = parameters$energy_price,
 #                                computing    = parameters$computing)
-# -------------------------------------------------------------
-# Where this function/script is used
-# 11_full_market_information_setup.R, once per step ahead, to discount the
-# four energy price signals to the lead they are quoted at.
-# -------------------------------------------------------------
-# functions/scripts called
-# None.
 # -------------------------------------------------------------
 
 price_variation_at_lead <- function(lead_h,
@@ -54,20 +48,7 @@ price_variation_at_lead <- function(lead_h,
                                     ) {
 
   # -------------------------------------------------------------
-  # 1. Check that the edges decrease
-  # -------------------------------------------------------------
-  {
-    if (!(computing$price_lead_day_ahead_h > computing$price_lead_5h_h &&
-          computing$price_lead_5h_h > computing$price_lead_1h_h)) {
-      stop("01_computing_parameters.csv: price_lead_day_ahead_h > ",
-           "price_lead_5h_h > price_lead_1h_h is required, found ",
-           computing$price_lead_day_ahead_h, ", ", computing$price_lead_5h_h,
-           " and ", computing$price_lead_1h_h)
-    }
-  }
-
-  # -------------------------------------------------------------
-  # 2. Return the variation of the band the lead falls in
+  # 1. Return the variation of the band the lead falls in
   # -------------------------------------------------------------
   {
     if (lead_h >= computing$price_lead_day_ahead_h) {

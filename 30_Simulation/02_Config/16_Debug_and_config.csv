@@ -2,8 +2,8 @@
 parameter,value,unit
 month_subset,1,-
 period_subset,1000,-
-verbose,1,-
-parallel,1,-
-parallel_workers,0,-
-Price_emulation,1,-
-random_seed,1,-(seed)
+verbose,1,-(boolean 0/1)
+parallel,1,-(boolean 0/1)
+parallel_workers,0,-(count)
+Price_emulation,1,-(boolean 0/1)
+random_seed,1,-

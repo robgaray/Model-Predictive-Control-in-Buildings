@@ -6,10 +6,12 @@
 # -------------------------------------------------------------
 # Overall description
 # Names the Default_ file that holds the built-in values of a
-# configuration file. Default values are never written in the
-# app: they live in
+# table configuration file. Default values are never written in
+# the app: those of a table live in
 # 30_Simulation/02_Config/00_Validation/Default_<file>, with the
-# same structure as the file they stand for.
+# same structure as the file they stand for. The defaults of the
+# flat parameter files are in the parameter catalogue instead
+# (see load_gui_catalogue()).
 # -------------------------------------------------------------
 # Inputs
 #   filename         : Character. Path of the configuration file,
@@ -26,12 +28,6 @@
 # Sourced by GUI_config.R into the app's own environment, with
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   default_file_for(filename)
-# -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
 # -------------------------------------------------------------
 
 default_file_for <- function(filename) {

@@ -26,12 +26,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   insert_row(df, index, template_row)
 # -------------------------------------------------------------
-# Where this function/script is used
-# GUI_config.R
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 insert_row <- function(df, index, template_row) {
   if (nrow(df) == 0) {

@@ -62,18 +62,8 @@
 # 2. Net income minus expense
 # -------------------------------------------------------------
 # Usage instructions
-# net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy, P_import_sell, P_export_buy, P_export_sell)
-# -------------------------------------------------------------
-# Where this function/script is used
-# Called by propagate_differential_cost() (energy, via
-# integrate_market_process.R for Scheduling/Piloting), directly by
-# implement_control_step.R (execution-phase economic accounting), and
-# by compute_marginal_energy_cost() (energy reward term, via
-# reward_function.R). Also by compute_recovery_energy_cost(), which
-# values the rebuy of a recovery at the same differential prices.
-# -------------------------------------------------------------
-# functions/scripts called
-# split_market_operation()
+# net_cash_flow <- calc_differential_cost(E_orig, E_new, P_import_buy,
+# P_import_sell, P_export_buy, P_export_sell)
 # -------------------------------------------------------------
 
 calc_differential_cost <- function(E_orig, E_new,
@@ -93,7 +83,7 @@ calc_differential_cost <- function(E_orig, E_new,
   net_cash_flow <- (operation$val_sell_new + operation$val_sell_back) -
                    (operation$val_buy_new  + operation$val_buy_back)
 
-  rm(operation)
+  rm(list = "operation")
 
   return(net_cash_flow)
 }

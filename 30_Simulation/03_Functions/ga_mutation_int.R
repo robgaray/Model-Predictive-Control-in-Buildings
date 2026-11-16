@@ -30,12 +30,6 @@
 # 2. Redraw each gene that the probability selects, uniformly
 #    between its bounds.
 # -------------------------------------------------------------
-# Where this function/script is used
-# Called by ga() as the mutation argument in optimize_modes().
-# -------------------------------------------------------------
-# functions/scripts called
-#   (none - uses only base R)
-# -------------------------------------------------------------
 ga_mutation_int <- function(object, parent, ...) {
   
   # Extract bounds

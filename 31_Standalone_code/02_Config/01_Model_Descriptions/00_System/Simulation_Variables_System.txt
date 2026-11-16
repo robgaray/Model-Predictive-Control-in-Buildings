@@ -1,0 +1,40 @@
+# Simulation_Variables_System.txt
+# Part of the Model Predictive Control in buildings repository
+# https://github.com/robgaray/Model-Predictive-Control-in-Buildings
+# Developed by Roberto Garay Martinez
+# -------------------------------------------------------------
+# Declarative registry of the variables of the system: the balances
+# that the market table of a call holds for the whole system, behind
+# its single connection point with the grid. Read by
+# variable_registry_columns() to build its columns. The variables of
+# each asset are declared in the registry of its type of model (for a
+# building, 01_Building/Simulation_Variables_Building.txt) and live
+# in the table of the asset.
+#
+# The variables:
+#   Elec_total          : net electricity of the system in each
+#                         itinerary, the sum of the Elec_total of its
+#                         assets. It is the one column that both the
+#                         market table and the table of an asset
+#                         hold.
+#   Elec_flex_down_plan,
+#   Elec_flex_up_plan   : the flexibility committed by the system on
+#                         each leg, the net of what its assets
+#                         contribute.
+#
+# Columns:
+#   variable      : base variable name.
+#   type          : semantic category (energy | economic).
+#                   Documentation only, not used to drive any logic.
+#   initial_value : value of the variable on every row of the market
+#                   table at the start of the call.
+#   scenario      : yes -> the variable is expanded into 3 columns,
+#                   <variable>_plan, <variable>_plan_flex_down and
+#                   <variable>_plan_flex_up.
+#                   no  -> the variable is kept as a single column,
+#                   <variable>, with no suffix.
+# -------------------------------------------------------------
+variable	type	initial_value	scenario
+Elec_total	energy	0	yes
+Elec_flex_down_plan	energy	0	no
+Elec_flex_up_plan	energy	0	no

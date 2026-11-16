@@ -22,12 +22,6 @@
 # every file of 20_GUI/01_Configure_Simulation/03_Functions.
 #   day_type_row_valid(row_values)
 # -------------------------------------------------------------
-# Where this function/script is used
-# load_occupancy_file_safe(), validate_occupancy_dfs_gui()
-# -------------------------------------------------------------
-# functions/scripts called
-# None of this app; base R and shiny only.
-# -------------------------------------------------------------
 
 day_type_row_valid <- function(row_values) {
   nums <- suppressWarnings(as.numeric(unlist(row_values)))

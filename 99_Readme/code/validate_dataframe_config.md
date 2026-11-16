@@ -4,7 +4,7 @@
 
 ## Function
 
-Validates the columns of a data frame (e.g. Meteo_df, Energy_Prices_df) against the rules defined in a Validation_<name>.csv file, following the same file_name/parameter_name/type/output/options convention as Parameter_config.csv (see validate_parameter_config()), but applied to every value of a column vector instead of a single scalar. For each matching rule the function checks:
+Validates the columns of a data frame (e.g. Meteo_df, Energy_Prices_df) against the rules defined in a Validation_<name>.csv file, one rule per row with the columns file_name, parameter_name, type, output and options (the range, as "min,max"). The checks are those of validate_parameter_config(), applied to every value of a column vector instead of a single scalar. For each matching rule the function checks:
 
 - Integer : column is numeric and every value is within [min, max]
 - Real    : column is numeric and every value is within [min, max] (when options is set)
@@ -48,7 +48,8 @@ file_name         Character. Base name of the dataframe file, used
 
 validation_config Data frame. Content of a Validation_<name>.csv
 
-- file (same columns as Parameter_config.csv).
+- file (columns file_name, parameter_name, type,
+- output and options).
 
 ### Returns
 

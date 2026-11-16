@@ -32,7 +32,7 @@ Loads Meteo_df (weather input data: Text, SolarR) from disk and validates it bef
 
 ### Code outline
 
-1. Read Meteo_df.rds
+1. Check that Meteo_df.rds exists and read it
 2. Validate required columns are present and numeric
 3. Validate the time grid (equispaced, compatible with Main_df's resolution)
 4. Validate column ranges against Validation_Meteo_df.csv

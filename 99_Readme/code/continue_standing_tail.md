@@ -1,6 +1,6 @@
 # continue_standing_tail.R
 
-**Function** &nbsp;·&nbsp; `30_Simulation/03_Functions/continue_standing_tail.R`
+**Function** &nbsp;·&nbsp; `30_Simulation/05_Models/01_Building/03_Functions/continue_standing_tail.R`
 
 ## Function
 
@@ -9,19 +9,19 @@ Why the tail is simulated again and not copied In the Neutral Phase the power of
 
 ## Called by
 
-- [derive_flex_itineraries.R](derive_flex_itineraries.md)
+- [building_model_contract.R](building_model_contract.md)
 
 ## What it calls, in order of appearance
 
-- [build_system_lock_caps.R](build_system_lock_caps.md)
+- [build_hvac_lock_caps.R](build_hvac_lock_caps.md)
 - [period_calculation.R](period_calculation.md)
 
 ## Input data
 
-- period_chunk : Data frame. The chunk being derived, with both flexibility itineraries already laid as a copy of _plan, and the state of the window written on row 1 of the flexibility columns of the leg.
+- period_chunk : Data frame. The view of the building of the piece being derived, with both flexibility itineraries already laid as a copy of _plan, and the state of the window written on row 1 of the flexibility columns of the leg.
 - leg          : Character scalar, "down" or "up".
-- tail         : Named list, as run_market_process() builds it: rows   - Integer vector. Rows of the chunk occupied by the tail. phases - Integer vector, one per row of rows. Phase code of every row: 2 Neutral, 3 Recovery. system - Character scalar, "heat", "cool" or "none". The system that provided the service, which the Recovery Phase may not replace with the other one.
-- parameters   : Named list. Model parameters, passed to period_calculation().
+- tail         : Named list, the view of this building of the tail run_market_process() hands over: rows   - Integer vector. Rows of the chunk occupied by the tail. phases - Integer vector, one per row of rows. Phase code of every row: 2 Neutral, 3 Recovery. system - Character scalar, "heat", "cool" or "none". The system that provided the service, which the Recovery Phase may not replace with the other one.
+- asset        : Named list. The parameters of the building, its entry of parameters$assets, passed to period_calculation().
 
 ## Output data
 
@@ -37,13 +37,13 @@ Why the tail is simulated again and not copied In the Neutral Phase the power of
 ### Usage instructions
 
 ```r
-period_chunk <- continue_standing_tail(period_chunk, "down", tail, parameters)
+period_chunk <- continue_standing_tail(period_chunk, "down", tail, asset)
 ```
 
 ### Exceptions and special cases
 
 - Row 1 is the initial state of the simulation and is never simulated: it keeps the state of the window handed over by the caller.
-- The Neutral Phase is simulated with the power imposed (calculation_mode 2), read from the flexibility columns, which are the copy of the plan. The Recovery Phase is simulated with the setpoints and the caps of build_system_lock_caps() (calculation_mode 3), except its first row, which keeps the imposed power, as in flex_evaluation_down() and flex_evaluation_up(). A tail continued over the same plan is therefore the same itinerary the builder drew.
+- The Neutral Phase is simulated with the power imposed (calculation_mode 2), read from the flexibility columns, which are the copy of the plan. The Recovery Phase is simulated with the setpoints and the caps of build_hvac_lock_caps() (calculation_mode 3), from its first row, as in flex_evaluation(). A tail continued over the same plan is therefore the same itinerary the builder drew.
 
 ## Diagram
 
