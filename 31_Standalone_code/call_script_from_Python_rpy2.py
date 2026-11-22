@@ -14,7 +14,7 @@
 #      runs find everything in place and end quickly.
 #   2. It prepares the R session with initialize_standalone().
 #   3. It loads the inputs of a first market as a Python dictionary,
-#      here from 01_Input/example_first_call.json.
+#      here from 01_Input/example_building_first_call.json.
 #   4. It turns the dictionary into an R list, calls optimize_market()
 #      and turns the result back into a dictionary with
 #      format_market_output().
@@ -28,11 +28,11 @@
 #   6. It calls the chained market the same way.
 # -------------------------------------------------------------
 # Inputs
-#   01_Input/example_first_call.json
-#   01_Input/example_chained_call.json: the market, the weather, the
-#   prices and the use of the building of the chained market. Its own
-#   "system" and "assets" itineraries are replaced by the ones taken
-#   from the output of the first market.
+#   01_Input/example_building_first_call.json
+#   01_Input/example_building_chained_call.json: the market, the
+#   weather, the prices and the use of the building of the chained
+#   market. Its own "system" and "assets" itineraries are replaced
+#   by the ones taken from the output of the first market.
 # -------------------------------------------------------------
 # Outputs
 #   A printed summary of the operations of each market.
@@ -62,8 +62,12 @@ import rpy2.robjects as ro
 # 1. R session
 # -------------------------------------------------------------
 standalone_path = os.path.dirname(os.path.abspath(__file__))
-first_example   = os.path.join(standalone_path, "01_Input", "example_first_call.json")
-chained_example = os.path.join(standalone_path, "01_Input", "example_chained_call.json")
+first_example   = os.path.join(
+    standalone_path, "01_Input", "example_building_first_call.json"
+)
+chained_example = os.path.join(
+    standalone_path, "01_Input", "example_building_chained_call.json"
+)
 
 # setup.R is run with the Rscript of the R that rpy2 started, so that
 # the packages are installed where that R looks for them.

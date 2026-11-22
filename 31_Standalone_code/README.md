@@ -38,12 +38,12 @@ The three call examples below run `setup.R` before their first call.
 From the folder that contains `31_Standalone_code`:
 
 ```bash
-Rscript 31_Standalone_code/call_script_console.R 31_Standalone_code/01_Input/example_first_call.json output.json
+Rscript 31_Standalone_code/call_script_console.R 31_Standalone_code/01_Input/example_building_first_call.json output.json
 ```
 
 The input describes a day-ahead market for one building: called at 12:00 on 15 January 2024, it commits the 16th and optimizes until 06:00 on the 17th. The output holds the plan of the system and of the building, and the energy and flexibility to buy and sell, per 15-minute interval.
 
-To operate a building and a photovoltaic installation together, use `31_Standalone_code/01_Input/example_building_and_photovoltaic.json` in the same way. To add an electric battery to them, use `31_Standalone_code/01_Input/example_building_photovoltaic_and_battery.json`.
+To operate a building and a photovoltaic installation together, use `31_Standalone_code/01_Input/example_building_photovoltaic_first_call.json` in the same way. To add an electric battery to them, use `31_Standalone_code/01_Input/example_building_photovoltaic_battery_first_call.json`. Each case also has an example of a chained call, to be run after its first call (see "Example inputs" below).
 
 ## How to call it
 
@@ -361,12 +361,14 @@ The caller may replace `Ti` at `i0` with a measured value. The script does not t
 
 | File | What it shows |
 | --- | --- |
-| `01_Input/example_first_call.json` | A first call with one building. Day-ahead market with the `E+F` aim, from 12:00 on 15 January 2024 to 06:00 on the 17th (168 intervals), committing the 16th. There is no previous plan: the plan of `Building_001` carries only `Ti` and `Te` at `i0`, and all the other values are `null`. |
-| `01_Input/example_chained_call.json` | A chained call with one building. Later market with the `O+F` aim, from 05:00 to 18:00 on the 16th (52 intervals), committing 06:00 to 12:00. Its itineraries are those returned by the first call. |
-| `01_Input/example_building_and_photovoltaic.json` | A first call with a building and a photovoltaic installation (`Building_001` and `Photovoltaic_001`). The market is that of the first example. |
-| `01_Input/example_building_photovoltaic_and_battery.json` | The previous call with a battery as well (`Battery_001`). The battery starts with 5 kWh stored at `i0`, and all its other values are `null`. |
+| `01_Input/example_building_first_call.json` | A first call with one building. Day-ahead market with the `E+F` aim, from 12:00 on 15 January 2024 to 06:00 on the 17th (168 intervals), committing the 16th. There is no previous plan: the plan of `Building_001` carries only `Ti` and `Te` at `i0`, and all the other values are `null`. |
+| `01_Input/example_building_chained_call.json` | A chained call with one building. Later market with the `O+F` aim, from 05:00 to 18:00 on the 16th (52 intervals), committing 06:00 to 12:00. Its itineraries are those returned by the first call. |
+| `01_Input/example_building_photovoltaic_first_call.json` | A first call with a building and a photovoltaic installation (`Building_001` and `Photovoltaic_001`). The market is that of the first example. |
+| `01_Input/example_building_photovoltaic_chained_call.json` | The chained call of the building and the photovoltaic installation. The market is that of the chained call of the building. Its itineraries are those returned by the previous call, for both assets. |
+| `01_Input/example_building_photovoltaic_battery_first_call.json` | A first call with a building, a photovoltaic installation and a battery (`Building_001`, `Photovoltaic_001` and `Battery_001`). The battery starts with 5 kWh stored at `i0`, and all its other values are `null`. |
+| `01_Input/example_building_photovoltaic_battery_chained_call.json` | The chained call of the building, the photovoltaic installation and the battery. The market is that of the chained call of the building. Its itineraries are those returned by the previous call, for the three assets. The battery starts from the energy stored that the previous call returned. |
 
-The four use the same weather and the same energy prices, cut to the period of each call. The chained call also offers a downward flexibility signal (commitment and execution prices and activation probability) from 06:00 to 08:00 on the 16th, which the first call does not have.
+The six use the same weather and the same energy prices, cut to the period of each call. The three chained calls also offer a flexibility signal, both downward and upward (commitment and execution prices and activation probability), from 06:00 to 08:00 on the 16th, which the first calls do not have. The upward signal has the same values as the downward one, so the chained calls can sell new upward flexibility in that window.
 
 The outputs of the examples are in `90_Output/`.
 
@@ -390,7 +392,7 @@ Every configuration file is checked against `02_Config/00_Validation/Parameter_c
 | `call_script_from_R.R` | Example of a call from R. |
 | `call_script_from_Python_subprocess.py` | Example of a call from Python, through the console. |
 | `call_script_from_Python_rpy2.py` | Example of a call from Python, in memory. |
-| `01_Input/` | Example inputs: a first call, a chained call, a first call with a building and a photovoltaic installation, and the same call with a battery. |
+| `01_Input/` | Example inputs: a first call and a chained call for each of three cases (a building, a building and a photovoltaic installation, and a building, a photovoltaic installation and a battery). |
 | `02_Config/` | Configuration of the reward, the optimizer, the flexibility windows, the market resolution, the asset registry and the setup. |
 | `02_Config/20_Assets/<asset_id>/` | The configuration of each asset, in a folder named after it. |
 | `02_Config/00_Validation/` | The parameter catalogue, with the type, range, unit and description of every parameter of the configuration files, and the other validation tables. |

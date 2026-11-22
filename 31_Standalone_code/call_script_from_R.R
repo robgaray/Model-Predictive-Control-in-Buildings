@@ -12,10 +12,11 @@
 #      first time is it really needed; later runs find everything in
 #      place and end quickly.
 #   2. Call through the console: it runs call_script_console.R with
-#      Rscript, on 01_Input/example_first_call.json (a building) and
-#      on 01_Input/example_building_and_photovoltaic.json (a building
-#      and a photovoltaic installation), and reads the output JSON
-#      files.
+#      Rscript, on 01_Input/example_building_first_call.json (a
+#      building) and on
+#      01_Input/example_building_photovoltaic_first_call.json (a
+#      building and a photovoltaic installation), and reads the
+#      output JSON files.
 #   3. Call in memory: it prepares the R session with
 #      initialize_standalone() and calls optimize_market() directly,
 #      first on a first market, then on a chained one. The plan
@@ -27,9 +28,10 @@
 #      itineraries of every asset) of the first output.
 # -------------------------------------------------------------
 # Inputs
-#   01_Input/example_first_call.json
-#   01_Input/example_building_and_photovoltaic.json
-#   01_Input/example_chained_call.json: prices of the chained market
+#   01_Input/example_building_first_call.json
+#   01_Input/example_building_photovoltaic_first_call.json
+#   01_Input/example_building_chained_call.json: prices of the
+#   chained market
 # -------------------------------------------------------------
 # Outputs
 #   90_Output/call_script_from_R_console_output.json: the output of
@@ -102,9 +104,12 @@
 # JSON file out, exit status 0 on success and 1 on any error.
 # -------------------------------------------------------------
 {
-  console_inputs  <- c(file.path(standalone_path, "01_Input", "example_first_call.json"),
-                       file.path(standalone_path, "01_Input",
-                                 "example_building_and_photovoltaic.json"))
+  console_inputs  <- c(
+    file.path(standalone_path, "01_Input",
+              "example_building_first_call.json"),
+    file.path(standalone_path, "01_Input",
+              "example_building_photovoltaic_first_call.json")
+  )
   console_outputs <- c(file.path(standalone_path, "90_Output",
                                  "call_script_from_R_console_output.json"),
                        file.path(standalone_path, "90_Output",
@@ -157,7 +162,7 @@
 # -------------------------------------------------------------
 {
   first_inputs <- jsonlite::read_json(
-    file.path(standalone_path, "01_Input", "example_first_call.json"),
+    file.path(standalone_path, "01_Input", "example_building_first_call.json"),
     simplifyVector = TRUE
   )
 
@@ -182,10 +187,11 @@
 # -------------------------------------------------------------
 {
   # The prices of the chained market are its own: they are read from
-  # 01_Input/example_chained_call.json, which offers a downward
-  # flexibility signal the first market did not have.
+  # 01_Input/example_building_chained_call.json, which offers a
+  # flexibility signal, downward and upward, that the first market
+  # did not have.
   chained_prices <- jsonlite::read_json(
-    file.path(standalone_path, "01_Input", "example_chained_call.json"),
+    file.path(standalone_path, "01_Input", "example_building_chained_call.json"),
     simplifyVector = TRUE
   )$prices
 

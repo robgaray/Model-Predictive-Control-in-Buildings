@@ -13,7 +13,7 @@
 #      compiler the script needs. Only the first time is it really
 #      needed; later runs find everything in place and end quickly.
 #   3. It loads the inputs of a first market, here from
-#      01_Input/example_first_call.json. Any Python code can build the
+#      01_Input/example_building_first_call.json. Any Python code can build the
 #      same dictionary instead.
 #   4. It writes them to a JSON file and runs call_script_console.R
 #      with Rscript, then reads the output JSON file and prints a
@@ -28,11 +28,11 @@
 #   6. It runs the chained call and prints its summary.
 # -------------------------------------------------------------
 # Inputs
-#   01_Input/example_first_call.json
-#   01_Input/example_chained_call.json: the market, the weather, the
-#   prices and the use of the building of the chained market. Its own
-#   "system" and "assets" itineraries are replaced by the ones taken
-#   from the output of the first market.
+#   01_Input/example_building_first_call.json
+#   01_Input/example_building_chained_call.json: the market, the
+#   weather, the prices and the use of the building of the chained
+#   market. Its own "system" and "assets" itineraries are replaced
+#   by the ones taken from the output of the first market.
 #   Environment variable RSCRIPT (optional): path of the Rscript
 #   executable. Without it, Rscript is looked up in the PATH and, on
 #   Windows, in the usual installation folders of R.
@@ -70,8 +70,12 @@ import tempfile
 standalone_path = os.path.dirname(os.path.abspath(__file__))
 setup_script    = os.path.join(standalone_path, "setup.R")
 console_script  = os.path.join(standalone_path, "call_script_console.R")
-first_example   = os.path.join(standalone_path, "01_Input", "example_first_call.json")
-chained_example = os.path.join(standalone_path, "01_Input", "example_chained_call.json")
+first_example   = os.path.join(
+    standalone_path, "01_Input", "example_building_first_call.json"
+)
+chained_example = os.path.join(
+    standalone_path, "01_Input", "example_building_chained_call.json"
+)
 first_output_file   = os.path.join(standalone_path, "90_Output",
                                    "call_script_from_Python_subprocess_output.json")
 chained_output_file = os.path.join(standalone_path, "90_Output",
